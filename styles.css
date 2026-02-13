@@ -1,0 +1,38 @@
+body {
+  min-height: 100vh;
+}
+
+main {
+  margin-top: 1.5rem;
+}
+
+.card {
+  border-radius: 12px;
+}
+
+.action-row {
+  display: flex;
+  gap: 0.75rem;
+  align-items: center;
+  padding-left: 0;
+}
+
+.table-container {
+  overflow-x: auto;
+}
+
+.empty-message {
+  margin-top: 1.5rem;
+}
+
+.date-row {
+  margin-bottom: 0;
+}
+
+.brand-logo {
+  font-size: 1.4rem !important;
+}
+
+.chip {
+  margin: 0;
+}
