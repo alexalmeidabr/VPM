@@ -15,6 +15,7 @@ This starter feature is a lightweight project register with a clean Material Des
 - Delete projects
 - Persist projects to SQLite (`projects.db`)
 - Basic date validation (start date cannot be after end date)
+- API/CORS support so the UI can call the server even when hosted from another local origin
 
 ## Run locally
 
@@ -23,6 +24,8 @@ python3 server.py
 ```
 
 Then open `http://localhost:8000`.
+
+If you host the HTML from another local server/port, keep `server.py` running on port `8000`.
 
 ## Tech choice
 

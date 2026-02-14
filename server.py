@@ -35,6 +35,16 @@ def init_db():
 
 
 class ProjectHandler(SimpleHTTPRequestHandler):
+  def end_headers(self):
+    self.send_header('Access-Control-Allow-Origin', '*')
+    self.send_header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS')
+    self.send_header('Access-Control-Allow-Headers', 'Content-Type')
+    super().end_headers()
+
+  def do_OPTIONS(self):
+    self.send_response(HTTPStatus.NO_CONTENT)
+    self.end_headers()
+
   def _send_json(self, payload, status=HTTPStatus.OK):
     body = json.dumps(payload).encode('utf-8')
     self.send_response(status)
@@ -48,9 +58,11 @@ class ProjectHandler(SimpleHTTPRequestHandler):
     raw = self.rfile.read(content_length) if content_length > 0 else b'{}'
     return json.loads(raw.decode('utf-8'))
 
+  def _path(self):
+    return urlparse(self.path).path
+
   def _parse_project_id(self):
-    path = urlparse(self.path).path
-    parts = [part for part in path.split('/') if part]
+    parts = [part for part in self._path().split('/') if part]
     if len(parts) == 3 and parts[0] == 'api' and parts[1] == 'projects' and parts[2].isdigit():
       return int(parts[2])
     return None
@@ -77,7 +89,7 @@ class ProjectHandler(SimpleHTTPRequestHandler):
     return None
 
   def do_GET(self):
-    if self.path == '/api/projects':
+    if self._path() == '/api/projects':
       with get_connection() as conn:
         rows = conn.execute(
           '''
@@ -105,7 +117,7 @@ class ProjectHandler(SimpleHTTPRequestHandler):
     super().do_GET()
 
   def do_POST(self):
-    if self.path != '/api/projects':
+    if self._path() != '/api/projects':
       self.send_error(HTTPStatus.NOT_FOUND)
       return
 

@@ -10,6 +10,12 @@ if (!isBrowserRuntime) {
   const emptyState = document.getElementById('empty-state');
   const cancelEditBtn = document.getElementById('cancel-edit-btn');
 
+  const defaultApiOrigin = window.location.origin?.startsWith('http')
+    ? window.location.origin
+    : 'http://localhost:8000';
+  const apiOrigin = window.localStorage.getItem('vpmApiOrigin') || defaultApiOrigin;
+  const apiBase = `${apiOrigin.replace(/\/$/, '')}/api/projects`;
+
   const fields = {
     id: document.getElementById('project-id'),
     projectName: document.getElementById('project-name'),
@@ -31,6 +37,14 @@ if (!isBrowserRuntime) {
     if (window.M && typeof M.toast === 'function') {
       M.toast({ html: message, classes });
     }
+  };
+
+  const toFriendlyError = (error, fallback) => {
+    if (error instanceof TypeError) {
+      return 'Unable to reach project API. Start server.py and check API origin.';
+    }
+
+    return error?.message || fallback;
   };
 
   const refreshView = () => {
@@ -83,7 +97,7 @@ if (!isBrowserRuntime) {
   };
 
   const loadProjects = async () => {
-    const response = await fetch('/api/projects');
+    const response = await fetch(apiBase);
     if (!response.ok) {
       throw new Error('Failed to load projects');
     }
@@ -95,7 +109,7 @@ if (!isBrowserRuntime) {
 
   const upsertProject = async (payload) => {
     const isEdit = Boolean(payload.id);
-    const endpoint = isEdit ? `/api/projects/${payload.id}` : '/api/projects';
+    const endpoint = isEdit ? `${apiBase}/${payload.id}` : apiBase;
     const method = isEdit ? 'PUT' : 'POST';
 
     const response = await fetch(endpoint, {
@@ -114,7 +128,7 @@ if (!isBrowserRuntime) {
   };
 
   const deleteProject = async (id) => {
-    const response = await fetch(`/api/projects/${id}`, { method: 'DELETE' });
+    const response = await fetch(`${apiBase}/${id}`, { method: 'DELETE' });
     if (!response.ok) {
       throw new Error('Failed to delete project');
     }
@@ -144,7 +158,7 @@ if (!isBrowserRuntime) {
       await upsertProject(payload);
       resetForm();
     } catch (error) {
-      showToast(error.message, 'red darken-1');
+      showToast(toFriendlyError(error, 'Failed to save project'), 'red darken-1');
     }
   });
 
@@ -168,7 +182,7 @@ if (!isBrowserRuntime) {
         await deleteProject(id);
         resetForm();
       } catch (error) {
-        showToast(error.message, 'red darken-1');
+        showToast(toFriendlyError(error, 'Failed to delete project'), 'red darken-1');
       }
       return;
     }
@@ -187,5 +201,5 @@ if (!isBrowserRuntime) {
     }
   });
 
-  loadProjects().catch(() => showToast('Unable to load projects from server', 'red darken-1'));
+  loadProjects().catch((error) => showToast(toFriendlyError(error, 'Unable to load projects from server'), 'red darken-1'));
 }
