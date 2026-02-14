@@ -27,6 +27,12 @@ if (!isBrowserRuntime) {
     return Number.isNaN(date.getTime()) ? value : date.toLocaleDateString();
   };
 
+  const showToast = (message, classes = 'blue-grey darken-2') => {
+    if (window.M && typeof M.toast === 'function') {
+      M.toast({ html: message, classes });
+    }
+  };
+
   const refreshView = () => {
     projectBody.innerHTML = '';
 
@@ -62,23 +68,66 @@ if (!isBrowserRuntime) {
     fields.id.value = '';
     formTitle.textContent = 'Add Project';
     cancelEditBtn.hidden = true;
-    M.updateTextFields();
+    if (window.M && typeof M.updateTextFields === 'function') {
+      M.updateTextFields();
+    }
   };
 
   const validateDates = (startDate, endDate) => {
-    if (new Date(startDate) > new Date(endDate)) {
-      M.toast({ html: 'Start date cannot be after end date', classes: 'red darken-1' });
+    if (startDate > endDate) {
+      showToast('Start date cannot be after end date', 'red darken-1');
       return false;
     }
 
     return true;
   };
 
-  form.addEventListener('submit', (event) => {
+  const loadProjects = async () => {
+    const response = await fetch('/api/projects');
+    if (!response.ok) {
+      throw new Error('Failed to load projects');
+    }
+
+    const data = await response.json();
+    projects = data.projects || [];
+    refreshView();
+  };
+
+  const upsertProject = async (payload) => {
+    const isEdit = Boolean(payload.id);
+    const endpoint = isEdit ? `/api/projects/${payload.id}` : '/api/projects';
+    const method = isEdit ? 'PUT' : 'POST';
+
+    const response = await fetch(endpoint, {
+      method,
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+
+    if (!response.ok) {
+      const errorBody = await response.json().catch(() => ({ error: 'Unexpected error' }));
+      throw new Error(errorBody.error || 'Failed to save project');
+    }
+
+    await loadProjects();
+    showToast(isEdit ? 'Project updated' : 'Project added', 'teal darken-1');
+  };
+
+  const deleteProject = async (id) => {
+    const response = await fetch(`/api/projects/${id}`, { method: 'DELETE' });
+    if (!response.ok) {
+      throw new Error('Failed to delete project');
+    }
+
+    await loadProjects();
+    showToast('Project removed', 'orange darken-2');
+  };
+
+  form.addEventListener('submit', async (event) => {
     event.preventDefault();
 
     const payload = {
-      id: fields.id.value || crypto.randomUUID(),
+      id: fields.id.value ? Number(fields.id.value) : null,
       projectName: fields.projectName.value.trim(),
       clientName: fields.clientName.value.trim(),
       projectLead: fields.projectLead.value.trim(),
@@ -91,41 +140,36 @@ if (!isBrowserRuntime) {
       return;
     }
 
-    const editIndex = projects.findIndex((item) => item.id === payload.id);
-
-    if (editIndex >= 0) {
-      projects[editIndex] = payload;
-      M.toast({ html: 'Project updated', classes: 'teal darken-1' });
-    } else {
-      projects.push(payload);
-      M.toast({ html: 'Project added', classes: 'teal darken-1' });
+    try {
+      await upsertProject(payload);
+      resetForm();
+    } catch (error) {
+      showToast(error.message, 'red darken-1');
     }
-
-    refreshView();
-    resetForm();
   });
 
   cancelEditBtn.addEventListener('click', resetForm);
 
-  projectBody.addEventListener('click', (event) => {
+  projectBody.addEventListener('click', async (event) => {
     const actionButton = event.target.closest('button[data-action]');
-
     if (!actionButton) {
       return;
     }
 
-    const { action, id } = actionButton.dataset;
-    const selected = projects.find((project) => project.id === id);
-
+    const { action } = actionButton.dataset;
+    const id = Number(actionButton.dataset.id);
+    const selected = projects.find((project) => Number(project.id) === id);
     if (!selected) {
       return;
     }
 
     if (action === 'delete') {
-      projects = projects.filter((project) => project.id !== id);
-      refreshView();
-      resetForm();
-      M.toast({ html: 'Project removed', classes: 'orange darken-2' });
+      try {
+        await deleteProject(id);
+        resetForm();
+      } catch (error) {
+        showToast(error.message, 'red darken-1');
+      }
       return;
     }
 
@@ -138,8 +182,10 @@ if (!isBrowserRuntime) {
     fields.endDate.value = selected.endDate;
     formTitle.textContent = 'Edit Project';
     cancelEditBtn.hidden = false;
-    M.updateTextFields();
+    if (window.M && typeof M.updateTextFields === 'function') {
+      M.updateTextFields();
+    }
   });
 
-  refreshView();
+  loadProjects().catch(() => showToast('Unable to load projects from server', 'red darken-1'));
 }

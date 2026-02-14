@@ -1,6 +1,6 @@
 # VPM Starter Feature: Project Register
 
-This starter feature is a lightweight front-end module for maintaining project records.
+This starter feature is a lightweight project register with a clean Material Design-style UI and **SQLite persistence**.
 
 ## Included capabilities
 
@@ -13,16 +13,18 @@ This starter feature is a lightweight front-end module for maintaining project r
   - End date
 - Edit existing projects
 - Delete projects
+- Persist projects to SQLite (`projects.db`)
 - Basic date validation (start date cannot be after end date)
 
 ## Run locally
 
 ```bash
-python3 -m http.server 8000
+python3 server.py
 ```
 
 Then open `http://localhost:8000`.
 
 ## Tech choice
 
-This uses **Materialize CSS** (a Material Design-like UI framework) via CDN for a clean visual style without a build setup.
+- Front-end: Materialize CSS (Material Design-like UI framework) via CDN
+- Back-end: Python standard-library HTTP server + SQLite (`sqlite3`)
