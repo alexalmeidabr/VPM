@@ -51,9 +51,7 @@
                     <tbody id="projects-body"></tbody>
                   </table>
                 </div>
-                <p id="projects-empty-state" class="center-align grey-text text-darken-1 empty-message">
-                  No projects yet. Add your first project.
-                </p>
+                <p id="projects-empty-state" class="center-align grey-text text-darken-1 empty-message">No projects yet. Add your first project.</p>
               </div>
             </div>
 
@@ -112,10 +110,7 @@
                   </div>
 
                   <div class="card-action action-row">
-                    <button class="btn waves-effect waves-light" type="submit" id="project-save-btn">
-                      Save Project
-                      <i class="material-icons right">save</i>
-                    </button>
+                    <button class="btn waves-effect waves-light" type="submit" id="project-save-btn">Save Project<i class="material-icons right">save</i></button>
                     <button class="btn-flat" type="button" id="project-cancel-edit-btn">Cancel</button>
                   </div>
                 </form>
@@ -127,7 +122,7 @@
             <div class="card sticky-members-panel" id="project-members-card" hidden>
               <div class="card-content">
                 <span class="card-title">Project Members</span>
-                <ul id="project-members-list" class="members-list browser-default"></ul>
+                <div id="project-members-list" class="project-members-list"></div>
               </div>
             </div>
           </div>
@@ -135,14 +130,11 @@
       </section>
 
       <div id="consultants-section" hidden>
-        <div class="card">
+        <div class="card" id="consultants-panel-card">
           <div class="card-content">
             <div class="section-header">
               <span class="card-title">Consultants</span>
-              <button class="btn waves-effect waves-light" id="show-consultant-form-btn" type="button">
-                Add New Consultant
-                <i class="material-icons right">add</i>
-              </button>
+              <button class="btn waves-effect waves-light" id="show-consultant-form-btn" type="button">Add New Consultant<i class="material-icons right">add</i></button>
             </div>
             <p class="grey-text" id="consultant-count"></p>
             <div class="table-container">
@@ -151,7 +143,7 @@
                   <tr>
                     <th>Name</th>
                     <th>Area</th>
-                    <th>Role</th>
+                    <th>Company Role</th>
                     <th>Salary</th>
                     <th>Actions</th>
                   </tr>
@@ -159,15 +151,18 @@
                 <tbody id="consultants-body"></tbody>
               </table>
             </div>
-            <p id="consultants-empty-state" class="center-align grey-text text-darken-1 empty-message">
-              No consultants yet. Add one from the form.
-            </p>
+            <p id="consultants-empty-state" class="center-align grey-text text-darken-1 empty-message">No consultants yet. Add one from the form.</p>
+            <h6>Availability Timeline (Current Year)</h6>
+            <div id="availability-chart" class="availability-chart"></div>
           </div>
         </div>
 
         <div class="card" id="consultant-form-card" hidden>
           <div class="card-content">
-            <span class="card-title" id="consultant-form-title">Manage Consultants</span>
+            <div class="section-header">
+              <span class="card-title" id="consultant-form-title">Manage Consultants</span>
+              <button class="btn-flat" type="button" id="back-to-consultants-btn">Back to Consultants</button>
+            </div>
             <form id="consultant-form">
               <input type="hidden" id="consultant-id" />
 
@@ -182,8 +177,8 @@
               </div>
 
               <div class="input-field">
-                <select id="consultant-role-ids" multiple required></select>
-                <label for="consultant-role-ids">Role</label>
+                <select id="consultant-company-role-id" required></select>
+                <label for="consultant-company-role-id">Company Role</label>
               </div>
 
               <div class="input-field">
@@ -191,11 +186,12 @@
                 <label for="consultant-salary">Salary</label>
               </div>
 
+              <div class="action-row">
+                <button type="button" class="btn blue-grey" id="open-vacation-modal-btn">Add Vacation/PTO</button>
+              </div>
+
               <div class="card-action action-row">
-                <button class="btn waves-effect waves-light" type="submit">
-                  Save Consultant
-                  <i class="material-icons right">save</i>
-                </button>
+                <button class="btn waves-effect waves-light" type="submit">Save Consultant<i class="material-icons right">save</i></button>
                 <button class="btn-flat" type="button" id="consultant-cancel-edit-btn">Cancel</button>
               </div>
             </form>
@@ -203,13 +199,8 @@
         </div>
       </div>
 
-      <div id="mass-update-section" hidden>
-        <div class="card"><div class="card-content"><span class="card-title">Mass Update</span><p class="grey-text">This section is available from the menu and will be implemented next.</p></div></div>
-      </div>
-
-      <div id="authorization-section" hidden>
-        <div class="card"><div class="card-content"><span class="card-title">Authorization</span><p class="grey-text">This section is available from the menu and will be implemented next.</p></div></div>
-      </div>
+      <div id="mass-update-section" hidden><div class="card"><div class="card-content"><span class="card-title">Mass Update</span><p class="grey-text">This section is available from the menu and will be implemented next.</p></div></div></div>
+      <div id="authorization-section" hidden><div class="card"><div class="card-content"><span class="card-title">Authorization</span><p class="grey-text">This section is available from the menu and will be implemented next.</p></div></div></div>
 
       <div id="administration-section" hidden>
         <div class="card">
@@ -219,22 +210,15 @@
               <div class="col s12 m6">
                 <h6>Manage Roles</h6>
                 <form id="role-form" class="inline-form">
-                  <div class="input-field inline-input">
-                    <input id="role-name" type="text" required />
-                    <label for="role-name">New Role</label>
-                  </div>
+                  <div class="input-field inline-input"><input id="role-name" type="text" required /><label for="role-name">New Role</label></div>
                   <button class="btn" type="submit">Add</button>
                 </form>
                 <ul class="collection" id="roles-list"></ul>
               </div>
-
               <div class="col s12 m6">
                 <h6>Manage Areas</h6>
                 <form id="area-form" class="inline-form">
-                  <div class="input-field inline-input">
-                    <input id="area-name" type="text" required />
-                    <label for="area-name">New Area</label>
-                  </div>
+                  <div class="input-field inline-input"><input id="area-name" type="text" required /><label for="area-name">New Area</label></div>
                   <button class="btn" type="submit">Add</button>
                 </form>
                 <ul class="collection" id="areas-list"></ul>
@@ -248,17 +232,49 @@
     <div id="consultant-assignment-modal" class="modal">
       <div class="modal-content">
         <h5>Add Consultants</h5>
-        <div class="input-field">
-          <select id="consultant-area-filter-modal">
-            <option value="" selected disabled>Select area</option>
-          </select>
-          <label for="consultant-area-filter-modal">Area</label>
+        <div class="input-field"><select id="consultant-area-filter-modal"><option value="" selected disabled>Select area</option></select><label for="consultant-area-filter-modal">Area</label></div>
+        <div class="input-field"><select id="project-role-modal" required><option value="" selected disabled>Select project role</option></select><label for="project-role-modal">Project Role</label></div>
+        <div class="row date-row">
+          <div class="input-field col s12 m6"><input id="member-start-date-modal" type="date" /><label class="active" for="member-start-date-modal">Start Date</label></div>
+          <div class="input-field col s12 m6"><input id="member-end-date-modal" type="date" /><label class="active" for="member-end-date-modal">End Date</label></div>
         </div>
         <div id="consultant-picker-list" class="consultant-picker-list"></div>
       </div>
       <div class="modal-footer">
         <button type="button" class="modal-close btn-flat">Cancel</button>
         <button type="button" class="btn" id="save-consultant-assignments-btn">Apply</button>
+      </div>
+    </div>
+
+    <div id="member-details-modal" class="modal">
+      <div class="modal-content">
+        <h5 id="member-modal-title">Project Member</h5>
+        <input type="hidden" id="member-edit-consultant-id" />
+        <div class="input-field"><input id="member-name-modal" type="text" disabled /><label class="active" for="member-name-modal">Consultant</label></div>
+        <div class="input-field"><select id="member-project-role-modal"></select><label for="member-project-role-modal">Project Role</label></div>
+        <div class="row date-row">
+          <div class="input-field col s12 m6"><input id="member-start-date-edit" type="date" /><label class="active" for="member-start-date-edit">Start Date</label></div>
+          <div class="input-field col s12 m6"><input id="member-end-date-edit" type="date" /><label class="active" for="member-end-date-edit">End Date</label></div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="modal-close btn-flat">Close</button>
+        <button type="button" class="btn" id="save-member-details-btn">Save</button>
+      </div>
+    </div>
+
+    <div id="vacation-modal" class="modal">
+      <div class="modal-content">
+        <h5>Add Vacation/PTO</h5>
+        <div class="input-field"><select id="availability-type"><option value="" selected disabled>Select type</option><option value="Vacation">Vacation</option><option value="PTO">PTO</option></select><label for="availability-type">Type</label></div>
+        <div class="row date-row">
+          <div class="input-field col s12 m6"><input id="availability-start-date" type="date" /><label class="active" for="availability-start-date">Start Date</label></div>
+          <div class="input-field col s12 m6"><input id="availability-end-date" type="date" /><label class="active" for="availability-end-date">End Date</label></div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="modal-close btn-flat">Cancel</button>
+        <button type="button" class="btn" id="save-availability-btn">Save</button>
       </div>
     </div>
 

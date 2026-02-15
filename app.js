@@ -37,8 +37,21 @@ if (!isBrowserRuntime) {
     consultantModal: document.getElementById('consultant-assignment-modal'),
     consultantPickerList: document.getElementById('consultant-picker-list'),
     consultantAreaFilterModal: document.getElementById('consultant-area-filter-modal'),
+    projectRoleModal: document.getElementById('project-role-modal'),
+    memberStartDateModal: document.getElementById('member-start-date-modal'),
+    memberEndDateModal: document.getElementById('member-end-date-modal'),
     saveConsultantAssignmentsBtn: document.getElementById('save-consultant-assignments-btn'),
 
+    memberDetailsModal: document.getElementById('member-details-modal'),
+    memberModalTitle: document.getElementById('member-modal-title'),
+    memberEditConsultantId: document.getElementById('member-edit-consultant-id'),
+    memberNameModal: document.getElementById('member-name-modal'),
+    memberProjectRoleModal: document.getElementById('member-project-role-modal'),
+    memberStartDateEdit: document.getElementById('member-start-date-edit'),
+    memberEndDateEdit: document.getElementById('member-end-date-edit'),
+    saveMemberDetailsBtn: document.getElementById('save-member-details-btn'),
+
+    consultantsPanelCard: document.getElementById('consultants-panel-card'),
     consultantsBody: document.getElementById('consultants-body'),
     consultantCount: document.getElementById('consultant-count'),
     consultantsEmptyState: document.getElementById('consultants-empty-state'),
@@ -47,6 +60,15 @@ if (!isBrowserRuntime) {
     consultantForm: document.getElementById('consultant-form'),
     consultantFormTitle: document.getElementById('consultant-form-title'),
     consultantCancelEditBtn: document.getElementById('consultant-cancel-edit-btn'),
+    backToConsultantsBtn: document.getElementById('back-to-consultants-btn'),
+    openVacationModalBtn: document.getElementById('open-vacation-modal-btn'),
+    availabilityChart: document.getElementById('availability-chart'),
+
+    vacationModal: document.getElementById('vacation-modal'),
+    availabilityType: document.getElementById('availability-type'),
+    availabilityStartDate: document.getElementById('availability-start-date'),
+    availabilityEndDate: document.getElementById('availability-end-date'),
+    saveAvailabilityBtn: document.getElementById('save-availability-btn'),
 
     roleForm: document.getElementById('role-form'),
     areaForm: document.getElementById('area-form'),
@@ -67,7 +89,7 @@ if (!isBrowserRuntime) {
     consultantId: document.getElementById('consultant-id'),
     consultantName: document.getElementById('consultant-name'),
     consultantAreaIds: document.getElementById('consultant-area-ids'),
-    consultantRoleIds: document.getElementById('consultant-role-ids'),
+    consultantCompanyRoleId: document.getElementById('consultant-company-role-id'),
     consultantSalary: document.getElementById('consultant-salary'),
 
     roleName: document.getElementById('role-name'),
@@ -75,114 +97,87 @@ if (!isBrowserRuntime) {
   };
 
   const selectInstances = {};
-  let consultantModalInstance;
+  const modals = {};
 
   let projects = [];
   let consultants = [];
   let roles = [];
   let areas = [];
   let projectViewMode = 'edit';
-  let selectedProjectMemberIds = [];
+  let selectedProjectAssignments = [];
   let modalSelectedAreaId = '';
-  let modalTempMemberIds = [];
+  let modalTempConsultantIds = [];
+  let memberModalMode = 'view';
 
-  const toast = (message, classes = 'blue-grey darken-2') => {
-    if (window.M?.toast) {
-      M.toast({ html: message, classes });
-    }
-  };
-
-  const updateTextFields = () => {
-    if (window.M?.updateTextFields) {
-      M.updateTextFields();
-    }
-  };
-
-  const toFriendlyError = (error, fallback) => {
-    if (error instanceof TypeError) {
-      return 'Unable to reach API. Check that server.py is running on port 8000.';
-    }
-    return error?.message || fallback;
-  };
+  const toast = (message, classes = 'blue-grey darken-2') => window.M?.toast && M.toast({ html: message, classes });
+  const updateTextFields = () => window.M?.updateTextFields && M.updateTextFields();
+  const selectedIds = (selectEl) => Array.from(selectEl.selectedOptions).map((opt) => Number(opt.value));
 
   const request = async (path, options = {}) => {
     const call = async (baseUrl) => fetch(`${baseUrl}${path}`, options);
     let response;
-
     try {
       response = await call(primaryApiBase);
     } catch (error) {
-      if (!(error instanceof TypeError) || primaryApiBase === fallbackApiBase) {
-        throw error;
-      }
+      if (!(error instanceof TypeError) || primaryApiBase === fallbackApiBase) throw error;
       response = await call(fallbackApiBase);
       window.localStorage.setItem('vpmApiOrigin', fallbackApiBase);
     }
-
     if (!response.ok) {
       const payload = await response.json().catch(() => ({ error: 'Request failed' }));
       throw new Error(payload.error || 'Request failed');
     }
-
     return response.status === 204 ? null : response.json();
   };
 
+  const resetSelect = (key, element) => {
+    if (selectInstances[key]) selectInstances[key].destroy();
+    if (window.M?.FormSelect) selectInstances[key] = M.FormSelect.init(element);
+  };
+
+  const managerCandidates = () => consultants.filter((consultant) => consultant.companyRole === 'Project Manager');
   const findConsultantById = (id) => consultants.find((consultant) => Number(consultant.id) === Number(id));
   const consultantNameById = (id) => findConsultantById(id)?.name || '—';
   const areaNameById = (id) => areas.find((area) => Number(area.id) === Number(id))?.name || '—';
   const roleNameById = (id) => roles.find((role) => Number(role.id) === Number(id))?.name || '—';
-
-  const formatDate = (value) => {
-    const date = new Date(value);
-    return Number.isNaN(date.getTime()) ? value : date.toLocaleDateString();
-  };
-
+  const formatDate = (value) => (value ? new Date(value).toLocaleDateString() : '—');
   const formatSalary = (value) => Number(value).toLocaleString('en-IE', { style: 'currency', currency: 'EUR' });
 
-  const resetSelect = (key, element) => {
-    if (selectInstances[key]) {
-      selectInstances[key].destroy();
-    }
-    if (window.M?.FormSelect) {
-      selectInstances[key] = M.FormSelect.init(element);
-    }
-  };
-
-  const managerCandidates = () => consultants.filter((consultant) => (consultant.roles || []).includes('Project Manager'));
-
-  const memberIdsIncludingManager = () => {
-    const managerId = Number(fields.managerId.value);
-    const combined = managerId ? [managerId, ...selectedProjectMemberIds] : [...selectedProjectMemberIds];
-    return [...new Set(combined.map(Number))];
-  };
-
   const updateAssignedConsultantsSummary = () => {
-    if (!selectedProjectMemberIds.length) {
-      ui.assignedConsultantsSummary.textContent = 'No consultants assigned yet.';
-      return;
-    }
-    ui.assignedConsultantsSummary.textContent = `${selectedProjectMemberIds.length} consultant${selectedProjectMemberIds.length === 1 ? '' : 's'} assigned`;
+    ui.assignedConsultantsSummary.textContent = selectedProjectAssignments.length
+      ? `${selectedProjectAssignments.length} consultant${selectedProjectAssignments.length === 1 ? '' : 's'} assigned`
+      : 'No consultants assigned yet.';
   };
 
-  const updateProjectMembersPanel = () => {
-    const ids = memberIdsIncludingManager();
-    ui.projectMembersList.innerHTML = '';
+  const rebuildProjectSelects = ({ managerId = '' } = {}) => {
+    fields.managerId.innerHTML = '<option value="" disabled selected>Select a manager</option>';
+    managerCandidates().forEach((consultant) => fields.managerId.add(new Option(consultant.name, consultant.id, false, Number(managerId) === Number(consultant.id))));
+    resetSelect('manager', fields.managerId);
+    resetSelect('projectType', fields.projectType);
+  };
 
-    if (!ids.length) {
-      ui.projectMembersList.innerHTML = '<li>No consultants assigned yet.</li>';
-      return;
-    }
+  const rebuildConsultantSelects = ({ areaIds = [], companyRoleId = '' } = {}) => {
+    fields.consultantAreaIds.innerHTML = '';
+    areas.forEach((area) => fields.consultantAreaIds.add(new Option(area.name, area.id, false, areaIds.map(Number).includes(Number(area.id)))));
+    fields.consultantCompanyRoleId.innerHTML = '<option value="" disabled selected>Select company role</option>';
+    roles.forEach((role) => fields.consultantCompanyRoleId.add(new Option(role.name, role.id, false, Number(companyRoleId) === Number(role.id))));
+    resetSelect('consultantAreas', fields.consultantAreaIds);
+    resetSelect('consultantCompanyRole', fields.consultantCompanyRoleId);
+  };
 
-    ids.forEach((id) => {
-      const consultant = findConsultantById(id);
-      if (!consultant) {
-        return;
-      }
-      const li = document.createElement('li');
-      const rolesText = (consultant.roles || []).length ? consultant.roles.join(', ') : 'No role';
-      li.textContent = `${consultant.name} — ${rolesText}`;
-      ui.projectMembersList.appendChild(li);
-    });
+  const rebuildAssignmentModalSelects = () => {
+    ui.consultantAreaFilterModal.innerHTML = '<option value="" selected disabled>Select area</option>';
+    areas.forEach((area) => ui.consultantAreaFilterModal.add(new Option(area.name, area.id, false, Number(modalSelectedAreaId) === Number(area.id))));
+    ui.projectRoleModal.innerHTML = '<option value="" selected disabled>Select project role</option>';
+    roles.forEach((role) => ui.projectRoleModal.add(new Option(role.name, role.name, false, false)));
+    resetSelect('assignmentArea', ui.consultantAreaFilterModal);
+    resetSelect('assignmentRole', ui.projectRoleModal);
+  };
+
+  const rebuildMemberRoleSelect = (roleName) => {
+    ui.memberProjectRoleModal.innerHTML = '';
+    roles.forEach((role) => ui.memberProjectRoleModal.add(new Option(role.name, role.name, false, role.name === roleName)));
+    resetSelect('memberRole', ui.memberProjectRoleModal);
   };
 
   const renderConsultantPickerList = () => {
@@ -190,62 +185,57 @@ if (!isBrowserRuntime) {
       ui.consultantPickerList.innerHTML = '<p class="grey-text">Select an area to view consultants.</p>';
       return;
     }
-
     const areaId = Number(modalSelectedAreaId);
     const candidates = consultants.filter((consultant) => (consultant.areaIds || []).map(Number).includes(areaId));
-
     if (!candidates.length) {
       ui.consultantPickerList.innerHTML = '<p class="grey-text">No consultants available in this area.</p>';
       return;
     }
-
     ui.consultantPickerList.innerHTML = '';
     candidates.forEach((consultant) => {
       const wrapper = document.createElement('p');
       wrapper.className = 'consultant-picker-item';
-      wrapper.innerHTML = `
-        <label>
-          <input type="checkbox" data-consultant-id="${consultant.id}" ${modalTempMemberIds.includes(Number(consultant.id)) ? 'checked' : ''} />
-          <span>${consultant.name}</span>
-        </label>
-      `;
+      wrapper.innerHTML = `<label><input type="checkbox" data-consultant-id="${consultant.id}" ${modalTempConsultantIds.includes(Number(consultant.id)) ? 'checked' : ''} /><span>${consultant.name}</span></label>`;
       ui.consultantPickerList.appendChild(wrapper);
     });
   };
 
-  const rebuildProjectSelects = ({ managerId = '' } = {}) => {
-    fields.managerId.innerHTML = '<option value="" disabled selected>Select a manager</option>';
-    managerCandidates().forEach((consultant) => {
-      const option = new Option(consultant.name, consultant.id, false, Number(managerId) === Number(consultant.id));
-      fields.managerId.add(option);
+  const updateProjectMembersPanel = () => {
+    ui.projectMembersList.innerHTML = '';
+    const managerId = Number(fields.managerId.value);
+    const allMembers = [...selectedProjectAssignments];
+    if (managerId && !allMembers.find((m) => Number(m.consultantId) === managerId)) {
+      allMembers.unshift({ consultantId: managerId, projectRole: 'Project Manager', startDate: fields.startDate.value, endDate: fields.endDate.value, fromManager: true });
+    }
+    if (!allMembers.length) {
+      ui.projectMembersList.innerHTML = '<p class="grey-text">No consultants assigned yet.</p>';
+      return;
+    }
+
+    allMembers.forEach((member) => {
+      const consultant = findConsultantById(member.consultantId);
+      const wrapper = document.createElement('div');
+      wrapper.className = 'member-card';
+      const readOnlyManager = Boolean(member.fromManager);
+      wrapper.innerHTML = `
+        <div class="member-header">
+          <div>
+            <strong>${consultant?.name || 'Unknown Consultant'}</strong>
+            <div class="member-meta">Project Role: ${member.projectRole || '—'}</div>
+            <div class="member-meta">Dates: ${formatDate(member.startDate)} - ${formatDate(member.endDate)}</div>
+          </div>
+          <div>
+            <button class="btn-flat teal-text" data-action="view-member" data-id="${member.consultantId}"><i class="material-icons tiny">visibility</i></button>
+            ${readOnlyManager ? '' : `<button class="btn-flat blue-text" data-action="edit-member" data-id="${member.consultantId}"><i class="material-icons tiny">edit</i></button><button class="btn-flat red-text" data-action="remove-member" data-id="${member.consultantId}"><i class="material-icons tiny">delete</i></button>`}
+          </div>
+        </div>
+      `;
+      ui.projectMembersList.appendChild(wrapper);
     });
-    resetSelect('manager', fields.managerId);
-    resetSelect('projectType', fields.projectType);
-    updateProjectMembersPanel();
-  };
-
-  const rebuildConsultantSelects = ({ areaIds = [], roleIds = [] } = {}) => {
-    fields.consultantAreaIds.innerHTML = '';
-    areas.forEach((area) => fields.consultantAreaIds.add(new Option(area.name, area.id, false, areaIds.map(Number).includes(Number(area.id)))));
-
-    fields.consultantRoleIds.innerHTML = '';
-    roles.forEach((role) => fields.consultantRoleIds.add(new Option(role.name, role.id, false, roleIds.map(Number).includes(Number(role.id)))));
-
-    resetSelect('consultantAreas', fields.consultantAreaIds);
-    resetSelect('consultantRoles', fields.consultantRoleIds);
-  };
-
-  const rebuildConsultantAreaModal = () => {
-    ui.consultantAreaFilterModal.innerHTML = '<option value="" selected disabled>Select area</option>';
-    areas.forEach((area) => {
-      ui.consultantAreaFilterModal.add(new Option(area.name, area.id, false, Number(modalSelectedAreaId) === Number(area.id)));
-    });
-    resetSelect('consultantAreaModal', ui.consultantAreaFilterModal);
   };
 
   const renderProjects = () => {
     ui.projectsBody.innerHTML = '';
-
     projects.forEach((project) => {
       const row = document.createElement('tr');
       row.innerHTML = `
@@ -256,27 +246,25 @@ if (!isBrowserRuntime) {
         <td>${project.clientContact}</td>
         <td><span class="chip date-chip">${formatDate(project.startDate)} → ${formatDate(project.endDate)}</span></td>
         <td class="actions-cell">
-          <button class="btn-flat teal-text" data-action="view-project" data-id="${project.id}" title="View"><i class="material-icons tiny">visibility</i></button>
-          <button class="btn-flat blue-text" data-action="edit-project" data-id="${project.id}" title="Edit"><i class="material-icons tiny">edit</i></button>
-          <button class="btn-flat red-text" data-action="delete-project" data-id="${project.id}" title="Delete"><i class="material-icons tiny">delete</i></button>
+          <button class="btn-flat teal-text" data-action="view-project" data-id="${project.id}"><i class="material-icons tiny">visibility</i></button>
+          <button class="btn-flat blue-text" data-action="edit-project" data-id="${project.id}"><i class="material-icons tiny">edit</i></button>
+          <button class="btn-flat red-text" data-action="delete-project" data-id="${project.id}"><i class="material-icons tiny">delete</i></button>
         </td>
       `;
       ui.projectsBody.appendChild(row);
     });
-
     ui.projectCount.textContent = `${projects.length} project${projects.length === 1 ? '' : 's'} tracked`;
     ui.projectsEmptyState.hidden = projects.length > 0;
   };
 
   const renderConsultants = () => {
     ui.consultantsBody.innerHTML = '';
-
     consultants.forEach((consultant) => {
       const row = document.createElement('tr');
       row.innerHTML = `
         <td>${consultant.name}</td>
         <td>${(consultant.areaNames || []).join(', ') || (consultant.areaIds || []).map(areaNameById).join(', ') || '—'}</td>
-        <td>${(consultant.roles || []).join(', ') || (consultant.roleIds || []).map(roleNameById).join(', ') || '—'}</td>
+        <td>${consultant.companyRole || roleNameById(consultant.companyRoleId) || '—'}</td>
         <td>${formatSalary(consultant.salary)}</td>
         <td>
           <button class="btn-flat blue-text" data-action="edit-consultant" data-id="${consultant.id}"><i class="material-icons tiny">edit</i></button>
@@ -285,9 +273,37 @@ if (!isBrowserRuntime) {
       `;
       ui.consultantsBody.appendChild(row);
     });
-
     ui.consultantCount.textContent = `${consultants.length} consultant${consultants.length === 1 ? '' : 's'} tracked`;
     ui.consultantsEmptyState.hidden = consultants.length > 0;
+  };
+
+  const renderAvailabilityChart = () => {
+    const year = new Date().getFullYear();
+    ui.availabilityChart.innerHTML = '<div class="legend"><span class="vac">Vacation</span><span class="pto">PTO</span></div>';
+    consultants.forEach((consultant) => {
+      const row = document.createElement('div');
+      row.className = 'availability-row';
+      const name = document.createElement('div');
+      name.className = 'availability-name';
+      name.textContent = consultant.name;
+      row.appendChild(name);
+
+      for (let week = 1; week <= 52; week += 1) {
+        const cell = document.createElement('div');
+        cell.className = 'week-cell';
+        const weekStart = new Date(year, 0, 1 + (week - 1) * 7);
+        const weekEnd = new Date(year, 0, 1 + week * 7);
+        (consultant.availability || []).forEach((entry) => {
+          const entryStart = new Date(entry.startDate);
+          const entryEnd = new Date(entry.endDate);
+          if (entryStart <= weekEnd && entryEnd >= weekStart) {
+            cell.classList.add(entry.type === 'Vacation' ? 'vacation' : 'pto');
+          }
+        });
+        row.appendChild(cell);
+      }
+      ui.availabilityChart.appendChild(row);
+    });
   };
 
   const renderAdminLists = () => {
@@ -308,63 +324,40 @@ if (!isBrowserRuntime) {
     });
   };
 
-  const showProjectsPanel = () => {
-    ui.projectsPanelCard.hidden = false;
-    ui.projectFormCard.hidden = true;
-    ui.projectMembersCard.hidden = true;
-  };
-
-  const showManageProjectPanel = () => {
-    ui.projectsPanelCard.hidden = true;
-    ui.projectFormCard.hidden = false;
-    ui.projectMembersCard.hidden = false;
-  };
+  const showProjectsPanel = () => { ui.projectsPanelCard.hidden = false; ui.projectFormCard.hidden = true; ui.projectMembersCard.hidden = true; };
+  const showManageProjectPanel = () => { ui.projectsPanelCard.hidden = true; ui.projectFormCard.hidden = false; ui.projectMembersCard.hidden = false; };
+  const showConsultantsPanel = () => { ui.consultantsPanelCard.hidden = false; ui.consultantFormCard.hidden = true; };
+  const showManageConsultantsPanel = () => { ui.consultantsPanelCard.hidden = true; ui.consultantFormCard.hidden = false; };
 
   const setProjectFormMode = (mode) => {
     projectViewMode = mode;
     const readOnly = mode === 'view';
-
     ui.projectFormTitle.textContent = readOnly ? 'Manage Project (View)' : 'Manage Project';
     ui.projectSaveBtn.hidden = readOnly;
     ui.openConsultantModalBtn.disabled = readOnly;
-
-    [fields.projectName, fields.clientName, fields.projectType, fields.managerId, fields.clientContact, fields.startDate, fields.endDate].forEach((el) => {
-      el.disabled = readOnly;
-    });
-
+    [fields.projectName, fields.clientName, fields.projectType, fields.managerId, fields.clientContact, fields.startDate, fields.endDate].forEach((el) => { el.disabled = readOnly; });
     ui.projectCancelEditBtn.textContent = readOnly ? 'Close' : 'Cancel';
-    rebuildProjectSelects({ managerId: fields.managerId.value });
     updateProjectMembersPanel();
   };
 
   const setSection = (section) => {
-    Object.entries(sections).forEach(([key, element]) => {
-      element.hidden = key !== section;
-    });
-
-    document.querySelectorAll('#nav-menu .collection-item').forEach((item) => {
-      item.classList.toggle('active', item.dataset.section === section);
-    });
-
-    if (section === 'projects') {
-      showProjectsPanel();
-    }
-
-    if (section === 'consultants') {
-      ui.consultantFormCard.hidden = true;
-    }
+    Object.entries(sections).forEach(([key, element]) => { element.hidden = key !== section; });
+    document.querySelectorAll('#nav-menu .collection-item').forEach((item) => item.classList.toggle('active', item.dataset.section === section));
+    if (section === 'projects') showProjectsPanel();
+    if (section === 'consultants') showConsultantsPanel();
   };
 
   const resetProjectForm = () => {
     ui.projectForm.reset();
     fields.projectId.value = '';
-    selectedProjectMemberIds = [];
+    selectedProjectAssignments = [];
     modalSelectedAreaId = '';
-    modalTempMemberIds = [];
+    modalTempConsultantIds = [];
     updateAssignedConsultantsSummary();
     rebuildProjectSelects();
     setProjectFormMode('edit');
     showProjectsPanel();
+    updateProjectMembersPanel();
     updateTextFields();
   };
 
@@ -372,95 +365,123 @@ if (!isBrowserRuntime) {
     ui.consultantForm.reset();
     fields.consultantId.value = '';
     rebuildConsultantSelects();
-    ui.consultantFormTitle.textContent = 'Manage Consultants';
-    ui.consultantFormCard.hidden = true;
+    showConsultantsPanel();
     updateTextFields();
   };
 
   const loadAll = async () => {
     const [projectsRes, consultantsRes, rolesRes, areasRes] = await Promise.all([
-      request('/api/projects'),
-      request('/api/consultants'),
-      request('/api/roles'),
-      request('/api/areas')
+      request('/api/projects'), request('/api/consultants'), request('/api/roles'), request('/api/areas')
     ]);
-
     projects = projectsRes.projects || [];
     consultants = consultantsRes.consultants || [];
     roles = rolesRes.roles || [];
     areas = areasRes.areas || [];
-
     renderProjects();
     renderConsultants();
     renderAdminLists();
+    renderAvailabilityChart();
     rebuildProjectSelects({ managerId: fields.managerId.value });
     rebuildConsultantSelects();
-    rebuildConsultantAreaModal();
+    rebuildAssignmentModalSelects();
   };
 
-  ui.showProjectFormBtn.addEventListener('click', () => {
-    resetProjectForm();
-    showManageProjectPanel();
-  });
-
-  ui.backToProjectsBtn.addEventListener('click', () => {
-    showProjectsPanel();
-    ui.projectFormCard.hidden = true;
-  });
-
-  ui.showConsultantFormBtn.addEventListener('click', () => {
-    resetConsultantForm();
-    ui.consultantFormCard.hidden = false;
-  });
-
+  ui.showProjectFormBtn.addEventListener('click', () => { resetProjectForm(); showManageProjectPanel(); });
+  ui.backToProjectsBtn.addEventListener('click', showProjectsPanel);
+  ui.showConsultantFormBtn.addEventListener('click', () => { resetConsultantForm(); showManageConsultantsPanel(); });
+  ui.backToConsultantsBtn.addEventListener('click', showConsultantsPanel);
   ui.projectCancelEditBtn.addEventListener('click', resetProjectForm);
   ui.consultantCancelEditBtn.addEventListener('click', resetConsultantForm);
-
   fields.managerId.addEventListener('change', updateProjectMembersPanel);
 
   ui.openConsultantModalBtn.addEventListener('click', () => {
-    if (!consultantModalInstance) {
-      return;
-    }
-    modalTempMemberIds = [...selectedProjectMemberIds];
+    modalTempConsultantIds = selectedProjectAssignments.map((item) => Number(item.consultantId));
     modalSelectedAreaId = '';
-    rebuildConsultantAreaModal();
+    ui.projectRoleModal.value = '';
+    ui.memberStartDateModal.value = fields.startDate.value;
+    ui.memberEndDateModal.value = fields.endDate.value;
+    rebuildAssignmentModalSelects();
     renderConsultantPickerList();
-    consultantModalInstance.open();
+    modals.consultantAssignment?.open();
   });
 
-  ui.consultantAreaFilterModal.addEventListener('change', () => {
-    modalSelectedAreaId = ui.consultantAreaFilterModal.value;
-    renderConsultantPickerList();
-  });
-
+  ui.consultantAreaFilterModal.addEventListener('change', () => { modalSelectedAreaId = ui.consultantAreaFilterModal.value; renderConsultantPickerList(); });
   ui.consultantPickerList.addEventListener('change', (event) => {
-    const checkbox = event.target.closest('input[type="checkbox"][data-consultant-id]');
-    if (!checkbox) {
-      return;
-    }
-    const consultantId = Number(checkbox.dataset.consultantId);
-    if (checkbox.checked) {
-      modalTempMemberIds = [...new Set([...modalTempMemberIds, consultantId])];
-    } else {
-      modalTempMemberIds = modalTempMemberIds.filter((id) => Number(id) !== consultantId);
-    }
+    const box = event.target.closest('input[type="checkbox"][data-consultant-id]');
+    if (!box) return;
+    const id = Number(box.dataset.consultantId);
+    modalTempConsultantIds = box.checked ? [...new Set([...modalTempConsultantIds, id])] : modalTempConsultantIds.filter((value) => Number(value) !== id);
   });
 
   ui.saveConsultantAssignmentsBtn.addEventListener('click', () => {
-    selectedProjectMemberIds = [...new Set(modalTempMemberIds.map(Number))];
+    const role = ui.projectRoleModal.value;
+    if (!role) { toast('Project Role is required', 'red darken-1'); return; }
+    if (!modalTempConsultantIds.length) { toast('Select at least one consultant', 'red darken-1'); return; }
+    const start = ui.memberStartDateModal.value;
+    const end = ui.memberEndDateModal.value;
+    if (start && end && start > end) { toast('Start date cannot be after end date', 'red darken-1'); return; }
+
+    selectedProjectAssignments = selectedProjectAssignments.filter((item) => !modalTempConsultantIds.includes(Number(item.consultantId)));
+    modalTempConsultantIds.forEach((consultantId) => selectedProjectAssignments.push({ consultantId, projectRole: role, startDate: start, endDate: end }));
     updateAssignedConsultantsSummary();
     updateProjectMembersPanel();
-    if (consultantModalInstance) {
-      consultantModalInstance.close();
+    modals.consultantAssignment?.close();
+  });
+
+  ui.projectMembersList.addEventListener('click', (event) => {
+    const button = event.target.closest('button[data-action]');
+    if (!button) return;
+    const consultantId = Number(button.dataset.id);
+    const member = selectedProjectAssignments.find((item) => Number(item.consultantId) === consultantId) || {
+      consultantId,
+      projectRole: 'Project Manager',
+      startDate: fields.startDate.value,
+      endDate: fields.endDate.value
+    };
+
+    if (button.dataset.action === 'remove-member') {
+      selectedProjectAssignments = selectedProjectAssignments.filter((item) => Number(item.consultantId) !== consultantId);
+      updateAssignedConsultantsSummary();
+      updateProjectMembersPanel();
+      return;
     }
+
+    memberModalMode = button.dataset.action === 'edit-member' ? 'edit' : 'view';
+    ui.memberModalTitle.textContent = memberModalMode === 'edit' ? 'Edit Project Member' : 'View Project Member';
+    ui.memberEditConsultantId.value = consultantId;
+    ui.memberNameModal.value = consultantNameById(consultantId);
+    ui.memberStartDateEdit.value = member.startDate || '';
+    ui.memberEndDateEdit.value = member.endDate || '';
+    rebuildMemberRoleSelect(member.projectRole || 'Project Member');
+
+    const readOnly = memberModalMode === 'view';
+    ui.memberProjectRoleModal.disabled = readOnly;
+    ui.memberStartDateEdit.disabled = readOnly;
+    ui.memberEndDateEdit.disabled = readOnly;
+    ui.saveMemberDetailsBtn.hidden = readOnly;
+    resetSelect('memberRole', ui.memberProjectRoleModal);
+    updateTextFields();
+    modals.memberDetails?.open();
+  });
+
+  ui.saveMemberDetailsBtn.addEventListener('click', () => {
+    const consultantId = Number(ui.memberEditConsultantId.value);
+    const item = selectedProjectAssignments.find((member) => Number(member.consultantId) === consultantId);
+    if (!item) { modals.memberDetails?.close(); return; }
+    if (ui.memberStartDateEdit.value && ui.memberEndDateEdit.value && ui.memberStartDateEdit.value > ui.memberEndDateEdit.value) {
+      toast('Start date cannot be after end date', 'red darken-1');
+      return;
+    }
+    item.projectRole = ui.memberProjectRoleModal.value;
+    item.startDate = ui.memberStartDateEdit.value;
+    item.endDate = ui.memberEndDateEdit.value;
+    updateProjectMembersPanel();
+    modals.memberDetails?.close();
   });
 
   ui.projectForm.addEventListener('submit', async (event) => {
     event.preventDefault();
-    if (projectViewMode === 'view') {
-      return;
-    }
+    if (projectViewMode === 'view') return;
 
     const payload = {
       projectName: fields.projectName.value.trim(),
@@ -470,74 +491,91 @@ if (!isBrowserRuntime) {
       clientContact: fields.clientContact.value.trim(),
       startDate: fields.startDate.value,
       endDate: fields.endDate.value,
-      consultantIds: selectedProjectMemberIds
+      consultantAssignments: selectedProjectAssignments
     };
 
-    if (payload.startDate > payload.endDate) {
-      toast('Start date cannot be after end date', 'red darken-1');
-      return;
-    }
+    if (payload.startDate > payload.endDate) { toast('Start date cannot be after end date', 'red darken-1'); return; }
 
     try {
       const editing = Boolean(fields.projectId.value);
       await request(editing ? `/api/projects/${fields.projectId.value}` : '/api/projects', {
-        method: editing ? 'PUT' : 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
+        method: editing ? 'PUT' : 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload)
       });
       await loadAll();
       resetProjectForm();
       toast(editing ? 'Project updated' : 'Project added', 'teal darken-1');
     } catch (error) {
-      toast(toFriendlyError(error, 'Failed to save project'), 'red darken-1');
+      toast(error.message || 'Failed to save project', 'red darken-1');
     }
   });
 
   ui.consultantForm.addEventListener('submit', async (event) => {
     event.preventDefault();
-
     const payload = {
       name: fields.consultantName.value.trim(),
-      areaIds: Array.from(fields.consultantAreaIds.selectedOptions).map((opt) => Number(opt.value)),
-      roleIds: Array.from(fields.consultantRoleIds.selectedOptions).map((opt) => Number(opt.value)),
+      areaIds: selectedIds(fields.consultantAreaIds),
+      companyRoleId: Number(fields.consultantCompanyRoleId.value),
       salary: fields.consultantSalary.value
     };
 
     try {
       const editing = Boolean(fields.consultantId.value);
       await request(editing ? `/api/consultants/${fields.consultantId.value}` : '/api/consultants', {
-        method: editing ? 'PUT' : 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
+        method: editing ? 'PUT' : 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload)
       });
       await loadAll();
       resetConsultantForm();
       toast(editing ? 'Consultant updated' : 'Consultant added', 'teal darken-1');
     } catch (error) {
-      toast(toFriendlyError(error, 'Failed to save consultant'), 'red darken-1');
+      toast(error.message || 'Failed to save consultant', 'red darken-1');
+    }
+  });
+
+  ui.openVacationModalBtn.addEventListener('click', () => {
+    if (!fields.consultantId.value) {
+      toast('Save consultant first before adding Vacation/PTO', 'orange darken-2');
+      return;
+    }
+    ui.availabilityType.value = '';
+    ui.availabilityStartDate.value = '';
+    ui.availabilityEndDate.value = '';
+    resetSelect('availabilityType', ui.availabilityType);
+    modals.vacation?.open();
+  });
+
+  ui.saveAvailabilityBtn.addEventListener('click', async () => {
+    const consultantId = Number(fields.consultantId.value);
+    if (!consultantId) { toast('No consultant selected', 'red darken-1'); return; }
+    const payload = {
+      type: ui.availabilityType.value,
+      startDate: ui.availabilityStartDate.value,
+      endDate: ui.availabilityEndDate.value
+    };
+    if (!payload.type || !payload.startDate || !payload.endDate) {
+      toast('All Vacation/PTO fields are required', 'red darken-1');
+      return;
+    }
+    try {
+      await request(`/api/consultants/${consultantId}/availability`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload)
+      });
+      await loadAll();
+      modals.vacation?.close();
+      toast('Availability period added', 'teal darken-1');
+    } catch (error) {
+      toast(error.message || 'Failed to add availability', 'red darken-1');
     }
   });
 
   ui.projectsBody.addEventListener('click', async (event) => {
     const button = event.target.closest('button[data-action]');
-    if (!button) {
-      return;
-    }
-
+    if (!button) return;
     const id = Number(button.dataset.id);
     const project = projects.find((item) => Number(item.id) === id);
-    if (!project) {
-      return;
-    }
+    if (!project) return;
 
     if (button.dataset.action === 'delete-project') {
-      try {
-        await request(`/api/projects/${id}`, { method: 'DELETE' });
-        await loadAll();
-        toast('Project removed', 'orange darken-2');
-      } catch (error) {
-        toast(toFriendlyError(error, 'Failed to delete project'), 'red darken-1');
-      }
+      try { await request(`/api/projects/${id}`, { method: 'DELETE' }); await loadAll(); toast('Project removed', 'orange darken-2'); } catch (error) { toast(error.message || 'Failed to delete project', 'red darken-1'); }
       return;
     }
 
@@ -549,122 +587,84 @@ if (!isBrowserRuntime) {
     fields.clientContact.value = project.clientContact;
     fields.startDate.value = project.startDate;
     fields.endDate.value = project.endDate;
-    selectedProjectMemberIds = (project.consultantIds || []).map(Number);
+    selectedProjectAssignments = (project.consultantAssignments || []).map((item) => ({
+      consultantId: Number(item.consultantId), projectRole: item.projectRole || 'Project Member', startDate: item.startDate || '', endDate: item.endDate || ''
+    }));
 
     updateAssignedConsultantsSummary();
     rebuildProjectSelects({ managerId: project.managerConsultantId });
-
     setProjectFormMode(button.dataset.action === 'view-project' ? 'view' : 'edit');
     showManageProjectPanel();
+    updateProjectMembersPanel();
     updateTextFields();
   });
 
   ui.consultantsBody.addEventListener('click', async (event) => {
     const button = event.target.closest('button[data-action]');
-    if (!button) {
-      return;
-    }
-
+    if (!button) return;
     const id = Number(button.dataset.id);
     const consultant = consultants.find((item) => Number(item.id) === id);
-    if (!consultant) {
-      return;
-    }
+    if (!consultant) return;
 
     if (button.dataset.action === 'delete-consultant') {
-      try {
-        await request(`/api/consultants/${id}`, { method: 'DELETE' });
-        await loadAll();
-        toast('Consultant removed', 'orange darken-2');
-      } catch (error) {
-        toast(toFriendlyError(error, 'Failed to delete consultant'), 'red darken-1');
-      }
+      try { await request(`/api/consultants/${id}`, { method: 'DELETE' }); await loadAll(); toast('Consultant removed', 'orange darken-2'); } catch (error) { toast(error.message || 'Failed to delete consultant', 'red darken-1'); }
       return;
     }
 
     fields.consultantId.value = consultant.id;
     fields.consultantName.value = consultant.name;
     fields.consultantSalary.value = consultant.salary;
-    rebuildConsultantSelects({ areaIds: consultant.areaIds || [], roleIds: consultant.roleIds || [] });
-    ui.consultantFormTitle.textContent = 'Manage Consultants';
-    ui.consultantFormCard.hidden = false;
+    rebuildConsultantSelects({ areaIds: consultant.areaIds || [], companyRoleId: consultant.companyRoleId || '' });
+    showManageConsultantsPanel();
     updateTextFields();
   });
 
   ui.roleForm.addEventListener('submit', async (event) => {
     event.preventDefault();
     try {
-      await request('/api/roles', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: fields.roleName.value.trim() })
-      });
+      await request('/api/roles', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: fields.roleName.value.trim() }) });
       ui.roleForm.reset();
       await loadAll();
       toast('Role added', 'teal darken-1');
-    } catch (error) {
-      toast(toFriendlyError(error, 'Failed to add role'), 'red darken-1');
-    }
+    } catch (error) { toast(error.message || 'Failed to add role', 'red darken-1'); }
   });
 
   ui.areaForm.addEventListener('submit', async (event) => {
     event.preventDefault();
     try {
-      await request('/api/areas', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: fields.areaName.value.trim() })
-      });
+      await request('/api/areas', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: fields.areaName.value.trim() }) });
       ui.areaForm.reset();
       await loadAll();
       toast('Area added', 'teal darken-1');
-    } catch (error) {
-      toast(toFriendlyError(error, 'Failed to add area'), 'red darken-1');
-    }
+    } catch (error) { toast(error.message || 'Failed to add area', 'red darken-1'); }
   });
 
   ui.rolesList.addEventListener('click', async (event) => {
     const button = event.target.closest('button[data-action="delete-role"]');
-    if (!button) {
-      return;
-    }
-    try {
-      await request(`/api/roles/${button.dataset.id}`, { method: 'DELETE' });
-      await loadAll();
-      toast('Role removed', 'orange darken-2');
-    } catch (error) {
-      toast(toFriendlyError(error, 'Failed to delete role'), 'red darken-1');
-    }
+    if (!button) return;
+    try { await request(`/api/roles/${button.dataset.id}`, { method: 'DELETE' }); await loadAll(); toast('Role removed', 'orange darken-2'); } catch (error) { toast(error.message || 'Failed to delete role', 'red darken-1'); }
   });
 
   ui.areasList.addEventListener('click', async (event) => {
     const button = event.target.closest('button[data-action="delete-area"]');
-    if (!button) {
-      return;
-    }
-    try {
-      await request(`/api/areas/${button.dataset.id}`, { method: 'DELETE' });
-      await loadAll();
-      toast('Area removed', 'orange darken-2');
-    } catch (error) {
-      toast(toFriendlyError(error, 'Failed to delete area'), 'red darken-1');
-    }
+    if (!button) return;
+    try { await request(`/api/areas/${button.dataset.id}`, { method: 'DELETE' }); await loadAll(); toast('Area removed', 'orange darken-2'); } catch (error) { toast(error.message || 'Failed to delete area', 'red darken-1'); }
   });
 
   ui.navMenu.addEventListener('click', (event) => {
     const item = event.target.closest('li[data-section]');
-    if (!item) {
-      return;
-    }
+    if (!item) return;
     setSection(item.dataset.section);
   });
 
   if (window.M?.Modal) {
-    consultantModalInstance = M.Modal.init(ui.consultantModal);
+    modals.consultantAssignment = M.Modal.init(ui.consultantModal);
+    modals.memberDetails = M.Modal.init(ui.memberDetailsModal);
+    modals.vacation = M.Modal.init(ui.vacationModal);
   }
 
   setSection('projects');
   resetProjectForm();
   resetConsultantForm();
-  loadAll().catch((error) => toast(toFriendlyError(error, 'Unable to load data'), 'red darken-1'));
+  loadAll().catch((error) => toast(error.message || 'Unable to load data', 'red darken-1'));
 }
