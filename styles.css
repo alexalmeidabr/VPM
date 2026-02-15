@@ -10,6 +10,24 @@ main {
   border-radius: 12px;
 }
 
+.layout-row {
+  display: flex;
+  flex-wrap: wrap;
+}
+
+.side-menu-card .collection {
+  margin: 0;
+}
+
+.side-menu-card .collection-item {
+  cursor: pointer;
+}
+
+.side-menu-card .collection-item.active {
+  background: #37474f;
+  color: #fff;
+}
+
 .action-row {
   display: flex;
   gap: 0.75rem;

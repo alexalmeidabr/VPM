@@ -13,13 +13,23 @@ DB_PATH = BASE_DIR / 'projects.db'
 def get_connection():
   conn = sqlite3.connect(DB_PATH)
   conn.row_factory = sqlite3.Row
+  conn.execute('PRAGMA foreign_keys = ON')
   return conn
 
 
 def init_db():
   with get_connection() as conn:
-    conn.execute(
+    conn.executescript(
       '''
+      CREATE TABLE IF NOT EXISTS consultants (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT NOT NULL,
+        area TEXT NOT NULL,
+        position TEXT NOT NULL,
+        salary REAL NOT NULL,
+        created_at TEXT DEFAULT CURRENT_TIMESTAMP
+      );
+
       CREATE TABLE IF NOT EXISTS projects (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         project_name TEXT NOT NULL,
@@ -29,12 +39,20 @@ def init_db():
         start_date TEXT NOT NULL,
         end_date TEXT NOT NULL,
         created_at TEXT DEFAULT CURRENT_TIMESTAMP
-      )
+      );
+
+      CREATE TABLE IF NOT EXISTS project_consultants (
+        project_id INTEGER NOT NULL,
+        consultant_id INTEGER NOT NULL,
+        PRIMARY KEY (project_id, consultant_id),
+        FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE,
+        FOREIGN KEY (consultant_id) REFERENCES consultants(id) ON DELETE CASCADE
+      );
       '''
     )
 
 
-class ProjectHandler(SimpleHTTPRequestHandler):
+class VPMHandler(SimpleHTTPRequestHandler):
   def end_headers(self):
     self.send_header('Access-Control-Allow-Origin', '*')
     self.send_header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS')
@@ -54,52 +72,89 @@ class ProjectHandler(SimpleHTTPRequestHandler):
     self.wfile.write(body)
 
   def _read_json(self):
-    content_length = int(self.headers.get('Content-Length', 0))
-    raw = self.rfile.read(content_length) if content_length > 0 else b'{}'
+    length = int(self.headers.get('Content-Length', 0))
+    raw = self.rfile.read(length) if length > 0 else b'{}'
     return json.loads(raw.decode('utf-8'))
 
   def _path(self):
     return urlparse(self.path).path
 
-  def _parse_project_id(self):
-    parts = [part for part in self._path().split('/') if part]
-    if len(parts) == 3 and parts[0] == 'api' and parts[1] == 'projects' and parts[2].isdigit():
+  def _parts(self):
+    return [part for part in self._path().split('/') if part]
+
+  def _resource_id(self, resource):
+    parts = self._parts()
+    if len(parts) == 3 and parts[0] == 'api' and parts[1] == resource and parts[2].isdigit():
       return int(parts[2])
     return None
 
-  def _validate_payload(self, payload):
-    required_fields = [
-      'projectName',
-      'clientName',
-      'projectLead',
-      'clientContact',
-      'startDate',
-      'endDate'
-    ]
-
-    for field in required_fields:
+  def _project_payload_error(self, payload):
+    required = ['projectName', 'clientName', 'projectLead', 'clientContact', 'startDate', 'endDate']
+    for field in required:
       value = str(payload.get(field, '')).strip()
       if not value:
-        return f"{field} is required"
+        return f'{field} is required'
       payload[field] = value
+
+    consultant_ids = payload.get('consultantIds', [])
+    if not isinstance(consultant_ids, list):
+      return 'consultantIds must be a list'
+
+    try:
+      payload['consultantIds'] = [int(item) for item in consultant_ids]
+    except (TypeError, ValueError):
+      return 'consultantIds must contain numeric IDs'
 
     if payload['startDate'] > payload['endDate']:
       return 'startDate cannot be after endDate'
 
     return None
 
-  def do_GET(self):
-    if self._path() == '/api/projects':
-      with get_connection() as conn:
-        rows = conn.execute(
-          '''
-          SELECT id, project_name, client_name, project_lead, client_contact, start_date, end_date
-          FROM projects
-          ORDER BY created_at DESC, id DESC
-          '''
-        ).fetchall()
+  def _consultant_payload_error(self, payload):
+    required = ['name', 'area', 'position', 'salary']
+    for field in required:
+      value = str(payload.get(field, '')).strip()
+      if not value:
+        return f'{field} is required'
+      payload[field] = value
 
-      projects = [
+    try:
+      payload['salary'] = float(payload['salary'])
+    except ValueError:
+      return 'salary must be a number'
+
+    if payload['salary'] < 0:
+      return 'salary must be zero or more'
+
+    return None
+
+  def _consultant_ids_exist(self, conn, consultant_ids):
+    if not consultant_ids:
+      return True
+
+    placeholders = ','.join(['?'] * len(consultant_ids))
+    row = conn.execute(
+      f'SELECT COUNT(*) AS total FROM consultants WHERE id IN ({placeholders})',
+      consultant_ids
+    ).fetchone()
+    return row['total'] == len(set(consultant_ids))
+
+  def _fetch_projects(self, conn):
+    rows = conn.execute(
+      '''
+      SELECT id, project_name, client_name, project_lead, client_contact, start_date, end_date
+      FROM projects
+      ORDER BY created_at DESC, id DESC
+      '''
+    ).fetchall()
+
+    projects = []
+    for row in rows:
+      consultant_rows = conn.execute(
+        'SELECT consultant_id FROM project_consultants WHERE project_id = ? ORDER BY consultant_id',
+        (row['id'],)
+      ).fetchall()
+      projects.append(
         {
           'id': row['id'],
           'projectName': row['project_name'],
@@ -107,19 +162,48 @@ class ProjectHandler(SimpleHTTPRequestHandler):
           'projectLead': row['project_lead'],
           'clientContact': row['client_contact'],
           'startDate': row['start_date'],
-          'endDate': row['end_date']
+          'endDate': row['end_date'],
+          'consultantIds': [item['consultant_id'] for item in consultant_rows]
         }
-        for row in rows
-      ]
-      self._send_json({'projects': projects})
-      return
+      )
+
+    return projects
+
+  def _fetch_consultants(self, conn):
+    rows = conn.execute(
+      '''
+      SELECT id, name, area, position, salary
+      FROM consultants
+      ORDER BY created_at DESC, id DESC
+      '''
+    ).fetchall()
+
+    return [
+      {
+        'id': row['id'],
+        'name': row['name'],
+        'area': row['area'],
+        'position': row['position'],
+        'salary': row['salary']
+      }
+      for row in rows
+    ]
+
+  def do_GET(self):
+    path = self._path()
+    with get_connection() as conn:
+      if path == '/api/projects':
+        self._send_json({'projects': self._fetch_projects(conn)})
+        return
+
+      if path == '/api/consultants':
+        self._send_json({'consultants': self._fetch_consultants(conn)})
+        return
 
     super().do_GET()
 
   def do_POST(self):
-    if self._path() != '/api/projects':
-      self.send_error(HTTPStatus.NOT_FOUND)
-      return
+    path = self._path()
 
     try:
       payload = self._read_json()
@@ -127,35 +211,59 @@ class ProjectHandler(SimpleHTTPRequestHandler):
       self._send_json({'error': 'Invalid JSON'}, HTTPStatus.BAD_REQUEST)
       return
 
-    error = self._validate_payload(payload)
-    if error:
-      self._send_json({'error': error}, HTTPStatus.BAD_REQUEST)
+    if path == '/api/projects':
+      error = self._project_payload_error(payload)
+      if error:
+        self._send_json({'error': error}, HTTPStatus.BAD_REQUEST)
+        return
+
+      with get_connection() as conn:
+        if not self._consultant_ids_exist(conn, payload['consultantIds']):
+          self._send_json({'error': 'One or more consultants do not exist'}, HTTPStatus.BAD_REQUEST)
+          return
+
+        cursor = conn.execute(
+          '''
+          INSERT INTO projects (project_name, client_name, project_lead, client_contact, start_date, end_date)
+          VALUES (?, ?, ?, ?, ?, ?)
+          ''',
+          (
+            payload['projectName'], payload['clientName'], payload['projectLead'], payload['clientContact'],
+            payload['startDate'], payload['endDate']
+          )
+        )
+        project_id = cursor.lastrowid
+
+        for consultant_id in sorted(set(payload['consultantIds'])):
+          conn.execute(
+            'INSERT INTO project_consultants (project_id, consultant_id) VALUES (?, ?)',
+            (project_id, consultant_id)
+          )
+
+      self._send_json({'id': project_id}, HTTPStatus.CREATED)
       return
 
-    with get_connection() as conn:
-      cursor = conn.execute(
-        '''
-        INSERT INTO projects (project_name, client_name, project_lead, client_contact, start_date, end_date)
-        VALUES (?, ?, ?, ?, ?, ?)
-        ''',
-        (
-          payload['projectName'],
-          payload['clientName'],
-          payload['projectLead'],
-          payload['clientContact'],
-          payload['startDate'],
-          payload['endDate']
-        )
-      )
-      project_id = cursor.lastrowid
+    if path == '/api/consultants':
+      error = self._consultant_payload_error(payload)
+      if error:
+        self._send_json({'error': error}, HTTPStatus.BAD_REQUEST)
+        return
 
-    self._send_json({'id': project_id}, HTTPStatus.CREATED)
+      with get_connection() as conn:
+        cursor = conn.execute(
+          'INSERT INTO consultants (name, area, position, salary) VALUES (?, ?, ?, ?)',
+          (payload['name'], payload['area'], payload['position'], payload['salary'])
+        )
+        consultant_id = cursor.lastrowid
+
+      self._send_json({'id': consultant_id}, HTTPStatus.CREATED)
+      return
+
+    self.send_error(HTTPStatus.NOT_FOUND)
 
   def do_PUT(self):
-    project_id = self._parse_project_id()
-    if project_id is None:
-      self.send_error(HTTPStatus.NOT_FOUND)
-      return
+    project_id = self._resource_id('projects')
+    consultant_id = self._resource_id('consultants')
 
     try:
       payload = self._read_json()
@@ -163,53 +271,91 @@ class ProjectHandler(SimpleHTTPRequestHandler):
       self._send_json({'error': 'Invalid JSON'}, HTTPStatus.BAD_REQUEST)
       return
 
-    error = self._validate_payload(payload)
-    if error:
-      self._send_json({'error': error}, HTTPStatus.BAD_REQUEST)
-      return
+    if project_id is not None:
+      error = self._project_payload_error(payload)
+      if error:
+        self._send_json({'error': error}, HTTPStatus.BAD_REQUEST)
+        return
 
-    with get_connection() as conn:
-      cursor = conn.execute(
-        '''
-        UPDATE projects
-        SET project_name = ?, client_name = ?, project_lead = ?, client_contact = ?, start_date = ?, end_date = ?
-        WHERE id = ?
-        ''',
-        (
-          payload['projectName'],
-          payload['clientName'],
-          payload['projectLead'],
-          payload['clientContact'],
-          payload['startDate'],
-          payload['endDate'],
-          project_id
+      with get_connection() as conn:
+        if not self._consultant_ids_exist(conn, payload['consultantIds']):
+          self._send_json({'error': 'One or more consultants do not exist'}, HTTPStatus.BAD_REQUEST)
+          return
+
+        cursor = conn.execute(
+          '''
+          UPDATE projects
+          SET project_name = ?, client_name = ?, project_lead = ?, client_contact = ?, start_date = ?, end_date = ?
+          WHERE id = ?
+          ''',
+          (
+            payload['projectName'], payload['clientName'], payload['projectLead'], payload['clientContact'],
+            payload['startDate'], payload['endDate'], project_id
+          )
         )
-      )
 
-    if cursor.rowcount == 0:
-      self._send_json({'error': 'Project not found'}, HTTPStatus.NOT_FOUND)
+        if cursor.rowcount == 0:
+          self._send_json({'error': 'Project not found'}, HTTPStatus.NOT_FOUND)
+          return
+
+        conn.execute('DELETE FROM project_consultants WHERE project_id = ?', (project_id,))
+        for linked_consultant_id in sorted(set(payload['consultantIds'])):
+          conn.execute(
+            'INSERT INTO project_consultants (project_id, consultant_id) VALUES (?, ?)',
+            (project_id, linked_consultant_id)
+          )
+
+      self._send_json({'status': 'updated'})
       return
 
-    self._send_json({'status': 'updated'})
+    if consultant_id is not None:
+      error = self._consultant_payload_error(payload)
+      if error:
+        self._send_json({'error': error}, HTTPStatus.BAD_REQUEST)
+        return
+
+      with get_connection() as conn:
+        cursor = conn.execute(
+          'UPDATE consultants SET name = ?, area = ?, position = ?, salary = ? WHERE id = ?',
+          (payload['name'], payload['area'], payload['position'], payload['salary'], consultant_id)
+        )
+
+      if cursor.rowcount == 0:
+        self._send_json({'error': 'Consultant not found'}, HTTPStatus.NOT_FOUND)
+        return
+
+      self._send_json({'status': 'updated'})
+      return
+
+    self.send_error(HTTPStatus.NOT_FOUND)
 
   def do_DELETE(self):
-    project_id = self._parse_project_id()
-    if project_id is None:
-      self.send_error(HTTPStatus.NOT_FOUND)
+    project_id = self._resource_id('projects')
+    consultant_id = self._resource_id('consultants')
+
+    if project_id is not None:
+      with get_connection() as conn:
+        cursor = conn.execute('DELETE FROM projects WHERE id = ?', (project_id,))
+      if cursor.rowcount == 0:
+        self._send_json({'error': 'Project not found'}, HTTPStatus.NOT_FOUND)
+        return
+      self._send_json({'status': 'deleted'})
       return
 
-    with get_connection() as conn:
-      cursor = conn.execute('DELETE FROM projects WHERE id = ?', (project_id,))
-
-    if cursor.rowcount == 0:
-      self._send_json({'error': 'Project not found'}, HTTPStatus.NOT_FOUND)
+    if consultant_id is not None:
+      with get_connection() as conn:
+        cursor = conn.execute('DELETE FROM consultants WHERE id = ?', (consultant_id,))
+      if cursor.rowcount == 0:
+        self._send_json({'error': 'Consultant not found'}, HTTPStatus.NOT_FOUND)
+        return
+      self._send_json({'status': 'deleted'})
       return
 
-    self._send_json({'status': 'deleted'})
+    self.send_error(HTTPStatus.NOT_FOUND)
 
 
 if __name__ == '__main__':
   init_db()
-  server = ThreadingHTTPServer(('0.0.0.0', 8000), ProjectHandler)
+  server = ThreadingHTTPServer(('0.0.0.0', 8000), VPMHandler)
   print('Serving on http://0.0.0.0:8000')
   server.serve_forever()

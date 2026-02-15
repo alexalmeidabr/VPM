@@ -17,90 +17,174 @@
   <body class="blue-grey lighten-5">
     <nav class="blue-grey darken-3">
       <div class="nav-wrapper container">
-        <a href="#" class="brand-logo">VPM • Projects</a>
+        <a href="#" class="brand-logo">VPM • Workspace</a>
       </div>
     </nav>
 
     <main class="container section">
-      <div class="row">
-        <div class="col s12 l5">
-          <div class="card">
+      <div class="row layout-row">
+        <aside class="col s12 l3">
+          <div class="card side-menu-card">
             <div class="card-content">
-              <span class="card-title" id="form-title">Add Project</span>
-              <form id="project-form">
-                <input type="hidden" id="project-id" />
-
-                <div class="input-field">
-                  <input id="project-name" name="projectName" type="text" required />
-                  <label for="project-name">Project Name</label>
-                </div>
-
-                <div class="input-field">
-                  <input id="client-name" name="clientName" type="text" required />
-                  <label for="client-name">Client Name</label>
-                </div>
-
-                <div class="input-field">
-                  <input id="project-lead" name="projectLead" type="text" required />
-                  <label for="project-lead">Project Lead (Our Side)</label>
-                </div>
-
-                <div class="input-field">
-                  <input id="client-contact" name="clientContact" type="text" required />
-                  <label for="client-contact">Client Contact</label>
-                </div>
-
-                <div class="row date-row">
-                  <div class="input-field col s12 m6">
-                    <input id="start-date" name="startDate" type="date" required />
-                    <label class="active" for="start-date">Start Date</label>
-                  </div>
-                  <div class="input-field col s12 m6">
-                    <input id="end-date" name="endDate" type="date" required />
-                    <label class="active" for="end-date">End Date</label>
-                  </div>
-                </div>
-
-                <div class="card-action action-row">
-                  <button class="btn waves-effect waves-light" type="submit" id="save-btn">
-                    Save Project
-                    <i class="material-icons right">save</i>
-                  </button>
-                  <button class="btn-flat" type="button" id="cancel-edit-btn" hidden>
-                    Cancel Edit
-                  </button>
-                </div>
-              </form>
+              <span class="card-title">Navigation</span>
+              <ul class="collection" id="nav-menu">
+                <li class="collection-item active" data-section="projects">Projects</li>
+                <li class="collection-item" data-section="consultants">Consultants</li>
+              </ul>
             </div>
           </div>
-        </div>
+        </aside>
 
-        <div class="col s12 l7">
-          <div class="card">
-            <div class="card-content">
-              <span class="card-title">Project Register</span>
-              <p class="grey-text" id="project-count"></p>
-              <div class="table-container">
-                <table class="striped responsive-table" id="projects-table">
-                  <thead>
-                    <tr>
-                      <th>Project</th>
-                      <th>Client</th>
-                      <th>Lead</th>
-                      <th>Client Contact</th>
-                      <th>Dates</th>
-                      <th>Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody id="projects-body"></tbody>
-                </table>
+        <section class="col s12 l9">
+          <div id="projects-section">
+            <div class="card">
+              <div class="card-content">
+                <span class="card-title" id="project-form-title">Manage Project</span>
+                <form id="project-form">
+                  <input type="hidden" id="project-id" />
+
+                  <div class="input-field">
+                    <input id="project-name" name="projectName" type="text" required />
+                    <label for="project-name">Project Name</label>
+                  </div>
+
+                  <div class="input-field">
+                    <input id="client-name" name="clientName" type="text" required />
+                    <label for="client-name">Client Name</label>
+                  </div>
+
+                  <div class="input-field">
+                    <input id="project-lead" name="projectLead" type="text" required />
+                    <label for="project-lead">Project Lead (Our Side)</label>
+                  </div>
+
+                  <div class="input-field">
+                    <input id="client-contact" name="clientContact" type="text" required />
+                    <label for="client-contact">Client Contact</label>
+                  </div>
+
+                  <div class="row date-row">
+                    <div class="input-field col s12 m6">
+                      <input id="start-date" name="startDate" type="date" required />
+                      <label class="active" for="start-date">Start Date</label>
+                    </div>
+                    <div class="input-field col s12 m6">
+                      <input id="end-date" name="endDate" type="date" required />
+                      <label class="active" for="end-date">End Date</label>
+                    </div>
+                  </div>
+
+                  <div class="input-field">
+                    <select id="consultant-ids" name="consultantIds" multiple></select>
+                    <label>Assigned Consultants</label>
+                    <span class="helper-text">Select one or more consultants from the consultants you created.</span>
+                  </div>
+
+                  <div class="card-action action-row">
+                    <button class="btn waves-effect waves-light" type="submit">
+                      Save Project
+                      <i class="material-icons right">save</i>
+                    </button>
+                    <button class="btn-flat" type="button" id="project-cancel-edit-btn" hidden>
+                      Cancel Edit
+                    </button>
+                  </div>
+                </form>
               </div>
-              <p id="empty-state" class="center-align grey-text text-darken-1 empty-message">
-                No projects yet. Add your first project from the form.
-              </p>
+            </div>
+
+            <div class="card">
+              <div class="card-content">
+                <span class="card-title">Project Register</span>
+                <p class="grey-text" id="project-count"></p>
+                <div class="table-container">
+                  <table class="striped responsive-table">
+                    <thead>
+                      <tr>
+                        <th>Project</th>
+                        <th>Client</th>
+                        <th>Lead</th>
+                        <th>Client Contact</th>
+                        <th>Dates</th>
+                        <th>Consultants</th>
+                        <th>Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody id="projects-body"></tbody>
+                  </table>
+                </div>
+                <p id="projects-empty-state" class="center-align grey-text text-darken-1 empty-message">
+                  No projects yet. Add your first project from the form.
+                </p>
+              </div>
             </div>
           </div>
-        </div>
+
+          <div id="consultants-section" hidden>
+            <div class="card">
+              <div class="card-content">
+                <span class="card-title" id="consultant-form-title">Manage Consultants</span>
+                <form id="consultant-form">
+                  <input type="hidden" id="consultant-id" />
+
+                  <div class="input-field">
+                    <input id="consultant-name" name="name" type="text" required />
+                    <label for="consultant-name">Name</label>
+                  </div>
+
+                  <div class="input-field">
+                    <input id="consultant-area" name="area" type="text" required />
+                    <label for="consultant-area">Area</label>
+                  </div>
+
+                  <div class="input-field">
+                    <input id="consultant-position" name="position" type="text" required />
+                    <label for="consultant-position">Position</label>
+                  </div>
+
+                  <div class="input-field">
+                    <input id="consultant-salary" name="salary" type="number" min="0" step="0.01" required />
+                    <label for="consultant-salary">Salary</label>
+                  </div>
+
+                  <div class="card-action action-row">
+                    <button class="btn waves-effect waves-light" type="submit">
+                      Save Consultant
+                      <i class="material-icons right">save</i>
+                    </button>
+                    <button class="btn-flat" type="button" id="consultant-cancel-edit-btn" hidden>
+                      Cancel Edit
+                    </button>
+                  </div>
+                </form>
+              </div>
+            </div>
+
+            <div class="card">
+              <div class="card-content">
+                <span class="card-title">Consultants Register</span>
+                <p class="grey-text" id="consultant-count"></p>
+                <div class="table-container">
+                  <table class="striped responsive-table">
+                    <thead>
+                      <tr>
+                        <th>Name</th>
+                        <th>Area</th>
+                        <th>Position</th>
+                        <th>Salary</th>
+                        <th>Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody id="consultants-body"></tbody>
+                  </table>
+                </div>
+                <p id="consultants-empty-state" class="center-align grey-text text-darken-1 empty-message">
+                  No consultants yet. Add one from the form.
+                </p>
+              </div>
+            </div>
+          </div>
+        </section>
       </div>
     </main>
 

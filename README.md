@@ -1,21 +1,26 @@
-# VPM Starter Feature: Project Register
+# VPM Starter Feature: Project & Consultant Management
 
-This starter feature is a lightweight project register with a clean Material Design-style UI and **SQLite persistence**.
+This starter feature includes SQLite-backed management for both projects and consultants.
 
 ## Included capabilities
 
-- Add a project with:
+- **Projects section** with form title **Manage Project**
   - Project name
   - Client name
-  - Project lead (internal)
+  - Project lead
   - Client contact
-  - Start date
-  - End date
-- Edit existing projects
-- Delete projects
-- Persist projects to SQLite (`projects.db`)
-- Basic date validation (start date cannot be after end date)
-- API/CORS support so the UI can call the server even when hosted from another local origin
+  - Start date / End date
+  - Assign one or more consultants to each project
+- **Consultants section** with form title **Manage Consultants**
+  - Name
+  - Area
+  - Position
+  - Salary
+- Left-side navigation menu:
+  - Projects
+  - Consultants
+- Full CRUD for projects and consultants
+- SQLite persistence (`projects.db`)
 
 ## Run locally
 
@@ -25,9 +30,9 @@ python3 server.py
 
 Then open `http://localhost:8000`.
 
-If you host the HTML from another local server/port, keep `server.py` running on port `8000`.
+## API endpoints
 
-## Tech choice
-
-- Front-end: Materialize CSS (Material Design-like UI framework) via CDN
-- Back-end: Python standard-library HTTP server + SQLite (`sqlite3`)
+- `GET/POST /api/projects`
+- `PUT/DELETE /api/projects/:id`
+- `GET/POST /api/consultants`
+- `PUT/DELETE /api/consultants/:id`
