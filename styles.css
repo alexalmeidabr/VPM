@@ -29,8 +29,11 @@ body { min-height: 100vh; }
 .member-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 0.5rem; }
 .member-meta { font-size: 0.9rem; color: #546e7a; }
 
+.timeline-year-label { font-size: 0.9rem; font-weight: 600; color: #455a64; margin-bottom: 0.35rem; }
+.timeline-header-row h6 { margin: 0; }
+
 .availability-chart { border: 1px solid #cfd8dc; border-radius: 8px; overflow-x: auto; padding: 0.5rem; margin-bottom: 1rem; }
-.availability-month-header, .availability-week-header, .availability-row { display: grid; grid-template-columns: 170px repeat(52, 18px); gap: 2px; min-width: 1160px; }
+.availability-month-header, .availability-week-header, .availability-row { display: grid; gap: 2px; min-width: 1160px; }
 .availability-month-header { margin-bottom: 4px; font-size: 0.72rem; color: #546e7a; }
 .availability-week-header { margin-bottom: 6px; font-size: 0.65rem; color: #607d8b; }
 .availability-week-header div, .availability-month-header div { text-align: center; }

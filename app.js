@@ -57,6 +57,7 @@ if (!isBrowserRuntime) {
     consultantCount: document.getElementById('consultant-count'),
     consultantsEmptyState: document.getElementById('consultants-empty-state'),
     availabilityChart: document.getElementById('availability-chart'),
+    centerCurrentWeekToggle: document.getElementById('center-current-week-toggle'),
 
     showConsultantFormBtn: document.getElementById('show-consultant-form-btn'),
     consultantFormCard: document.getElementById('consultant-form-card'),
@@ -165,9 +166,51 @@ if (!isBrowserRuntime) {
     return monday;
   };
 
-  const drawTimeline = (container, consultantsToRender) => {
-    const year = new Date().getFullYear();
+  const startOfWeekMonday = (date) => {
+    const day = date.getDay() || 7;
+    const monday = new Date(date);
+    monday.setHours(0, 0, 0, 0);
+    monday.setDate(date.getDate() - day + 1);
+    return monday;
+  };
+
+  const buildTimelineWeeks = (centered) => {
+    if (!centered) {
+      const year = new Date().getFullYear();
+      return Array.from({ length: 52 }, (_, index) => {
+        const week = index + 1;
+        return { weekNumber: week, monday: mondayForWeek(year, week) };
+      });
+    }
+
+    const currentMonday = startOfWeekMonday(new Date());
+    const weeks = [];
+    for (let offset = -26; offset <= 26; offset += 1) {
+      const monday = new Date(currentMonday);
+      monday.setDate(currentMonday.getDate() + offset * 7);
+      const jan4 = new Date(monday.getFullYear(), 0, 4);
+      const jan4Day = jan4.getDay() || 7;
+      const week1Monday = new Date(jan4);
+      week1Monday.setDate(jan4.getDate() - jan4Day + 1);
+      const weekNumber = Math.floor((monday - week1Monday) / (7 * 24 * 60 * 60 * 1000)) + 1;
+      weeks.push({ weekNumber, monday });
+    }
+    return weeks;
+  };
+
+  const drawTimeline = (container, consultantsToRender, options = {}) => {
+    const centered = Boolean(options.centerOnCurrentWeek);
+    const weeks = buildTimelineWeeks(centered);
     container.innerHTML = '';
+
+    const yearLabel = document.createElement('div');
+    yearLabel.className = 'timeline-year-label';
+    if (centered) {
+      yearLabel.textContent = `Window: ${weeks[0].monday.getFullYear()}-${String(weeks[0].monday.getMonth() + 1).padStart(2, '0')} to ${weeks[weeks.length - 1].monday.getFullYear()}-${String(weeks[weeks.length - 1].monday.getMonth() + 1).padStart(2, '0')}`;
+    } else {
+      yearLabel.textContent = `Year: ${weeks[0].monday.getFullYear()}`;
+    }
+    container.appendChild(yearLabel);
 
     const legend = document.createElement('div');
     legend.className = 'legend';
@@ -186,38 +229,42 @@ if (!isBrowserRuntime) {
     }
     container.appendChild(legend);
 
+    const columns = `170px repeat(${weeks.length}, 18px)`;
+
     const monthHeader = document.createElement('div');
     monthHeader.className = 'availability-month-header';
+    monthHeader.style.gridTemplateColumns = columns;
     monthHeader.appendChild(document.createElement('div'));
     const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-    for (let week = 1; week <= 52; week += 1) {
-      const monday = mondayForWeek(year, week);
+    weeks.forEach(({ monday }) => {
       const monthCell = document.createElement('div');
-      monthCell.textContent = monday.getDate() <= 7 ? monthNames[monday.getMonth()] : '';
+      monthCell.textContent = monday.getDate() <= 7 ? `${monthNames[monday.getMonth()]}` : '';
       monthHeader.appendChild(monthCell);
-    }
+    });
     container.appendChild(monthHeader);
 
     const weekHeader = document.createElement('div');
     weekHeader.className = 'availability-week-header';
+    weekHeader.style.gridTemplateColumns = columns;
     weekHeader.appendChild(document.createElement('div'));
-    for (let week = 1; week <= 52; week += 1) {
+    weeks.forEach(({ weekNumber }) => {
       const cell = document.createElement('div');
-      cell.textContent = week;
+      cell.textContent = weekNumber;
       weekHeader.appendChild(cell);
-    }
+    });
     container.appendChild(weekHeader);
 
     consultantsToRender.forEach((consultant) => {
       const row = document.createElement('div');
       row.className = 'availability-row';
+      row.style.gridTemplateColumns = columns;
       const name = document.createElement('div');
       name.className = 'availability-name';
       name.textContent = consultant.name;
       row.appendChild(name);
 
-      for (let week = 1; week <= 52; week += 1) {
-        const weekStart = mondayForWeek(year, week);
+      weeks.forEach(({ monday }) => {
+        const weekStart = new Date(monday);
         const weekEnd = new Date(weekStart);
         weekEnd.setDate(weekStart.getDate() + 6);
 
@@ -236,7 +283,7 @@ if (!isBrowserRuntime) {
         });
 
         row.appendChild(cell);
-      }
+      });
       container.appendChild(row);
     });
   };
@@ -502,7 +549,7 @@ if (!isBrowserRuntime) {
     fields.consultantId.value = '';
     rebuildConsultantSelects();
     setConsultantFormMode('edit');
-    drawTimeline(ui.consultantAvailabilityChart, []);
+    drawTimeline(ui.consultantAvailabilityChart, [], { centerOnCurrentWeek: ui.centerCurrentWeekToggle.checked });
     renderConsultantDaysOffList(null);
     showConsultantsPanel();
     updateTextFields();
@@ -526,7 +573,7 @@ if (!isBrowserRuntime) {
     renderProjects();
     renderConsultants();
     renderAdminLists();
-    drawTimeline(ui.availabilityChart, consultants);
+    drawTimeline(ui.availabilityChart, consultants, { centerOnCurrentWeek: ui.centerCurrentWeekToggle.checked });
     rebuildProjectSelects({ managerId: fields.managerId.value });
     rebuildConsultantSelects({ areaIds: selectedIds(fields.consultantAreaIds), companyRoleId: fields.consultantCompanyRoleId.value });
     rebuildAssignmentModalSelects();
@@ -714,7 +761,7 @@ if (!isBrowserRuntime) {
       });
       await loadAll();
       const consultant = findConsultantById(consultantId);
-      drawTimeline(ui.consultantAvailabilityChart, consultant ? [consultant] : []);
+      drawTimeline(ui.consultantAvailabilityChart, consultant ? [consultant] : [], { centerOnCurrentWeek: ui.centerCurrentWeekToggle.checked });
       renderConsultantDaysOffList(consultant);
       modals.daysOff?.close();
       toast('Days off added', 'teal darken-1');
@@ -787,7 +834,7 @@ if (!isBrowserRuntime) {
     fields.consultantSalary.value = consultant.salary;
     rebuildConsultantSelects({ areaIds: consultant.areaIds || [], companyRoleId: consultant.companyRoleId || '' });
     setConsultantFormMode(button.dataset.action === 'view-consultant' ? 'view' : 'edit');
-    drawTimeline(ui.consultantAvailabilityChart, [consultant]);
+    drawTimeline(ui.consultantAvailabilityChart, [consultant], { centerOnCurrentWeek: ui.centerCurrentWeekToggle.checked });
     renderConsultantDaysOffList(consultant);
     showManageConsultantsPanel();
     updateTextFields();
@@ -863,6 +910,14 @@ if (!isBrowserRuntime) {
     } catch (error) {
       toast(error.message || 'Failed to delete day off type', 'red darken-1');
     }
+  });
+
+
+  ui.centerCurrentWeekToggle.addEventListener('change', () => {
+    drawTimeline(ui.availabilityChart, consultants, { centerOnCurrentWeek: ui.centerCurrentWeekToggle.checked });
+    const consultantId = Number(fields.consultantId.value);
+    const consultant = consultantId ? findConsultantById(consultantId) : null;
+    drawTimeline(ui.consultantAvailabilityChart, consultant ? [consultant] : [], { centerOnCurrentWeek: ui.centerCurrentWeekToggle.checked });
   });
 
   ui.navMenu.addEventListener('click', (event) => {

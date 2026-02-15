@@ -100,7 +100,17 @@
               </table>
             </div>
             <p id="consultants-empty-state" class="center-align grey-text text-darken-1 empty-message">No consultants yet. Add one from the form.</p>
-            <h6>Availability Timeline (Current Year)</h6>
+            <div class="section-header timeline-header-row">
+              <h6>Availability Timeline</h6>
+              <div class="switch">
+                <label>
+                  Full year
+                  <input type="checkbox" id="center-current-week-toggle" />
+                  <span class="lever"></span>
+                  ±6 months around today
+                </label>
+              </div>
+            </div>
             <div id="availability-chart" class="availability-chart"></div>
           </div>
         </div>
