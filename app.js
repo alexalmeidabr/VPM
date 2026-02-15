@@ -57,7 +57,9 @@ if (!isBrowserRuntime) {
     consultantCount: document.getElementById('consultant-count'),
     consultantsEmptyState: document.getElementById('consultants-empty-state'),
     availabilityChart: document.getElementById('availability-chart'),
-    centerCurrentWeekToggle: document.getElementById('center-current-week-toggle'),
+    timelinePrevYearBtn: document.getElementById('timeline-prev-year-btn'),
+    timelineNextYearBtn: document.getElementById('timeline-next-year-btn'),
+    timelineSelectedYear: document.getElementById('timeline-selected-year'),
 
     showConsultantFormBtn: document.getElementById('show-consultant-form-btn'),
     consultantFormCard: document.getElementById('consultant-form-card'),
@@ -121,6 +123,7 @@ if (!isBrowserRuntime) {
   let selectedProjectAssignments = [];
   let modalSelectedAreaId = '';
   let modalTempConsultantIds = [];
+  let selectedTimelineYear = new Date().getFullYear();
 
   const toast = (message, classes = 'blue-grey darken-2') => window.M?.toast && M.toast({ html: message, classes });
   const updateTextFields = () => window.M?.updateTextFields && M.updateTextFields();
@@ -166,50 +169,32 @@ if (!isBrowserRuntime) {
     return monday;
   };
 
-  const startOfWeekMonday = (date) => {
-    const day = date.getDay() || 7;
-    const monday = new Date(date);
-    monday.setHours(0, 0, 0, 0);
-    monday.setDate(date.getDate() - day + 1);
-    return monday;
+  const isoWeekNumber = (date) => {
+    const target = new Date(date);
+    target.setHours(0, 0, 0, 0);
+    target.setDate(target.getDate() + 4 - (target.getDay() || 7));
+    const yearStart = new Date(target.getFullYear(), 0, 1);
+    return Math.ceil((((target - yearStart) / 86400000) + 1) / 7);
   };
 
-  const buildTimelineWeeks = (centered) => {
-    if (!centered) {
-      const year = new Date().getFullYear();
-      return Array.from({ length: 52 }, (_, index) => {
-        const week = index + 1;
-        return { weekNumber: week, monday: mondayForWeek(year, week) };
-      });
-    }
+  const isoWeeksInYear = (year) => isoWeekNumber(new Date(year, 11, 28));
 
-    const currentMonday = startOfWeekMonday(new Date());
-    const weeks = [];
-    for (let offset = -26; offset <= 26; offset += 1) {
-      const monday = new Date(currentMonday);
-      monday.setDate(currentMonday.getDate() + offset * 7);
-      const jan4 = new Date(monday.getFullYear(), 0, 4);
-      const jan4Day = jan4.getDay() || 7;
-      const week1Monday = new Date(jan4);
-      week1Monday.setDate(jan4.getDate() - jan4Day + 1);
-      const weekNumber = Math.floor((monday - week1Monday) / (7 * 24 * 60 * 60 * 1000)) + 1;
-      weeks.push({ weekNumber, monday });
-    }
-    return weeks;
+  const buildTimelineWeeks = (year) => {
+    const totalWeeks = isoWeeksInYear(year);
+    return Array.from({ length: totalWeeks }, (_, index) => {
+      const week = index + 1;
+      return { weekNumber: week, monday: mondayForWeek(year, week) };
+    });
   };
 
   const drawTimeline = (container, consultantsToRender, options = {}) => {
-    const centered = Boolean(options.centerOnCurrentWeek);
-    const weeks = buildTimelineWeeks(centered);
+    const year = options.year || new Date().getFullYear();
+    const weeks = buildTimelineWeeks(year);
     container.innerHTML = '';
 
     const yearLabel = document.createElement('div');
     yearLabel.className = 'timeline-year-label';
-    if (centered) {
-      yearLabel.textContent = `Window: ${weeks[0].monday.getFullYear()}-${String(weeks[0].monday.getMonth() + 1).padStart(2, '0')} to ${weeks[weeks.length - 1].monday.getFullYear()}-${String(weeks[weeks.length - 1].monday.getMonth() + 1).padStart(2, '0')}`;
-    } else {
-      yearLabel.textContent = `Year: ${weeks[0].monday.getFullYear()}`;
-    }
+    yearLabel.textContent = `Year ${year}`;
     container.appendChild(yearLabel);
 
     const legend = document.createElement('div');
@@ -549,10 +534,19 @@ if (!isBrowserRuntime) {
     fields.consultantId.value = '';
     rebuildConsultantSelects();
     setConsultantFormMode('edit');
-    drawTimeline(ui.consultantAvailabilityChart, [], { centerOnCurrentWeek: ui.centerCurrentWeekToggle.checked });
+    drawTimeline(ui.consultantAvailabilityChart, [], { year: selectedTimelineYear });
     renderConsultantDaysOffList(null);
     showConsultantsPanel();
     updateTextFields();
+  };
+
+
+  const refreshTimelines = () => {
+    if (ui.timelineSelectedYear) ui.timelineSelectedYear.textContent = selectedTimelineYear;
+    drawTimeline(ui.availabilityChart, consultants, { year: selectedTimelineYear });
+    const consultantId = Number(fields.consultantId.value);
+    const consultant = consultantId ? findConsultantById(consultantId) : null;
+    drawTimeline(ui.consultantAvailabilityChart, consultant ? [consultant] : [], { year: selectedTimelineYear });
   };
 
   const loadAll = async () => {
@@ -573,7 +567,7 @@ if (!isBrowserRuntime) {
     renderProjects();
     renderConsultants();
     renderAdminLists();
-    drawTimeline(ui.availabilityChart, consultants, { centerOnCurrentWeek: ui.centerCurrentWeekToggle.checked });
+    refreshTimelines();
     rebuildProjectSelects({ managerId: fields.managerId.value });
     rebuildConsultantSelects({ areaIds: selectedIds(fields.consultantAreaIds), companyRoleId: fields.consultantCompanyRoleId.value });
     rebuildAssignmentModalSelects();
@@ -761,7 +755,7 @@ if (!isBrowserRuntime) {
       });
       await loadAll();
       const consultant = findConsultantById(consultantId);
-      drawTimeline(ui.consultantAvailabilityChart, consultant ? [consultant] : [], { centerOnCurrentWeek: ui.centerCurrentWeekToggle.checked });
+      drawTimeline(ui.consultantAvailabilityChart, consultant ? [consultant] : [], { year: selectedTimelineYear });
       renderConsultantDaysOffList(consultant);
       modals.daysOff?.close();
       toast('Days off added', 'teal darken-1');
@@ -834,7 +828,7 @@ if (!isBrowserRuntime) {
     fields.consultantSalary.value = consultant.salary;
     rebuildConsultantSelects({ areaIds: consultant.areaIds || [], companyRoleId: consultant.companyRoleId || '' });
     setConsultantFormMode(button.dataset.action === 'view-consultant' ? 'view' : 'edit');
-    drawTimeline(ui.consultantAvailabilityChart, [consultant], { centerOnCurrentWeek: ui.centerCurrentWeekToggle.checked });
+    drawTimeline(ui.consultantAvailabilityChart, [consultant], { year: selectedTimelineYear });
     renderConsultantDaysOffList(consultant);
     showManageConsultantsPanel();
     updateTextFields();
@@ -913,12 +907,16 @@ if (!isBrowserRuntime) {
   });
 
 
-  ui.centerCurrentWeekToggle.addEventListener('change', () => {
-    drawTimeline(ui.availabilityChart, consultants, { centerOnCurrentWeek: ui.centerCurrentWeekToggle.checked });
-    const consultantId = Number(fields.consultantId.value);
-    const consultant = consultantId ? findConsultantById(consultantId) : null;
-    drawTimeline(ui.consultantAvailabilityChart, consultant ? [consultant] : [], { centerOnCurrentWeek: ui.centerCurrentWeekToggle.checked });
+  ui.timelinePrevYearBtn?.addEventListener('click', () => {
+    selectedTimelineYear -= 1;
+    refreshTimelines();
   });
+
+  ui.timelineNextYearBtn?.addEventListener('click', () => {
+    selectedTimelineYear += 1;
+    refreshTimelines();
+  });
+
 
   ui.navMenu.addEventListener('click', (event) => {
     const item = event.target.closest('li[data-section]');

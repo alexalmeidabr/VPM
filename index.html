@@ -102,13 +102,10 @@
             <p id="consultants-empty-state" class="center-align grey-text text-darken-1 empty-message">No consultants yet. Add one from the form.</p>
             <div class="section-header timeline-header-row">
               <h6>Availability Timeline</h6>
-              <div class="switch">
-                <label>
-                  Full year
-                  <input type="checkbox" id="center-current-week-toggle" />
-                  <span class="lever"></span>
-                  ±6 months around today
-                </label>
+              <div class="timeline-year-controls">
+                <button class="btn-flat" id="timeline-prev-year-btn" type="button" aria-label="Previous year"><i class="material-icons">chevron_left</i></button>
+                <span id="timeline-selected-year" class="timeline-selected-year"></span>
+                <button class="btn-flat" id="timeline-next-year-btn" type="button" aria-label="Next year"><i class="material-icons">chevron_right</i></button>
               </div>
             </div>
             <div id="availability-chart" class="availability-chart"></div>
