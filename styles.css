@@ -29,13 +29,14 @@ body { min-height: 100vh; }
 .member-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 0.5rem; }
 .member-meta { font-size: 0.9rem; color: #546e7a; }
 
-.timeline-year-label { font-size: 0.9rem; font-weight: 600; color: #455a64; margin-bottom: 0.35rem; text-align: center; }
 .timeline-header-row h6 { margin: 0; }
+.timeline-center-toggle { margin-left: auto; }
 
-.timeline-year-controls { display: flex; align-items: center; gap: 0.25rem; margin-left: auto; }
-.timeline-year-controls .btn-flat { min-width: 2rem; padding: 0 0.35rem; }
-.timeline-year-controls .material-icons { font-size: 1.25rem; }
-.timeline-selected-year { font-size: 1rem; font-weight: 600; color: #37474f; min-width: 3.5rem; text-align: center; }
+.timeline-year-controls-row { display: flex; align-items: center; justify-content: center; gap: 0.2rem; min-width: 1160px; margin-bottom: 0.35rem; }
+.timeline-year-label { font-size: 1rem; font-weight: 600; color: #455a64; min-width: 4rem; text-align: center; margin: 0; }
+.timeline-nav-btn { min-width: 2rem; padding: 0 0.3rem; }
+.timeline-nav-btn .material-icons { font-size: 1.25rem; }
+.inline-info-icon { font-size: 0.9rem; vertical-align: middle; margin-left: 0.2rem; color: #607d8b; cursor: help; }
 
 .availability-chart { border: 1px solid #cfd8dc; border-radius: 8px; overflow-x: auto; padding: 0.5rem; margin-bottom: 1rem; }
 .availability-month-header, .availability-week-header, .availability-row { display: grid; gap: 2px; min-width: 1160px; }

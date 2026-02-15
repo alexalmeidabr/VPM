@@ -57,9 +57,7 @@ if (!isBrowserRuntime) {
     consultantCount: document.getElementById('consultant-count'),
     consultantsEmptyState: document.getElementById('consultants-empty-state'),
     availabilityChart: document.getElementById('availability-chart'),
-    timelinePrevYearBtn: document.getElementById('timeline-prev-year-btn'),
-    timelineNextYearBtn: document.getElementById('timeline-next-year-btn'),
-    timelineSelectedYear: document.getElementById('timeline-selected-year'),
+    centerCurrentWeekToggle: document.getElementById('center-current-week-toggle'),
 
     showConsultantFormBtn: document.getElementById('show-consultant-form-btn'),
     consultantFormCard: document.getElementById('consultant-form-card'),
@@ -169,6 +167,14 @@ if (!isBrowserRuntime) {
     return monday;
   };
 
+  const startOfWeekMonday = (date) => {
+    const day = date.getDay() || 7;
+    const monday = new Date(date);
+    monday.setHours(0, 0, 0, 0);
+    monday.setDate(date.getDate() - day + 1);
+    return monday;
+  };
+
   const isoWeekNumber = (date) => {
     const target = new Date(date);
     target.setHours(0, 0, 0, 0);
@@ -179,7 +185,16 @@ if (!isBrowserRuntime) {
 
   const isoWeeksInYear = (year) => isoWeekNumber(new Date(year, 11, 28));
 
-  const buildTimelineWeeks = (year) => {
+  const buildTimelineWeeks = ({ year, centered }) => {
+    if (centered) {
+      const currentMonday = startOfWeekMonday(new Date());
+      return Array.from({ length: 53 }, (_, index) => {
+        const monday = new Date(currentMonday);
+        monday.setDate(currentMonday.getDate() + (index - 26) * 7);
+        return { weekNumber: isoWeekNumber(monday), monday };
+      });
+    }
+
     const totalWeeks = isoWeeksInYear(year);
     return Array.from({ length: totalWeeks }, (_, index) => {
       const week = index + 1;
@@ -187,15 +202,48 @@ if (!isBrowserRuntime) {
     });
   };
 
+  const timelineTitle = ({ year, centered, weeks }) => {
+    if (!centered) return `${year}`;
+    const startYear = weeks[0]?.monday.getFullYear();
+    const endYear = weeks[weeks.length - 1]?.monday.getFullYear();
+    return startYear === endYear ? `${startYear}` : `${startYear}–${endYear}`;
+  };
+
   const drawTimeline = (container, consultantsToRender, options = {}) => {
     const year = options.year || new Date().getFullYear();
-    const weeks = buildTimelineWeeks(year);
+    const centered = Boolean(options.centerOnCurrentWeek);
+    const weeks = buildTimelineWeeks({ year, centered });
     container.innerHTML = '';
 
-    const yearLabel = document.createElement('div');
-    yearLabel.className = 'timeline-year-label';
-    yearLabel.textContent = `Year ${year}`;
-    container.appendChild(yearLabel);
+    if (options.showYearNavigation) {
+      const yearControls = document.createElement('div');
+      yearControls.className = 'timeline-year-controls-row';
+
+      const prevButton = document.createElement('button');
+      prevButton.className = 'btn-flat timeline-nav-btn';
+      prevButton.type = 'button';
+      prevButton.dataset.action = 'prev-year';
+      prevButton.disabled = centered;
+      prevButton.setAttribute('aria-label', 'Previous year');
+      prevButton.innerHTML = '<i class="material-icons">chevron_left</i>';
+      yearControls.appendChild(prevButton);
+
+      const yearLabel = document.createElement('div');
+      yearLabel.className = 'timeline-year-label';
+      yearLabel.textContent = timelineTitle({ year, centered, weeks });
+      yearControls.appendChild(yearLabel);
+
+      const nextButton = document.createElement('button');
+      nextButton.className = 'btn-flat timeline-nav-btn';
+      nextButton.type = 'button';
+      nextButton.dataset.action = 'next-year';
+      nextButton.disabled = centered;
+      nextButton.setAttribute('aria-label', 'Next year');
+      nextButton.innerHTML = '<i class="material-icons">chevron_right</i>';
+      yearControls.appendChild(nextButton);
+
+      container.appendChild(yearControls);
+    }
 
     const legend = document.createElement('div');
     legend.className = 'legend';
@@ -212,8 +260,6 @@ if (!isBrowserRuntime) {
       span.textContent = 'No days off recorded yet.';
       legend.appendChild(span);
     }
-    container.appendChild(legend);
-
     const columns = `170px repeat(${weeks.length}, 18px)`;
 
     const monthHeader = document.createElement('div');
@@ -238,6 +284,7 @@ if (!isBrowserRuntime) {
       weekHeader.appendChild(cell);
     });
     container.appendChild(weekHeader);
+    container.appendChild(legend);
 
     consultantsToRender.forEach((consultant) => {
       const row = document.createElement('div');
@@ -534,7 +581,7 @@ if (!isBrowserRuntime) {
     fields.consultantId.value = '';
     rebuildConsultantSelects();
     setConsultantFormMode('edit');
-    drawTimeline(ui.consultantAvailabilityChart, [], { year: selectedTimelineYear });
+    drawTimeline(ui.consultantAvailabilityChart, [], { year: selectedTimelineYear, centerOnCurrentWeek: Boolean(ui.centerCurrentWeekToggle?.checked) });
     renderConsultantDaysOffList(null);
     showConsultantsPanel();
     updateTextFields();
@@ -542,11 +589,11 @@ if (!isBrowserRuntime) {
 
 
   const refreshTimelines = () => {
-    if (ui.timelineSelectedYear) ui.timelineSelectedYear.textContent = selectedTimelineYear;
-    drawTimeline(ui.availabilityChart, consultants, { year: selectedTimelineYear });
+    const centerOnCurrentWeek = Boolean(ui.centerCurrentWeekToggle?.checked);
+    drawTimeline(ui.availabilityChart, consultants, { year: selectedTimelineYear, centerOnCurrentWeek, showYearNavigation: true });
     const consultantId = Number(fields.consultantId.value);
     const consultant = consultantId ? findConsultantById(consultantId) : null;
-    drawTimeline(ui.consultantAvailabilityChart, consultant ? [consultant] : [], { year: selectedTimelineYear });
+    drawTimeline(ui.consultantAvailabilityChart, consultant ? [consultant] : [], { year: selectedTimelineYear, centerOnCurrentWeek });
   };
 
   const loadAll = async () => {
@@ -755,7 +802,7 @@ if (!isBrowserRuntime) {
       });
       await loadAll();
       const consultant = findConsultantById(consultantId);
-      drawTimeline(ui.consultantAvailabilityChart, consultant ? [consultant] : [], { year: selectedTimelineYear });
+      drawTimeline(ui.consultantAvailabilityChart, consultant ? [consultant] : [], { year: selectedTimelineYear, centerOnCurrentWeek: Boolean(ui.centerCurrentWeekToggle?.checked) });
       renderConsultantDaysOffList(consultant);
       modals.daysOff?.close();
       toast('Days off added', 'teal darken-1');
@@ -828,7 +875,7 @@ if (!isBrowserRuntime) {
     fields.consultantSalary.value = consultant.salary;
     rebuildConsultantSelects({ areaIds: consultant.areaIds || [], companyRoleId: consultant.companyRoleId || '' });
     setConsultantFormMode(button.dataset.action === 'view-consultant' ? 'view' : 'edit');
-    drawTimeline(ui.consultantAvailabilityChart, [consultant], { year: selectedTimelineYear });
+    drawTimeline(ui.consultantAvailabilityChart, [consultant], { year: selectedTimelineYear, centerOnCurrentWeek: Boolean(ui.centerCurrentWeekToggle?.checked) });
     renderConsultantDaysOffList(consultant);
     showManageConsultantsPanel();
     updateTextFields();
@@ -907,15 +954,17 @@ if (!isBrowserRuntime) {
   });
 
 
-  ui.timelinePrevYearBtn?.addEventListener('click', () => {
-    selectedTimelineYear -= 1;
+  ui.availabilityChart.addEventListener('click', (event) => {
+    const button = event.target.closest('button[data-action]');
+    if (!button) return;
+    if (ui.centerCurrentWeekToggle?.checked) return;
+
+    if (button.dataset.action === 'prev-year') selectedTimelineYear -= 1;
+    if (button.dataset.action === 'next-year') selectedTimelineYear += 1;
     refreshTimelines();
   });
 
-  ui.timelineNextYearBtn?.addEventListener('click', () => {
-    selectedTimelineYear += 1;
-    refreshTimelines();
-  });
+  ui.centerCurrentWeekToggle?.addEventListener('change', refreshTimelines);
 
 
   ui.navMenu.addEventListener('click', (event) => {

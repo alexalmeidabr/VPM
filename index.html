@@ -95,17 +95,20 @@
             <p class="grey-text" id="consultant-count"></p>
             <div class="table-container">
               <table class="striped responsive-table">
-                <thead><tr><th>Name</th><th>Area</th><th>Company Role</th><th>Salary</th><th>Actions</th></tr></thead>
+                <thead><tr><th>Name</th><th>Area</th><th>Company Role</th><th>Monthly Internal Cost</th><th>Actions</th></tr></thead>
                 <tbody id="consultants-body"></tbody>
               </table>
             </div>
             <p id="consultants-empty-state" class="center-align grey-text text-darken-1 empty-message">No consultants yet. Add one from the form.</p>
             <div class="section-header timeline-header-row">
               <h6>Availability Timeline</h6>
-              <div class="timeline-year-controls">
-                <button class="btn-flat" id="timeline-prev-year-btn" type="button" aria-label="Previous year"><i class="material-icons">chevron_left</i></button>
-                <span id="timeline-selected-year" class="timeline-selected-year"></span>
-                <button class="btn-flat" id="timeline-next-year-btn" type="button" aria-label="Next year"><i class="material-icons">chevron_right</i></button>
+              <div class="switch timeline-center-toggle">
+                <label>
+                  Full year
+                  <input type="checkbox" id="center-current-week-toggle" />
+                  <span class="lever"></span>
+                  Center on current date
+                </label>
               </div>
             </div>
             <div id="availability-chart" class="availability-chart"></div>
@@ -124,7 +127,7 @@
               <div class="input-field"><input id="consultant-name" type="text" required /><label for="consultant-name">Name</label></div>
               <div class="input-field"><select id="consultant-area-ids" multiple required></select><label for="consultant-area-ids">Area</label></div>
               <div class="input-field"><select id="consultant-company-role-id" required></select><label for="consultant-company-role-id">Company Role</label></div>
-              <div class="input-field"><input id="consultant-salary" type="number" min="0" step="0.01" required /><label for="consultant-salary">Salary</label></div>
+              <div class="input-field"><input id="consultant-salary" type="number" min="0" step="0.01" required /><label for="consultant-salary">Monthly Internal Cost <i class="material-icons tiny inline-info-icon" tabindex="0" title="Internal cost includes direct compensation, employer taxes/social charges, and benefits.">info_outline</i></label></div>
               <div class="action-row"><button type="button" class="btn blue-grey" id="open-days-off-modal-btn">Add Days Off</button></div>
               <div class="card-action action-row">
                 <button class="btn waves-effect waves-light" type="submit" id="consultant-save-btn">Save Consultant<i class="material-icons right">save</i></button>
