@@ -39,63 +39,13 @@
           <div id="projects-section">
             <div class="card">
               <div class="card-content">
-                <span class="card-title" id="project-form-title">Manage Project</span>
-                <form id="project-form">
-                  <input type="hidden" id="project-id" />
-
-                  <div class="input-field">
-                    <input id="project-name" name="projectName" type="text" required />
-                    <label for="project-name">Project Name</label>
-                  </div>
-
-                  <div class="input-field">
-                    <input id="client-name" name="clientName" type="text" required />
-                    <label for="client-name">Client Name</label>
-                  </div>
-
-                  <div class="input-field">
-                    <input id="project-lead" name="projectLead" type="text" required />
-                    <label for="project-lead">Project Lead (Our Side)</label>
-                  </div>
-
-                  <div class="input-field">
-                    <input id="client-contact" name="clientContact" type="text" required />
-                    <label for="client-contact">Client Contact</label>
-                  </div>
-
-                  <div class="row date-row">
-                    <div class="input-field col s12 m6">
-                      <input id="start-date" name="startDate" type="date" required />
-                      <label class="active" for="start-date">Start Date</label>
-                    </div>
-                    <div class="input-field col s12 m6">
-                      <input id="end-date" name="endDate" type="date" required />
-                      <label class="active" for="end-date">End Date</label>
-                    </div>
-                  </div>
-
-                  <div class="input-field">
-                    <select id="consultant-ids" name="consultantIds" multiple></select>
-                    <label>Assigned Consultants</label>
-                    <span class="helper-text">Select one or more consultants from the consultants you created.</span>
-                  </div>
-
-                  <div class="card-action action-row">
-                    <button class="btn waves-effect waves-light" type="submit">
-                      Save Project
-                      <i class="material-icons right">save</i>
-                    </button>
-                    <button class="btn-flat" type="button" id="project-cancel-edit-btn" hidden>
-                      Cancel Edit
-                    </button>
-                  </div>
-                </form>
-              </div>
-            </div>
-
-            <div class="card">
-              <div class="card-content">
-                <span class="card-title">Project Register</span>
+                <div class="section-header">
+                  <span class="card-title">Projects</span>
+                  <button class="btn waves-effect waves-light" id="show-project-form-btn" type="button">
+                    Add a New Project
+                    <i class="material-icons right">add</i>
+                  </button>
+                </div>
                 <p class="grey-text" id="project-count"></p>
                 <div class="table-container">
                   <table class="striped responsive-table">
@@ -103,7 +53,7 @@
                       <tr>
                         <th>Project</th>
                         <th>Client</th>
-                        <th>Lead</th>
+                        <th>Manager</th>
                         <th>Client Contact</th>
                         <th>Dates</th>
                         <th>Consultants</th>
@@ -114,8 +64,76 @@
                   </table>
                 </div>
                 <p id="projects-empty-state" class="center-align grey-text text-darken-1 empty-message">
-                  No projects yet. Add your first project from the form.
+                  No projects yet. Add your first project.
                 </p>
+              </div>
+            </div>
+
+            <div class="card" id="project-form-card" hidden>
+              <div class="card-content">
+                <div class="section-header">
+                  <span class="card-title" id="project-form-title">Manage Project</span>
+                </div>
+                <form id="project-form">
+                  <input type="hidden" id="project-id" />
+
+                  <div class="row form-layout-row">
+                    <div class="col s12 m8">
+                      <div class="input-field">
+                        <input id="project-name" name="projectName" type="text" required />
+                        <label for="project-name">Project Name</label>
+                      </div>
+
+                      <div class="input-field">
+                        <input id="client-name" name="clientName" type="text" required />
+                        <label for="client-name">Client Name</label>
+                      </div>
+
+                      <div class="input-field">
+                        <select id="manager-consultant-id" name="managerConsultantId" required></select>
+                        <label for="manager-consultant-id">Manager</label>
+                      </div>
+
+                      <div class="input-field">
+                        <input id="client-contact" name="clientContact" type="text" required />
+                        <label for="client-contact">Client Contact</label>
+                      </div>
+
+                      <div class="row date-row">
+                        <div class="input-field col s12 m6">
+                          <input id="start-date" name="startDate" type="date" required />
+                          <label class="active" for="start-date">Start Date</label>
+                        </div>
+                        <div class="input-field col s12 m6">
+                          <input id="end-date" name="endDate" type="date" required />
+                          <label class="active" for="end-date">End Date</label>
+                        </div>
+                      </div>
+
+                      <div class="input-field">
+                        <select id="consultant-ids" name="consultantIds" multiple></select>
+                        <label>Assigned Consultants</label>
+                      </div>
+                    </div>
+
+                    <div class="col s12 m4">
+                      <div class="card-panel members-panel">
+                        <h6 class="members-title">Project Members</h6>
+                        <ul id="project-members-list" class="members-list browser-default"></ul>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div class="card-action action-row">
+                    <button class="btn waves-effect waves-light" type="submit">
+                      Save Project
+                      <i class="material-icons right">save</i>
+                    </button>
+                    <button class="btn-flat" type="button" id="project-cancel-edit-btn">
+                      Cancel
+                    </button>
+                  </div>
+                </form>
               </div>
             </div>
           </div>

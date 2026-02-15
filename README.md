@@ -4,21 +4,23 @@ This starter feature includes SQLite-backed management for both projects and con
 
 ## Included capabilities
 
-- **Projects section** with form title **Manage Project**
+- Left-side navigation menu:
+  - Projects
+  - Consultants
+- **Projects** view with list + actions and an **Add a New Project** workflow
+- **Manage Project** form (shown on demand) with:
   - Project name
   - Client name
-  - Project lead
+  - Manager (selected from existing consultants)
   - Client contact
   - Start date / End date
-  - Assign one or more consultants to each project
-- **Consultants section** with form title **Manage Consultants**
+  - Assigned consultants (project members)
+  - Project Members side panel showing selected consultants
+- **Manage Consultants** section with fields:
   - Name
   - Area
   - Position
   - Salary
-- Left-side navigation menu:
-  - Projects
-  - Consultants
 - Full CRUD for projects and consultants
 - SQLite persistence (`projects.db`)
 

@@ -3,37 +3,38 @@ const isBrowserRuntime = typeof window !== 'undefined' && typeof document !== 'u
 if (!isBrowserRuntime) {
   console.warn('This script is intended for browser usage. Open index.html in a browser to run the app.');
 } else {
-  const defaultApiOrigin = window.location.origin?.startsWith('http')
-    ? window.location.origin
-    : 'http://localhost:8000';
-  const apiOrigin = window.localStorage.getItem('vpmApiOrigin') || defaultApiOrigin;
-  const apiBase = apiOrigin.replace(/\/$/, '');
+  const apiBase = (window.localStorage.getItem('vpmApiOrigin') || window.location.origin || 'http://localhost:8000').replace(/\/$/, '');
 
   const sections = {
     projects: document.getElementById('projects-section'),
     consultants: document.getElementById('consultants-section')
   };
 
+  const navMenu = document.getElementById('nav-menu');
+
+  const projectFormCard = document.getElementById('project-form-card');
   const projectFormTitle = document.getElementById('project-form-title');
+  const showProjectFormBtn = document.getElementById('show-project-form-btn');
   const projectForm = document.getElementById('project-form');
   const projectCancelEditBtn = document.getElementById('project-cancel-edit-btn');
   const projectCount = document.getElementById('project-count');
-  const projectBody = document.getElementById('projects-body');
+  const projectsBody = document.getElementById('projects-body');
   const projectsEmptyState = document.getElementById('projects-empty-state');
   const consultantMultiSelect = document.getElementById('consultant-ids');
+  const managerSelect = document.getElementById('manager-consultant-id');
+  const projectMembersList = document.getElementById('project-members-list');
 
-  const consultantFormTitle = document.getElementById('consultant-form-title');
   const consultantForm = document.getElementById('consultant-form');
+  const consultantFormTitle = document.getElementById('consultant-form-title');
   const consultantCancelEditBtn = document.getElementById('consultant-cancel-edit-btn');
   const consultantCount = document.getElementById('consultant-count');
-  const consultantBody = document.getElementById('consultants-body');
+  const consultantsBody = document.getElementById('consultants-body');
   const consultantsEmptyState = document.getElementById('consultants-empty-state');
 
   const projectFields = {
     id: document.getElementById('project-id'),
     projectName: document.getElementById('project-name'),
     clientName: document.getElementById('client-name'),
-    projectLead: document.getElementById('project-lead'),
     clientContact: document.getElementById('client-contact'),
     startDate: document.getElementById('start-date'),
     endDate: document.getElementById('end-date')
@@ -49,7 +50,8 @@ if (!isBrowserRuntime) {
 
   let projects = [];
   let consultants = [];
-  let consultantSelectInstance = null;
+  let managerSelectInstance = null;
+  let membersSelectInstance = null;
 
   const showToast = (message, classes = 'blue-grey darken-2') => {
     if (window.M && typeof M.toast === 'function') {
@@ -61,14 +63,6 @@ if (!isBrowserRuntime) {
     if (window.M && typeof M.updateTextFields === 'function') {
       M.updateTextFields();
     }
-  };
-
-  const toFriendlyError = (error, fallback) => {
-    if (error instanceof TypeError) {
-      return 'Unable to reach project API. Start server.py and check API origin.';
-    }
-
-    return error?.message || fallback;
   };
 
   const formatDate = (value) => {
@@ -85,50 +79,124 @@ if (!isBrowserRuntime) {
     return amount.toLocaleString(undefined, { style: 'currency', currency: 'USD' });
   };
 
-  const getConsultantNames = (consultantIds = []) => {
-    if (!consultantIds.length) {
-      return '—';
+  const toFriendlyError = (error, fallback) => {
+    if (error instanceof TypeError) {
+      return 'Unable to reach API. Start server.py and refresh the page.';
     }
 
-    const names = consultantIds
-      .map((id) => consultants.find((item) => Number(item.id) === Number(id))?.name)
-      .filter(Boolean);
-
-    return names.length ? names.join(', ') : '—';
+    return error?.message || fallback;
   };
 
-  const rebuildConsultantSelect = (selectedIds = []) => {
+  const request = async (path, options = {}) => {
+    const response = await fetch(`${apiBase}${path}`, options);
+    if (!response.ok) {
+      const payload = await response.json().catch(() => ({ error: 'Unexpected error' }));
+      throw new Error(payload.error || 'Request failed');
+    }
+
+    if (response.status === 204) {
+      return null;
+    }
+
+    return response.json();
+  };
+
+  const findConsultantName = (id) => consultants.find((item) => Number(item.id) === Number(id))?.name || '—';
+
+  const selectedMemberIds = () => Array.from(consultantMultiSelect.selectedOptions).map((option) => Number(option.value));
+
+  const updateProjectMembersPanel = () => {
+    const ids = selectedMemberIds();
+    projectMembersList.innerHTML = '';
+
+    if (!ids.length) {
+      const li = document.createElement('li');
+      li.textContent = 'No consultants assigned yet.';
+      projectMembersList.appendChild(li);
+      return;
+    }
+
+    ids.forEach((id) => {
+      const li = document.createElement('li');
+      li.textContent = findConsultantName(id);
+      projectMembersList.appendChild(li);
+    });
+  };
+
+  const rebuildConsultantSelectors = (selectedManagerId = '', selectedMemberIdList = []) => {
+    managerSelect.innerHTML = '<option value="" disabled selected>Select a manager</option>';
     consultantMultiSelect.innerHTML = '';
 
     consultants.forEach((consultant) => {
-      const option = document.createElement('option');
-      option.value = consultant.id;
-      option.textContent = `${consultant.name} • ${consultant.area}`;
-      option.selected = selectedIds.includes(Number(consultant.id));
-      consultantMultiSelect.appendChild(option);
+      const managerOption = document.createElement('option');
+      managerOption.value = consultant.id;
+      managerOption.textContent = consultant.name;
+      if (Number(selectedManagerId) === Number(consultant.id)) {
+        managerOption.selected = true;
+      }
+      managerSelect.appendChild(managerOption);
+
+      const memberOption = document.createElement('option');
+      memberOption.value = consultant.id;
+      memberOption.textContent = `${consultant.name} • ${consultant.area}`;
+      memberOption.selected = selectedMemberIdList.map(Number).includes(Number(consultant.id));
+      consultantMultiSelect.appendChild(memberOption);
     });
 
-    if (consultantSelectInstance) {
-      consultantSelectInstance.destroy();
+    if (managerSelectInstance) {
+      managerSelectInstance.destroy();
+    }
+
+    if (membersSelectInstance) {
+      membersSelectInstance.destroy();
     }
 
     if (window.M && M.FormSelect) {
-      consultantSelectInstance = M.FormSelect.init(consultantMultiSelect);
+      managerSelectInstance = M.FormSelect.init(managerSelect);
+      membersSelectInstance = M.FormSelect.init(consultantMultiSelect);
     }
+
+    updateProjectMembersPanel();
   };
 
-  const refreshProjectView = () => {
-    projectBody.innerHTML = '';
+  const showProjectForm = () => {
+    projectFormCard.hidden = false;
+  };
+
+  const hideProjectForm = () => {
+    projectFormCard.hidden = true;
+  };
+
+  const resetProjectForm = () => {
+    projectForm.reset();
+    projectFields.id.value = '';
+    projectFormTitle.textContent = 'Manage Project';
+    rebuildConsultantSelectors();
+    hideProjectForm();
+    refreshTextFields();
+  };
+
+  const resetConsultantForm = () => {
+    consultantForm.reset();
+    consultantFields.id.value = '';
+    consultantFormTitle.textContent = 'Manage Consultants';
+    consultantCancelEditBtn.hidden = true;
+    refreshTextFields();
+  };
+
+  const refreshProjectsView = () => {
+    projectsBody.innerHTML = '';
 
     projects.forEach((project) => {
       const row = document.createElement('tr');
+      const memberNames = (project.consultantIds || []).map(findConsultantName).filter((name) => name !== '—');
       row.innerHTML = `
         <td>${project.projectName}</td>
         <td>${project.clientName}</td>
-        <td>${project.projectLead}</td>
+        <td>${findConsultantName(project.managerConsultantId)}</td>
         <td>${project.clientContact}</td>
         <td><span class="chip">${formatDate(project.startDate)} → ${formatDate(project.endDate)}</span></td>
-        <td>${getConsultantNames(project.consultantIds)}</td>
+        <td>${memberNames.length ? memberNames.join(', ') : '—'}</td>
         <td>
           <button class="btn-flat blue-text text-darken-2" data-action="edit-project" data-id="${project.id}">
             <i class="material-icons tiny">edit</i>
@@ -138,15 +206,15 @@ if (!isBrowserRuntime) {
           </button>
         </td>
       `;
-      projectBody.appendChild(row);
+      projectsBody.appendChild(row);
     });
 
     projectCount.textContent = `${projects.length} project${projects.length === 1 ? '' : 's'} tracked`;
     projectsEmptyState.hidden = projects.length > 0;
   };
 
-  const refreshConsultantView = () => {
-    consultantBody.innerHTML = '';
+  const refreshConsultantsView = () => {
+    consultantsBody.innerHTML = '';
 
     consultants.forEach((consultant) => {
       const row = document.createElement('tr');
@@ -164,7 +232,7 @@ if (!isBrowserRuntime) {
           </button>
         </td>
       `;
-      consultantBody.appendChild(row);
+      consultantsBody.appendChild(row);
     });
 
     consultantCount.textContent = `${consultants.length} consultant${consultants.length === 1 ? '' : 's'} tracked`;
@@ -178,56 +246,23 @@ if (!isBrowserRuntime) {
     document.querySelectorAll('#nav-menu .collection-item').forEach((item) => {
       item.classList.toggle('active', item.dataset.section === section);
     });
-  };
 
-  const resetProjectForm = () => {
-    projectForm.reset();
-    projectFields.id.value = '';
-    projectFormTitle.textContent = 'Manage Project';
-    projectCancelEditBtn.hidden = true;
-    rebuildConsultantSelect();
-    refreshTextFields();
-  };
-
-  const resetConsultantForm = () => {
-    consultantForm.reset();
-    consultantFields.id.value = '';
-    consultantFormTitle.textContent = 'Manage Consultants';
-    consultantCancelEditBtn.hidden = true;
-    refreshTextFields();
-  };
-
-  const validateDates = (startDate, endDate) => {
-    if (startDate > endDate) {
-      showToast('Start date cannot be after end date', 'red darken-1');
-      return false;
+    if (section === 'projects') {
+      hideProjectForm();
     }
-    return true;
-  };
-
-  const request = async (path, options = {}) => {
-    const response = await fetch(`${apiBase}${path}`, options);
-    if (!response.ok) {
-      const body = await response.json().catch(() => ({ error: 'Unexpected error' }));
-      throw new Error(body.error || 'Request failed');
-    }
-    if (response.status === 204) {
-      return null;
-    }
-    return response.json();
   };
 
   const loadConsultants = async () => {
     const data = await request('/api/consultants');
     consultants = data.consultants || [];
-    refreshConsultantView();
-    rebuildConsultantSelect();
+    refreshConsultantsView();
+    rebuildConsultantSelectors();
   };
 
   const loadProjects = async () => {
     const data = await request('/api/projects');
     projects = data.projects || [];
-    refreshProjectView();
+    refreshProjectsView();
   };
 
   const loadAll = async () => {
@@ -235,28 +270,41 @@ if (!isBrowserRuntime) {
     await loadProjects();
   };
 
+  showProjectFormBtn.addEventListener('click', () => {
+    resetProjectForm();
+    showProjectForm();
+  });
+
+  consultantMultiSelect.addEventListener('change', updateProjectMembersPanel);
+
   projectForm.addEventListener('submit', async (event) => {
     event.preventDefault();
 
     const payload = {
       projectName: projectFields.projectName.value.trim(),
       clientName: projectFields.clientName.value.trim(),
-      projectLead: projectFields.projectLead.value.trim(),
+      managerConsultantId: Number(managerSelect.value),
       clientContact: projectFields.clientContact.value.trim(),
       startDate: projectFields.startDate.value,
       endDate: projectFields.endDate.value,
-      consultantIds: Array.from(consultantMultiSelect.selectedOptions).map((option) => Number(option.value))
+      consultantIds: selectedMemberIds()
     };
 
-    if (!validateDates(payload.startDate, payload.endDate)) {
+    if (payload.startDate > payload.endDate) {
+      showToast('Start date cannot be after end date', 'red darken-1');
       return;
     }
 
-    const projectId = projectFields.id.value;
-    const isEdit = Boolean(projectId);
+    if (!payload.managerConsultantId) {
+      showToast('Manager is required', 'red darken-1');
+      return;
+    }
+
+    const isEdit = Boolean(projectFields.id.value);
+    const endpoint = isEdit ? `/api/projects/${projectFields.id.value}` : '/api/projects';
 
     try {
-      await request(isEdit ? `/api/projects/${projectId}` : '/api/projects', {
+      await request(endpoint, {
         method: isEdit ? 'PUT' : 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
@@ -279,11 +327,11 @@ if (!isBrowserRuntime) {
       salary: consultantFields.salary.value
     };
 
-    const consultantId = consultantFields.id.value;
-    const isEdit = Boolean(consultantId);
+    const isEdit = Boolean(consultantFields.id.value);
+    const endpoint = isEdit ? `/api/consultants/${consultantFields.id.value}` : '/api/consultants';
 
     try {
-      await request(isEdit ? `/api/consultants/${consultantId}` : '/api/consultants', {
+      await request(endpoint, {
         method: isEdit ? 'PUT' : 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
@@ -299,7 +347,7 @@ if (!isBrowserRuntime) {
   projectCancelEditBtn.addEventListener('click', resetProjectForm);
   consultantCancelEditBtn.addEventListener('click', resetConsultantForm);
 
-  projectBody.addEventListener('click', async (event) => {
+  projectsBody.addEventListener('click', async (event) => {
     const actionButton = event.target.closest('button[data-action]');
     if (!actionButton) {
       return;
@@ -315,7 +363,6 @@ if (!isBrowserRuntime) {
       try {
         await request(`/api/projects/${id}`, { method: 'DELETE' });
         await loadProjects();
-        resetProjectForm();
         showToast('Project removed', 'orange darken-2');
       } catch (error) {
         showToast(toFriendlyError(error, 'Failed to delete project'), 'red darken-1');
@@ -326,17 +373,16 @@ if (!isBrowserRuntime) {
     projectFields.id.value = project.id;
     projectFields.projectName.value = project.projectName;
     projectFields.clientName.value = project.clientName;
-    projectFields.projectLead.value = project.projectLead;
     projectFields.clientContact.value = project.clientContact;
     projectFields.startDate.value = project.startDate;
     projectFields.endDate.value = project.endDate;
     projectFormTitle.textContent = 'Manage Project';
-    projectCancelEditBtn.hidden = false;
-    rebuildConsultantSelect((project.consultantIds || []).map(Number));
+    rebuildConsultantSelectors(project.managerConsultantId, project.consultantIds || []);
     refreshTextFields();
+    showProjectForm();
   });
 
-  consultantBody.addEventListener('click', async (event) => {
+  consultantsBody.addEventListener('click', async (event) => {
     const actionButton = event.target.closest('button[data-action]');
     if (!actionButton) {
       return;
@@ -352,7 +398,6 @@ if (!isBrowserRuntime) {
       try {
         await request(`/api/consultants/${id}`, { method: 'DELETE' });
         await loadAll();
-        resetConsultantForm();
         showToast('Consultant removed', 'orange darken-2');
       } catch (error) {
         showToast(toFriendlyError(error, 'Failed to delete consultant'), 'red darken-1');
@@ -370,16 +415,16 @@ if (!isBrowserRuntime) {
     refreshTextFields();
   });
 
-  document.getElementById('nav-menu').addEventListener('click', (event) => {
-    const menuItem = event.target.closest('li[data-section]');
-    if (!menuItem) {
+  navMenu.addEventListener('click', (event) => {
+    const item = event.target.closest('li[data-section]');
+    if (!item) {
       return;
     }
-    setSection(menuItem.dataset.section);
+
+    setSection(item.dataset.section);
   });
 
   setSection('projects');
-  loadAll().catch((error) => {
-    showToast(toFriendlyError(error, 'Unable to load data from server'), 'red darken-1');
-  });
+  resetProjectForm();
+  loadAll().catch((error) => showToast(toFriendlyError(error, 'Unable to load data'), 'red darken-1'));
 }

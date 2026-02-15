@@ -17,6 +17,13 @@ def get_connection():
   return conn
 
 
+def ensure_manager_column(conn):
+  columns = conn.execute('PRAGMA table_info(projects)').fetchall()
+  column_names = {column['name'] for column in columns}
+  if 'manager_consultant_id' not in column_names:
+    conn.execute('ALTER TABLE projects ADD COLUMN manager_consultant_id INTEGER')
+
+
 def init_db():
   with get_connection() as conn:
     conn.executescript(
@@ -34,10 +41,11 @@ def init_db():
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         project_name TEXT NOT NULL,
         client_name TEXT NOT NULL,
-        project_lead TEXT NOT NULL,
+        project_lead TEXT,
         client_contact TEXT NOT NULL,
         start_date TEXT NOT NULL,
         end_date TEXT NOT NULL,
+        manager_consultant_id INTEGER,
         created_at TEXT DEFAULT CURRENT_TIMESTAMP
       );
 
@@ -50,6 +58,7 @@ def init_db():
       );
       '''
     )
+    ensure_manager_column(conn)
 
 
 class VPMHandler(SimpleHTTPRequestHandler):
@@ -89,7 +98,7 @@ class VPMHandler(SimpleHTTPRequestHandler):
     return None
 
   def _project_payload_error(self, payload):
-    required = ['projectName', 'clientName', 'projectLead', 'clientContact', 'startDate', 'endDate']
+    required = ['projectName', 'clientName', 'clientContact', 'startDate', 'endDate', 'managerConsultantId']
     for field in required:
       value = str(payload.get(field, '')).strip()
       if not value:
@@ -102,8 +111,9 @@ class VPMHandler(SimpleHTTPRequestHandler):
 
     try:
       payload['consultantIds'] = [int(item) for item in consultant_ids]
+      payload['managerConsultantId'] = int(payload['managerConsultantId'])
     except (TypeError, ValueError):
-      return 'consultantIds must contain numeric IDs'
+      return 'managerConsultantId and consultantIds must be numeric IDs'
 
     if payload['startDate'] > payload['endDate']:
       return 'startDate cannot be after endDate'
@@ -132,19 +142,22 @@ class VPMHandler(SimpleHTTPRequestHandler):
     if not consultant_ids:
       return True
 
-    placeholders = ','.join(['?'] * len(consultant_ids))
+    unique_ids = sorted(set(consultant_ids))
+    placeholders = ','.join(['?'] * len(unique_ids))
     row = conn.execute(
       f'SELECT COUNT(*) AS total FROM consultants WHERE id IN ({placeholders})',
-      consultant_ids
+      unique_ids
     ).fetchone()
-    return row['total'] == len(set(consultant_ids))
+    return row['total'] == len(unique_ids)
 
   def _fetch_projects(self, conn):
     rows = conn.execute(
       '''
-      SELECT id, project_name, client_name, project_lead, client_contact, start_date, end_date
-      FROM projects
-      ORDER BY created_at DESC, id DESC
+      SELECT p.id, p.project_name, p.client_name, p.client_contact, p.start_date, p.end_date,
+             p.manager_consultant_id, c.name AS manager_name
+      FROM projects p
+      LEFT JOIN consultants c ON c.id = p.manager_consultant_id
+      ORDER BY p.created_at DESC, p.id DESC
       '''
     ).fetchall()
 
@@ -159,10 +172,11 @@ class VPMHandler(SimpleHTTPRequestHandler):
           'id': row['id'],
           'projectName': row['project_name'],
           'clientName': row['client_name'],
-          'projectLead': row['project_lead'],
           'clientContact': row['client_contact'],
           'startDate': row['start_date'],
           'endDate': row['end_date'],
+          'managerConsultantId': row['manager_consultant_id'],
+          'managerName': row['manager_name'],
           'consultantIds': [item['consultant_id'] for item in consultant_rows]
         }
       )
@@ -218,18 +232,19 @@ class VPMHandler(SimpleHTTPRequestHandler):
         return
 
       with get_connection() as conn:
-        if not self._consultant_ids_exist(conn, payload['consultantIds']):
-          self._send_json({'error': 'One or more consultants do not exist'}, HTTPStatus.BAD_REQUEST)
+        if not self._consultant_ids_exist(conn, payload['consultantIds'] + [payload['managerConsultantId']]):
+          self._send_json({'error': 'Manager or members include unknown consultant IDs'}, HTTPStatus.BAD_REQUEST)
           return
 
         cursor = conn.execute(
           '''
-          INSERT INTO projects (project_name, client_name, project_lead, client_contact, start_date, end_date)
-          VALUES (?, ?, ?, ?, ?, ?)
+          INSERT INTO projects (
+            project_name, client_name, client_contact, start_date, end_date, manager_consultant_id
+          ) VALUES (?, ?, ?, ?, ?, ?)
           ''',
           (
-            payload['projectName'], payload['clientName'], payload['projectLead'], payload['clientContact'],
-            payload['startDate'], payload['endDate']
+            payload['projectName'], payload['clientName'], payload['clientContact'], payload['startDate'],
+            payload['endDate'], payload['managerConsultantId']
           )
         )
         project_id = cursor.lastrowid
@@ -254,9 +269,7 @@ class VPMHandler(SimpleHTTPRequestHandler):
           'INSERT INTO consultants (name, area, position, salary) VALUES (?, ?, ?, ?)',
           (payload['name'], payload['area'], payload['position'], payload['salary'])
         )
-        consultant_id = cursor.lastrowid
-
-      self._send_json({'id': consultant_id}, HTTPStatus.CREATED)
+      self._send_json({'id': cursor.lastrowid}, HTTPStatus.CREATED)
       return
 
     self.send_error(HTTPStatus.NOT_FOUND)
@@ -278,19 +291,19 @@ class VPMHandler(SimpleHTTPRequestHandler):
         return
 
       with get_connection() as conn:
-        if not self._consultant_ids_exist(conn, payload['consultantIds']):
-          self._send_json({'error': 'One or more consultants do not exist'}, HTTPStatus.BAD_REQUEST)
+        if not self._consultant_ids_exist(conn, payload['consultantIds'] + [payload['managerConsultantId']]):
+          self._send_json({'error': 'Manager or members include unknown consultant IDs'}, HTTPStatus.BAD_REQUEST)
           return
 
         cursor = conn.execute(
           '''
           UPDATE projects
-          SET project_name = ?, client_name = ?, project_lead = ?, client_contact = ?, start_date = ?, end_date = ?
+          SET project_name = ?, client_name = ?, client_contact = ?, start_date = ?, end_date = ?, manager_consultant_id = ?
           WHERE id = ?
           ''',
           (
-            payload['projectName'], payload['clientName'], payload['projectLead'], payload['clientContact'],
-            payload['startDate'], payload['endDate'], project_id
+            payload['projectName'], payload['clientName'], payload['clientContact'], payload['startDate'],
+            payload['endDate'], payload['managerConsultantId'], project_id
           )
         )
 
@@ -299,10 +312,10 @@ class VPMHandler(SimpleHTTPRequestHandler):
           return
 
         conn.execute('DELETE FROM project_consultants WHERE project_id = ?', (project_id,))
-        for linked_consultant_id in sorted(set(payload['consultantIds'])):
+        for linked_id in sorted(set(payload['consultantIds'])):
           conn.execute(
             'INSERT INTO project_consultants (project_id, consultant_id) VALUES (?, ?)',
-            (project_id, linked_consultant_id)
+            (project_id, linked_id)
           )
 
       self._send_json({'status': 'updated'})
