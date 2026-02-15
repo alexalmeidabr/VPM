@@ -3,7 +3,11 @@ const isBrowserRuntime = typeof window !== 'undefined' && typeof document !== 'u
 if (!isBrowserRuntime) {
   console.warn('This script is intended for browser usage. Open index.html in a browser to run the app.');
 } else {
-  const apiBase = (window.localStorage.getItem('vpmApiOrigin') || window.location.origin || 'http://localhost:8000').replace(/\/$/, '');
+  const configuredApiOrigin = (window.localStorage.getItem('vpmApiOrigin') || '').trim();
+  const originLooksHttp = window.location.origin && /^https?:\/\//.test(window.location.origin);
+  const defaultApiOrigin = originLooksHttp ? window.location.origin : 'http://localhost:8000';
+  const primaryApiBase = (configuredApiOrigin || defaultApiOrigin).replace(/\/$/, '');
+  const fallbackApiBase = 'http://localhost:8000';
 
   const sections = {
     projects: document.getElementById('projects-section'),
@@ -81,14 +85,28 @@ if (!isBrowserRuntime) {
 
   const toFriendlyError = (error, fallback) => {
     if (error instanceof TypeError) {
-      return 'Unable to reach API. Start server.py and refresh the page.';
+      return 'Unable to reach API. Check that server.py is running on port 8000.';
     }
 
     return error?.message || fallback;
   };
 
   const request = async (path, options = {}) => {
-    const response = await fetch(`${apiBase}${path}`, options);
+    const execute = async (baseUrl) => fetch(`${baseUrl}${path}`, options);
+
+    let response;
+    try {
+      response = await execute(primaryApiBase);
+    } catch (error) {
+      const shouldFallback = error instanceof TypeError && primaryApiBase !== fallbackApiBase;
+      if (!shouldFallback) {
+        throw error;
+      }
+
+      response = await execute(fallbackApiBase);
+      window.localStorage.setItem('vpmApiOrigin', fallbackApiBase);
+      showToast('Connected using fallback API origin: http://localhost:8000', 'blue darken-2');
+    }
     if (!response.ok) {
       const payload = await response.json().catch(() => ({ error: 'Unexpected error' }));
       throw new Error(payload.error || 'Request failed');

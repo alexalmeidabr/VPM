@@ -38,3 +38,8 @@ Then open `http://localhost:8000`.
 - `PUT/DELETE /api/projects/:id`
 - `GET/POST /api/consultants`
 - `PUT/DELETE /api/consultants/:id`
+
+## Troubleshooting
+
+- If you ever see API connectivity errors while `server.py` is running, refresh the page.
+- The app now automatically falls back to `http://localhost:8000` when a saved API origin is unreachable.
