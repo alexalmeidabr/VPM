@@ -4,10 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Project Manager Starter</title>
-    <link
-      rel="stylesheet"
-      href="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/css/materialize.min.css"
-    />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/css/materialize.min.css" />
     <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet" />
     <link rel="stylesheet" href="styles.css" />
   </head>
@@ -37,45 +34,46 @@
 
         <section class="col s12 l9">
           <div id="projects-section">
-            <div class="card">
-              <div class="card-content">
-                <div class="section-header">
-                  <span class="card-title">Projects</span>
-                  <button class="btn waves-effect waves-light" id="show-project-form-btn" type="button">
-                    Add a New Project
-                    <i class="material-icons right">add</i>
-                  </button>
+            <div class="row">
+              <div class="col s12 m8">
+                <div class="card">
+                  <div class="card-content">
+                    <div class="section-header">
+                      <span class="card-title">Projects</span>
+                      <button class="btn waves-effect waves-light" id="show-project-form-btn" type="button">
+                        Add a New Project
+                        <i class="material-icons right">add</i>
+                      </button>
+                    </div>
+                    <p class="grey-text" id="project-count"></p>
+                    <div class="table-container">
+                      <table class="striped responsive-table">
+                        <thead>
+                          <tr>
+                            <th>Project</th>
+                            <th>Client</th>
+                            <th>Manager</th>
+                            <th>Type</th>
+                            <th>Client Contact</th>
+                            <th>Dates</th>
+                            <th>Actions</th>
+                          </tr>
+                        </thead>
+                        <tbody id="projects-body"></tbody>
+                      </table>
+                    </div>
+                    <p id="projects-empty-state" class="center-align grey-text text-darken-1 empty-message">
+                      No projects yet. Add your first project.
+                    </p>
+                  </div>
                 </div>
-                <p class="grey-text" id="project-count"></p>
-                <div class="table-container">
-                  <table class="striped responsive-table">
-                    <thead>
-                      <tr>
-                        <th>Project</th>
-                        <th>Client</th>
-                        <th>Manager</th>
-                        <th>Client Contact</th>
-                        <th>Dates</th>
-                        <th>Consultants</th>
-                        <th>Actions</th>
-                      </tr>
-                    </thead>
-                    <tbody id="projects-body"></tbody>
-                  </table>
-                </div>
-                <p id="projects-empty-state" class="center-align grey-text text-darken-1 empty-message">
-                  No projects yet. Add your first project.
-                </p>
-              </div>
-            </div>
 
-            <div class="card" id="project-form-card" hidden>
-              <div class="card-content">
-                <span class="card-title" id="project-form-title">Manage Project</span>
-                <form id="project-form">
-                  <input type="hidden" id="project-id" />
-                  <div class="row form-layout-row">
-                    <div class="col s12 m8">
+                <div class="card" id="project-form-card" hidden>
+                  <div class="card-content">
+                    <span class="card-title" id="project-form-title">Manage Project</span>
+                    <form id="project-form">
+                      <input type="hidden" id="project-id" />
+
                       <div class="input-field">
                         <input id="project-name" type="text" required />
                         <label for="project-name">Project Name</label>
@@ -84,6 +82,15 @@
                       <div class="input-field">
                         <input id="client-name" type="text" required />
                         <label for="client-name">Client Name</label>
+                      </div>
+
+                      <div class="input-field">
+                        <select id="project-type" required>
+                          <option value="" disabled selected>Select type</option>
+                          <option value="Time Material">Time Material</option>
+                          <option value="Fixed Price">Fixed Price</option>
+                        </select>
+                        <label for="project-type">Type</label>
                       </div>
 
                       <div class="input-field">
@@ -108,26 +115,34 @@
                       </div>
 
                       <div class="input-field">
+                        <select id="member-area-filter"></select>
+                        <label for="member-area-filter">Member Area</label>
+                      </div>
+
+                      <div class="input-field">
                         <select id="consultant-ids" multiple></select>
                         <label>Assigned Consultants</label>
                       </div>
-                    </div>
-                    <div class="col s12 m4">
-                      <div class="card-panel members-panel">
-                        <h6 class="members-title">Project Members</h6>
-                        <ul id="project-members-list" class="members-list browser-default"></ul>
-                      </div>
-                    </div>
-                  </div>
 
-                  <div class="card-action action-row">
-                    <button class="btn waves-effect waves-light" type="submit">
-                      Save Project
-                      <i class="material-icons right">save</i>
-                    </button>
-                    <button class="btn-flat" type="button" id="project-cancel-edit-btn">Cancel</button>
+                      <div class="card-action action-row">
+                        <button class="btn waves-effect waves-light" type="submit" id="project-save-btn">
+                          Save Project
+                          <i class="material-icons right">save</i>
+                        </button>
+                        <button class="btn-flat" type="button" id="project-cancel-edit-btn">Cancel</button>
+                      </div>
+                    </form>
                   </div>
-                </form>
+                </div>
+              </div>
+
+              <div class="col s12 m4">
+                <div class="card sticky-members-panel">
+                  <div class="card-content">
+                    <span class="card-title">Project Members</span>
+                    <ul id="project-members-list" class="members-list browser-default"></ul>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
@@ -135,44 +150,13 @@
           <div id="consultants-section" hidden>
             <div class="card">
               <div class="card-content">
-                <span class="card-title" id="consultant-form-title">Manage Consultants</span>
-                <form id="consultant-form">
-                  <input type="hidden" id="consultant-id" />
-
-                  <div class="input-field">
-                    <input id="consultant-name" type="text" required />
-                    <label for="consultant-name">Name</label>
-                  </div>
-
-                  <div class="input-field">
-                    <select id="consultant-area-id" required></select>
-                    <label for="consultant-area-id">Area</label>
-                  </div>
-
-                  <div class="input-field">
-                    <select id="consultant-role-ids" multiple required></select>
-                    <label for="consultant-role-ids">Role</label>
-                  </div>
-
-                  <div class="input-field">
-                    <input id="consultant-salary" type="number" min="0" step="0.01" required />
-                    <label for="consultant-salary">Salary</label>
-                  </div>
-
-                  <div class="card-action action-row">
-                    <button class="btn waves-effect waves-light" type="submit">
-                      Save Consultant
-                      <i class="material-icons right">save</i>
-                    </button>
-                    <button class="btn-flat" type="button" id="consultant-cancel-edit-btn" hidden>Cancel Edit</button>
-                  </div>
-                </form>
-              </div>
-            </div>
-
-            <div class="card">
-              <div class="card-content">
-                <span class="card-title">Consultants Register</span>
+                <div class="section-header">
+                  <span class="card-title">Consultants</span>
+                  <button class="btn waves-effect waves-light" id="show-consultant-form-btn" type="button">
+                    Add New Consultant
+                    <i class="material-icons right">add</i>
+                  </button>
+                </div>
                 <p class="grey-text" id="consultant-count"></p>
                 <div class="table-container">
                   <table class="striped responsive-table">
@@ -191,6 +175,43 @@
                 <p id="consultants-empty-state" class="center-align grey-text text-darken-1 empty-message">
                   No consultants yet. Add one from the form.
                 </p>
+              </div>
+            </div>
+
+            <div class="card" id="consultant-form-card" hidden>
+              <div class="card-content">
+                <span class="card-title" id="consultant-form-title">Manage Consultants</span>
+                <form id="consultant-form">
+                  <input type="hidden" id="consultant-id" />
+
+                  <div class="input-field">
+                    <input id="consultant-name" type="text" required />
+                    <label for="consultant-name">Name</label>
+                  </div>
+
+                  <div class="input-field">
+                    <select id="consultant-area-ids" multiple required></select>
+                    <label for="consultant-area-ids">Area</label>
+                  </div>
+
+                  <div class="input-field">
+                    <select id="consultant-role-ids" multiple required></select>
+                    <label for="consultant-role-ids">Role</label>
+                  </div>
+
+                  <div class="input-field">
+                    <input id="consultant-salary" type="number" min="0" step="0.01" required />
+                    <label for="consultant-salary">Salary</label>
+                  </div>
+
+                  <div class="card-action action-row">
+                    <button class="btn waves-effect waves-light" type="submit">
+                      Save Consultant
+                      <i class="material-icons right">save</i>
+                    </button>
+                    <button class="btn-flat" type="button" id="consultant-cancel-edit-btn">Cancel</button>
+                  </div>
+                </form>
               </div>
             </div>
           </div>

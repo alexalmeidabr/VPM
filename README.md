@@ -1,28 +1,34 @@
 # VPM Starter Feature: Project & Consultant Management
 
-This starter feature includes SQLite-backed management for projects, consultants, and administration lists.
+This starter feature includes SQLite-backed management for projects, consultants, and administration catalogs.
 
 ## Included capabilities
 
 - Left-side navigation menu:
   - Projects
   - Consultants
-  - Mass Update (menu placeholder)
-  - Authorization (menu placeholder)
+  - Mass Update (placeholder)
+  - Authorization (placeholder)
   - Administration
-- Projects workflow with on-demand **Manage Project** form
-- Manager selected from existing consultants
-- Project members panel and assignments
-- Manage Consultants with:
-  - Name
-  - Area (from Administration Areas list)
-  - Role (multi-select from Administration Roles list)
-  - Salary
-- Administration maintenance:
-  - Manage Roles list
-  - Manage Areas list
-- Initial preloaded Roles and Areas
-- SQLite persistence (`projects.db`)
+- Projects panel with:
+  - table view
+  - `View` action (read-only Manage Project mode)
+  - `Add a New Project` workflow
+- Manage Project form includes:
+  - Project name
+  - Client name
+  - Type (`Time Material`, `Fixed Price`)
+  - Manager (only consultants with role `Project Manager`)
+  - Client contact
+  - Start / End date
+  - Member area filter + consultant assignment by area
+- Project Members panel stays on the right side and shows member name + role(s)
+- Consultants panel with hidden-by-default Manage Consultants form and `Add New Consultant` button
+- Manage Consultants supports:
+  - multiple Areas per consultant
+  - multiple Roles per consultant
+- Administration supports maintaining Roles and Areas lists
+- Initial seeded roles and areas are created automatically
 
 ## Run locally
 

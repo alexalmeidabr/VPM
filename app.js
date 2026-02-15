@@ -16,54 +16,64 @@ if (!isBrowserRuntime) {
     administration: document.getElementById('administration-section')
   };
 
-  const navMenu = document.getElementById('nav-menu');
-  const projectFormCard = document.getElementById('project-form-card');
-  const projectForm = document.getElementById('project-form');
-  const showProjectFormBtn = document.getElementById('show-project-form-btn');
-  const projectCancelEditBtn = document.getElementById('project-cancel-edit-btn');
-  const projectsBody = document.getElementById('projects-body');
-  const projectCount = document.getElementById('project-count');
-  const projectsEmptyState = document.getElementById('projects-empty-state');
-  const managerSelect = document.getElementById('manager-consultant-id');
-  const membersSelect = document.getElementById('consultant-ids');
-  const projectMembersList = document.getElementById('project-members-list');
+  const ui = {
+    navMenu: document.getElementById('nav-menu'),
 
-  const consultantForm = document.getElementById('consultant-form');
-  const consultantCancelEditBtn = document.getElementById('consultant-cancel-edit-btn');
-  const consultantsBody = document.getElementById('consultants-body');
-  const consultantCount = document.getElementById('consultant-count');
-  const consultantsEmptyState = document.getElementById('consultants-empty-state');
-  const consultantAreaSelect = document.getElementById('consultant-area-id');
-  const consultantRolesSelect = document.getElementById('consultant-role-ids');
+    projectsBody: document.getElementById('projects-body'),
+    projectCount: document.getElementById('project-count'),
+    projectsEmptyState: document.getElementById('projects-empty-state'),
+    showProjectFormBtn: document.getElementById('show-project-form-btn'),
+    projectFormCard: document.getElementById('project-form-card'),
+    projectForm: document.getElementById('project-form'),
+    projectFormTitle: document.getElementById('project-form-title'),
+    projectSaveBtn: document.getElementById('project-save-btn'),
+    projectCancelEditBtn: document.getElementById('project-cancel-edit-btn'),
+    projectMembersList: document.getElementById('project-members-list'),
 
-  const roleForm = document.getElementById('role-form');
-  const areaForm = document.getElementById('area-form');
-  const rolesList = document.getElementById('roles-list');
-  const areasList = document.getElementById('areas-list');
+    consultantsBody: document.getElementById('consultants-body'),
+    consultantCount: document.getElementById('consultant-count'),
+    consultantsEmptyState: document.getElementById('consultants-empty-state'),
+    showConsultantFormBtn: document.getElementById('show-consultant-form-btn'),
+    consultantFormCard: document.getElementById('consultant-form-card'),
+    consultantForm: document.getElementById('consultant-form'),
+    consultantFormTitle: document.getElementById('consultant-form-title'),
+    consultantCancelEditBtn: document.getElementById('consultant-cancel-edit-btn'),
+
+    roleForm: document.getElementById('role-form'),
+    areaForm: document.getElementById('area-form'),
+    rolesList: document.getElementById('roles-list'),
+    areasList: document.getElementById('areas-list')
+  };
 
   const fields = {
     projectId: document.getElementById('project-id'),
     projectName: document.getElementById('project-name'),
     clientName: document.getElementById('client-name'),
+    projectType: document.getElementById('project-type'),
+    managerId: document.getElementById('manager-consultant-id'),
     clientContact: document.getElementById('client-contact'),
     startDate: document.getElementById('start-date'),
     endDate: document.getElementById('end-date'),
+    memberAreaFilter: document.getElementById('member-area-filter'),
+    memberIds: document.getElementById('consultant-ids'),
+
     consultantId: document.getElementById('consultant-id'),
     consultantName: document.getElementById('consultant-name'),
+    consultantAreaIds: document.getElementById('consultant-area-ids'),
+    consultantRoleIds: document.getElementById('consultant-role-ids'),
     consultantSalary: document.getElementById('consultant-salary'),
+
     roleName: document.getElementById('role-name'),
     areaName: document.getElementById('area-name')
   };
+
+  const selectInstances = {};
 
   let projects = [];
   let consultants = [];
   let roles = [];
   let areas = [];
-
-  let managerSelectInstance;
-  let memberSelectInstance;
-  let consultantAreaSelectInstance;
-  let consultantRolesSelectInstance;
+  let projectViewMode = 'edit';
 
   const toast = (message, classes = 'blue-grey darken-2') => {
     if (window.M?.toast) {
@@ -85,8 +95,9 @@ if (!isBrowserRuntime) {
   };
 
   const request = async (path, options = {}) => {
-    const call = async (base) => fetch(`${base}${path}`, options);
+    const call = async (baseUrl) => fetch(`${baseUrl}${path}`, options);
     let response;
+
     try {
       response = await call(primaryApiBase);
     } catch (error) {
@@ -102,16 +113,13 @@ if (!isBrowserRuntime) {
       throw new Error(payload.error || 'Request failed');
     }
 
-    if (response.status === 204) {
-      return null;
-    }
-
-    return response.json();
+    return response.status === 204 ? null : response.json();
   };
 
-  const consultantNameById = (id) => consultants.find((c) => Number(c.id) === Number(id))?.name || '—';
-  const areaNameById = (id) => areas.find((a) => Number(a.id) === Number(id))?.name || '—';
-  const roleNameById = (id) => roles.find((r) => Number(r.id) === Number(id))?.name || '—';
+  const findConsultantById = (id) => consultants.find((consultant) => Number(consultant.id) === Number(id));
+  const consultantNameById = (id) => findConsultantById(id)?.name || '—';
+  const areaNameById = (id) => areas.find((area) => Number(area.id) === Number(id))?.name || '—';
+  const roleNameById = (id) => roles.find((role) => Number(role.id) === Number(id))?.name || '—';
 
   const formatDate = (value) => {
     const date = new Date(value);
@@ -120,95 +128,115 @@ if (!isBrowserRuntime) {
 
   const formatSalary = (value) => Number(value).toLocaleString(undefined, { style: 'currency', currency: 'USD' });
 
-  const selectedIds = (selectEl) => Array.from(selectEl.selectedOptions).map((option) => Number(option.value));
+  const selectedIds = (selectEl) => Array.from(selectEl.selectedOptions).map((opt) => Number(opt.value));
+
+  const resetSelect = (key, element) => {
+    if (selectInstances[key]) {
+      selectInstances[key].destroy();
+    }
+    if (window.M?.FormSelect) {
+      selectInstances[key] = M.FormSelect.init(element);
+    }
+  };
+
+  const managerCandidates = () => consultants.filter((consultant) => (consultant.roles || []).includes('Project Manager'));
+
+  const consultantsByMemberArea = () => {
+    const areaId = Number(fields.memberAreaFilter.value);
+    if (!areaId) {
+      return consultants;
+    }
+    return consultants.filter((consultant) => (consultant.areaIds || []).map(Number).includes(areaId));
+  };
 
   const updateProjectMembersPanel = () => {
-    const ids = selectedIds(membersSelect);
-    projectMembersList.innerHTML = '';
+    const ids = selectedIds(fields.memberIds);
+    ui.projectMembersList.innerHTML = '';
+
     if (!ids.length) {
-      projectMembersList.innerHTML = '<li>No consultants assigned yet.</li>';
+      ui.projectMembersList.innerHTML = '<li>No consultants assigned yet.</li>';
       return;
     }
+
     ids.forEach((id) => {
-      const li = document.createElement('li');
-      li.textContent = consultantNameById(id);
-      projectMembersList.appendChild(li);
-    });
-  };
-
-  const resetSelectInstances = () => {
-    [managerSelectInstance, memberSelectInstance, consultantAreaSelectInstance, consultantRolesSelectInstance].forEach((instance) => {
-      if (instance) {
-        instance.destroy();
+      const consultant = findConsultantById(id);
+      if (!consultant) {
+        return;
       }
+      const li = document.createElement('li');
+      const rolesText = (consultant.roles || []).length ? consultant.roles.join(', ') : 'No role';
+      li.textContent = `${consultant.name} — ${rolesText}`;
+      ui.projectMembersList.appendChild(li);
     });
   };
 
-  const rebuildSelects = (selected = {}) => {
-    managerSelect.innerHTML = '<option value="" disabled selected>Select a manager</option>';
-    membersSelect.innerHTML = '';
-    consultantAreaSelect.innerHTML = '<option value="" disabled selected>Select an area</option>';
-    consultantRolesSelect.innerHTML = '';
-
-    consultants.forEach((c) => {
-      const managerOption = new Option(c.name, c.id, false, Number(selected.managerId) === Number(c.id));
-      managerSelect.add(managerOption);
-
-      const memberOption = new Option(`${c.name} • ${c.areaName || ''}`.trim(), c.id, false, (selected.memberIds || []).map(Number).includes(Number(c.id)));
-      membersSelect.add(memberOption);
+  const rebuildProjectSelects = ({ managerId = '', memberIds = [], memberAreaId = '' } = {}) => {
+    fields.managerId.innerHTML = '<option value="" disabled selected>Select a manager</option>';
+    managerCandidates().forEach((consultant) => {
+      const option = new Option(consultant.name, consultant.id, false, Number(managerId) === Number(consultant.id));
+      fields.managerId.add(option);
     });
 
-    areas.forEach((a) => {
-      const areaOption = new Option(a.name, a.id, false, Number(selected.areaId) === Number(a.id));
-      consultantAreaSelect.add(areaOption);
+    fields.memberAreaFilter.innerHTML = '<option value="" selected>All Areas</option>';
+    areas.forEach((area) => fields.memberAreaFilter.add(new Option(area.name, area.id, false, Number(memberAreaId) === Number(area.id))));
+
+    fields.memberIds.innerHTML = '';
+    consultantsByMemberArea().forEach((consultant) => {
+      const option = new Option(consultant.name, consultant.id, false, memberIds.map(Number).includes(Number(consultant.id)));
+      fields.memberIds.add(option);
     });
 
-    roles.forEach((r) => {
-      const roleOption = new Option(r.name, r.id, false, (selected.roleIds || []).map(Number).includes(Number(r.id)));
-      consultantRolesSelect.add(roleOption);
-    });
-
-    resetSelectInstances();
-    if (window.M?.FormSelect) {
-      managerSelectInstance = M.FormSelect.init(managerSelect);
-      memberSelectInstance = M.FormSelect.init(membersSelect);
-      consultantAreaSelectInstance = M.FormSelect.init(consultantAreaSelect);
-      consultantRolesSelectInstance = M.FormSelect.init(consultantRolesSelect);
-    }
-
+    resetSelect('manager', fields.managerId);
+    resetSelect('memberArea', fields.memberAreaFilter);
+    resetSelect('members', fields.memberIds);
     updateProjectMembersPanel();
   };
 
-  const refreshProjectsView = () => {
-    projectsBody.innerHTML = '';
+  const rebuildConsultantSelects = ({ areaIds = [], roleIds = [] } = {}) => {
+    fields.consultantAreaIds.innerHTML = '';
+    areas.forEach((area) => fields.consultantAreaIds.add(new Option(area.name, area.id, false, areaIds.map(Number).includes(Number(area.id)))));
+
+    fields.consultantRoleIds.innerHTML = '';
+    roles.forEach((role) => fields.consultantRoleIds.add(new Option(role.name, role.id, false, roleIds.map(Number).includes(Number(role.id)))));
+
+    resetSelect('consultantAreas', fields.consultantAreaIds);
+    resetSelect('consultantRoles', fields.consultantRoleIds);
+    resetSelect('projectType', fields.projectType);
+  };
+
+  const renderProjects = () => {
+    ui.projectsBody.innerHTML = '';
+
     projects.forEach((project) => {
-      const memberNames = (project.consultantIds || []).map(consultantNameById).filter((n) => n !== '—');
       const row = document.createElement('tr');
       row.innerHTML = `
         <td>${project.projectName}</td>
         <td>${project.clientName}</td>
         <td>${consultantNameById(project.managerConsultantId)}</td>
+        <td>${project.projectType || '—'}</td>
         <td>${project.clientContact}</td>
         <td><span class="chip">${formatDate(project.startDate)} → ${formatDate(project.endDate)}</span></td>
-        <td>${memberNames.length ? memberNames.join(', ') : '—'}</td>
         <td>
-          <button class="btn-flat blue-text" data-action="edit-project" data-id="${project.id}"><i class="material-icons tiny">edit</i></button>
-          <button class="btn-flat red-text" data-action="delete-project" data-id="${project.id}"><i class="material-icons tiny">delete</i></button>
+          <button class="btn-flat teal-text" data-action="view-project" data-id="${project.id}" title="View"><i class="material-icons tiny">visibility</i></button>
+          <button class="btn-flat blue-text" data-action="edit-project" data-id="${project.id}" title="Edit"><i class="material-icons tiny">edit</i></button>
+          <button class="btn-flat red-text" data-action="delete-project" data-id="${project.id}" title="Delete"><i class="material-icons tiny">delete</i></button>
         </td>
       `;
-      projectsBody.appendChild(row);
+      ui.projectsBody.appendChild(row);
     });
-    projectCount.textContent = `${projects.length} project${projects.length === 1 ? '' : 's'} tracked`;
-    projectsEmptyState.hidden = projects.length > 0;
+
+    ui.projectCount.textContent = `${projects.length} project${projects.length === 1 ? '' : 's'} tracked`;
+    ui.projectsEmptyState.hidden = projects.length > 0;
   };
 
-  const refreshConsultantsView = () => {
-    consultantsBody.innerHTML = '';
+  const renderConsultants = () => {
+    ui.consultantsBody.innerHTML = '';
+
     consultants.forEach((consultant) => {
       const row = document.createElement('tr');
       row.innerHTML = `
         <td>${consultant.name}</td>
-        <td>${consultant.areaName || areaNameById(consultant.areaId)}</td>
+        <td>${(consultant.areaNames || []).join(', ') || (consultant.areaIds || []).map(areaNameById).join(', ') || '—'}</td>
         <td>${(consultant.roles || []).join(', ') || (consultant.roleIds || []).map(roleNameById).join(', ') || '—'}</td>
         <td>${formatSalary(consultant.salary)}</td>
         <td>
@@ -216,27 +244,52 @@ if (!isBrowserRuntime) {
           <button class="btn-flat red-text" data-action="delete-consultant" data-id="${consultant.id}"><i class="material-icons tiny">delete</i></button>
         </td>
       `;
-      consultantsBody.appendChild(row);
+      ui.consultantsBody.appendChild(row);
     });
-    consultantCount.textContent = `${consultants.length} consultant${consultants.length === 1 ? '' : 's'} tracked`;
-    consultantsEmptyState.hidden = consultants.length > 0;
+
+    ui.consultantCount.textContent = `${consultants.length} consultant${consultants.length === 1 ? '' : 's'} tracked`;
+    ui.consultantsEmptyState.hidden = consultants.length > 0;
   };
 
-  const refreshAdminLists = () => {
-    rolesList.innerHTML = '';
+  const renderAdminLists = () => {
+    ui.rolesList.innerHTML = '';
     roles.forEach((role) => {
       const li = document.createElement('li');
       li.className = 'collection-item';
       li.innerHTML = `${role.name}<button class="btn-flat secondary-content red-text" data-action="delete-role" data-id="${role.id}"><i class="material-icons tiny">delete</i></button>`;
-      rolesList.appendChild(li);
+      ui.rolesList.appendChild(li);
     });
 
-    areasList.innerHTML = '';
+    ui.areasList.innerHTML = '';
     areas.forEach((area) => {
       const li = document.createElement('li');
       li.className = 'collection-item';
       li.innerHTML = `${area.name}<button class="btn-flat secondary-content red-text" data-action="delete-area" data-id="${area.id}"><i class="material-icons tiny">delete</i></button>`;
-      areasList.appendChild(li);
+      ui.areasList.appendChild(li);
+    });
+  };
+
+  const setProjectFormMode = (mode) => {
+    projectViewMode = mode;
+    const readOnly = mode === 'view';
+
+    ui.projectFormTitle.textContent = readOnly ? 'Manage Project (View)' : 'Manage Project';
+    ui.projectSaveBtn.hidden = readOnly;
+
+    [fields.projectName, fields.clientName, fields.projectType, fields.managerId, fields.clientContact, fields.startDate, fields.endDate, fields.memberAreaFilter, fields.memberIds].forEach((el) => {
+      el.disabled = readOnly;
+    });
+
+    if (readOnly) {
+      ui.projectCancelEditBtn.textContent = 'Close';
+    } else {
+      ui.projectCancelEditBtn.textContent = 'Cancel';
+    }
+
+    rebuildProjectSelects({
+      managerId: fields.managerId.value,
+      memberIds: selectedIds(fields.memberIds),
+      memberAreaId: fields.memberAreaFilter.value
     });
   };
 
@@ -250,71 +303,90 @@ if (!isBrowserRuntime) {
     });
 
     if (section === 'projects') {
-      projectFormCard.hidden = true;
+      ui.projectFormCard.hidden = true;
+    }
+
+    if (section === 'consultants') {
+      ui.consultantFormCard.hidden = true;
     }
   };
 
   const resetProjectForm = () => {
-    projectForm.reset();
+    ui.projectForm.reset();
     fields.projectId.value = '';
-    rebuildSelects();
-    projectFormCard.hidden = true;
+    rebuildProjectSelects();
+    setProjectFormMode('edit');
+    ui.projectFormCard.hidden = true;
     updateTextFields();
   };
 
   const resetConsultantForm = () => {
-    consultantForm.reset();
+    ui.consultantForm.reset();
     fields.consultantId.value = '';
-    consultantCancelEditBtn.hidden = true;
-    rebuildSelects();
+    rebuildConsultantSelects();
+    ui.consultantFormTitle.textContent = 'Manage Consultants';
+    ui.consultantFormCard.hidden = true;
     updateTextFields();
-  };
-
-  const loadMeta = async () => {
-    const [rolesRes, areasRes] = await Promise.all([request('/api/roles'), request('/api/areas')]);
-    roles = rolesRes.roles || [];
-    areas = areasRes.areas || [];
-    refreshAdminLists();
-  };
-
-  const loadConsultants = async () => {
-    const response = await request('/api/consultants');
-    consultants = response.consultants || [];
-    refreshConsultantsView();
-  };
-
-  const loadProjects = async () => {
-    const response = await request('/api/projects');
-    projects = response.projects || [];
-    refreshProjectsView();
   };
 
   const loadAll = async () => {
-    await loadMeta();
-    await loadConsultants();
-    await loadProjects();
-    rebuildSelects();
+    const [projectsRes, consultantsRes, rolesRes, areasRes] = await Promise.all([
+      request('/api/projects'),
+      request('/api/consultants'),
+      request('/api/roles'),
+      request('/api/areas')
+    ]);
+
+    projects = projectsRes.projects || [];
+    consultants = consultantsRes.consultants || [];
+    roles = rolesRes.roles || [];
+    areas = areasRes.areas || [];
+
+    renderProjects();
+    renderConsultants();
+    renderAdminLists();
+    rebuildProjectSelects();
+    rebuildConsultantSelects();
   };
 
-  showProjectFormBtn.addEventListener('click', () => {
-    projectFormCard.hidden = false;
-    updateTextFields();
+  ui.showProjectFormBtn.addEventListener('click', () => {
+    resetProjectForm();
+    ui.projectFormCard.hidden = false;
   });
 
-  projectCancelEditBtn.addEventListener('click', resetProjectForm);
-  consultantCancelEditBtn.addEventListener('click', resetConsultantForm);
-  membersSelect.addEventListener('change', updateProjectMembersPanel);
+  ui.showConsultantFormBtn.addEventListener('click', () => {
+    resetConsultantForm();
+    ui.consultantFormCard.hidden = false;
+  });
 
-  projectForm.addEventListener('submit', async (event) => {
+  ui.projectCancelEditBtn.addEventListener('click', resetProjectForm);
+  ui.consultantCancelEditBtn.addEventListener('click', resetConsultantForm);
+
+  fields.memberAreaFilter.addEventListener('change', () => {
+    rebuildProjectSelects({
+      managerId: fields.managerId.value,
+      memberIds: selectedIds(fields.memberIds),
+      memberAreaId: fields.memberAreaFilter.value
+    });
+  });
+
+  fields.memberIds.addEventListener('change', updateProjectMembersPanel);
+
+  ui.projectForm.addEventListener('submit', async (event) => {
     event.preventDefault();
+    if (projectViewMode === 'view') {
+      return;
+    }
+
     const payload = {
       projectName: fields.projectName.value.trim(),
       clientName: fields.clientName.value.trim(),
-      managerConsultantId: Number(managerSelect.value),
+      projectType: fields.projectType.value,
+      managerConsultantId: Number(fields.managerId.value),
       clientContact: fields.clientContact.value.trim(),
       startDate: fields.startDate.value,
       endDate: fields.endDate.value,
-      consultantIds: selectedIds(membersSelect)
+      consultantIds: selectedIds(fields.memberIds)
     };
 
     if (payload.startDate > payload.endDate) {
@@ -322,14 +394,14 @@ if (!isBrowserRuntime) {
       return;
     }
 
-    const editing = Boolean(fields.projectId.value);
     try {
+      const editing = Boolean(fields.projectId.value);
       await request(editing ? `/api/projects/${fields.projectId.value}` : '/api/projects', {
         method: editing ? 'PUT' : 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
       });
-      await loadProjects();
+      await loadAll();
       resetProjectForm();
       toast(editing ? 'Project updated' : 'Project added', 'teal darken-1');
     } catch (error) {
@@ -337,17 +409,18 @@ if (!isBrowserRuntime) {
     }
   });
 
-  consultantForm.addEventListener('submit', async (event) => {
+  ui.consultantForm.addEventListener('submit', async (event) => {
     event.preventDefault();
+
     const payload = {
       name: fields.consultantName.value.trim(),
-      areaId: Number(consultantAreaSelect.value),
-      roleIds: selectedIds(consultantRolesSelect),
+      areaIds: selectedIds(fields.consultantAreaIds),
+      roleIds: selectedIds(fields.consultantRoleIds),
       salary: fields.consultantSalary.value
     };
 
-    const editing = Boolean(fields.consultantId.value);
     try {
+      const editing = Boolean(fields.consultantId.value);
       await request(editing ? `/api/consultants/${fields.consultantId.value}` : '/api/consultants', {
         method: editing ? 'PUT' : 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -361,50 +434,22 @@ if (!isBrowserRuntime) {
     }
   });
 
-  roleForm.addEventListener('submit', async (event) => {
-    event.preventDefault();
-    try {
-      await request('/api/roles', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: fields.roleName.value.trim() })
-      });
-      roleForm.reset();
-      await loadAll();
-      toast('Role added', 'teal darken-1');
-    } catch (error) {
-      toast(toFriendlyError(error, 'Failed to add role'), 'red darken-1');
-    }
-  });
-
-  areaForm.addEventListener('submit', async (event) => {
-    event.preventDefault();
-    try {
-      await request('/api/areas', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: fields.areaName.value.trim() })
-      });
-      areaForm.reset();
-      await loadAll();
-      toast('Area added', 'teal darken-1');
-    } catch (error) {
-      toast(toFriendlyError(error, 'Failed to add area'), 'red darken-1');
-    }
-  });
-
-  projectsBody.addEventListener('click', async (event) => {
+  ui.projectsBody.addEventListener('click', async (event) => {
     const button = event.target.closest('button[data-action]');
-    if (!button) return;
+    if (!button) {
+      return;
+    }
 
     const id = Number(button.dataset.id);
     const project = projects.find((item) => Number(item.id) === id);
-    if (!project) return;
+    if (!project) {
+      return;
+    }
 
     if (button.dataset.action === 'delete-project') {
       try {
         await request(`/api/projects/${id}`, { method: 'DELETE' });
-        await loadProjects();
+        await loadAll();
         toast('Project removed', 'orange darken-2');
       } catch (error) {
         toast(toFriendlyError(error, 'Failed to delete project'), 'red darken-1');
@@ -415,21 +460,34 @@ if (!isBrowserRuntime) {
     fields.projectId.value = project.id;
     fields.projectName.value = project.projectName;
     fields.clientName.value = project.clientName;
+    fields.projectType.value = project.projectType || '';
+    fields.managerId.value = project.managerConsultantId || '';
     fields.clientContact.value = project.clientContact;
     fields.startDate.value = project.startDate;
     fields.endDate.value = project.endDate;
-    rebuildSelects({ managerId: project.managerConsultantId, memberIds: project.consultantIds || [] });
-    projectFormCard.hidden = false;
+
+    rebuildProjectSelects({
+      managerId: project.managerConsultantId,
+      memberIds: project.consultantIds || [],
+      memberAreaId: ''
+    });
+
+    setProjectFormMode(button.dataset.action === 'view-project' ? 'view' : 'edit');
+    ui.projectFormCard.hidden = false;
     updateTextFields();
   });
 
-  consultantsBody.addEventListener('click', async (event) => {
+  ui.consultantsBody.addEventListener('click', async (event) => {
     const button = event.target.closest('button[data-action]');
-    if (!button) return;
+    if (!button) {
+      return;
+    }
 
     const id = Number(button.dataset.id);
     const consultant = consultants.find((item) => Number(item.id) === id);
-    if (!consultant) return;
+    if (!consultant) {
+      return;
+    }
 
     if (button.dataset.action === 'delete-consultant') {
       try {
@@ -445,14 +503,49 @@ if (!isBrowserRuntime) {
     fields.consultantId.value = consultant.id;
     fields.consultantName.value = consultant.name;
     fields.consultantSalary.value = consultant.salary;
-    rebuildSelects({ areaId: consultant.areaId, roleIds: consultant.roleIds || [] });
-    consultantCancelEditBtn.hidden = false;
+    rebuildConsultantSelects({ areaIds: consultant.areaIds || [], roleIds: consultant.roleIds || [] });
+    ui.consultantFormTitle.textContent = 'Manage Consultants';
+    ui.consultantFormCard.hidden = false;
     updateTextFields();
   });
 
-  rolesList.addEventListener('click', async (event) => {
+  ui.roleForm.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    try {
+      await request('/api/roles', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: fields.roleName.value.trim() })
+      });
+      ui.roleForm.reset();
+      await loadAll();
+      toast('Role added', 'teal darken-1');
+    } catch (error) {
+      toast(toFriendlyError(error, 'Failed to add role'), 'red darken-1');
+    }
+  });
+
+  ui.areaForm.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    try {
+      await request('/api/areas', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: fields.areaName.value.trim() })
+      });
+      ui.areaForm.reset();
+      await loadAll();
+      toast('Area added', 'teal darken-1');
+    } catch (error) {
+      toast(toFriendlyError(error, 'Failed to add area'), 'red darken-1');
+    }
+  });
+
+  ui.rolesList.addEventListener('click', async (event) => {
     const button = event.target.closest('button[data-action="delete-role"]');
-    if (!button) return;
+    if (!button) {
+      return;
+    }
     try {
       await request(`/api/roles/${button.dataset.id}`, { method: 'DELETE' });
       await loadAll();
@@ -462,9 +555,11 @@ if (!isBrowserRuntime) {
     }
   });
 
-  areasList.addEventListener('click', async (event) => {
+  ui.areasList.addEventListener('click', async (event) => {
     const button = event.target.closest('button[data-action="delete-area"]');
-    if (!button) return;
+    if (!button) {
+      return;
+    }
     try {
       await request(`/api/areas/${button.dataset.id}`, { method: 'DELETE' });
       await loadAll();
@@ -474,13 +569,16 @@ if (!isBrowserRuntime) {
     }
   });
 
-  navMenu.addEventListener('click', (event) => {
-    const menuItem = event.target.closest('li[data-section]');
-    if (!menuItem) return;
-    setSection(menuItem.dataset.section);
+  ui.navMenu.addEventListener('click', (event) => {
+    const item = event.target.closest('li[data-section]');
+    if (!item) {
+      return;
+    }
+    setSection(item.dataset.section);
   });
 
   setSection('projects');
   resetProjectForm();
+  resetConsultantForm();
   loadAll().catch((error) => toast(toFriendlyError(error, 'Unable to load data'), 'red darken-1'));
 }

@@ -93,3 +93,9 @@ main {
 .chip {
   margin: 0;
 }
+
+
+.sticky-members-panel {
+  position: sticky;
+  top: 1rem;
+}
