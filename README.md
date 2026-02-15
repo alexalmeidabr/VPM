@@ -13,6 +13,7 @@ This starter feature includes SQLite-backed management for projects, consultants
 - Projects panel with:
   - table view
   - `View` action (read-only Manage Project mode)
+  - horizontal action icons
   - `Add a New Project` workflow
 - Manage Project form includes:
   - Project name
@@ -22,7 +23,7 @@ This starter feature includes SQLite-backed management for projects, consultants
   - Client contact
   - Start / End date
   - Member area filter + consultant assignment by area
-- Project Members panel stays on the right side and shows member name + role(s)
+- Project Members panel stays on the right side (only while Manage Project is open) and shows member name + role(s)
 - Consultants panel with hidden-by-default Manage Consultants form and `Add New Consultant` button
 - Manage Consultants supports:
   - multiple Areas per consultant

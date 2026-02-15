@@ -29,6 +29,7 @@ if (!isBrowserRuntime) {
     projectSaveBtn: document.getElementById('project-save-btn'),
     projectCancelEditBtn: document.getElementById('project-cancel-edit-btn'),
     projectMembersList: document.getElementById('project-members-list'),
+    projectMembersCard: document.getElementById('project-members-card'),
 
     consultantsBody: document.getElementById('consultants-body'),
     consultantCount: document.getElementById('consultant-count'),
@@ -215,8 +216,8 @@ if (!isBrowserRuntime) {
         <td>${consultantNameById(project.managerConsultantId)}</td>
         <td>${project.projectType || '—'}</td>
         <td>${project.clientContact}</td>
-        <td><span class="chip">${formatDate(project.startDate)} → ${formatDate(project.endDate)}</span></td>
-        <td>
+        <td><span class="chip date-chip">${formatDate(project.startDate)} → ${formatDate(project.endDate)}</span></td>
+        <td class="actions-cell">
           <button class="btn-flat teal-text" data-action="view-project" data-id="${project.id}" title="View"><i class="material-icons tiny">visibility</i></button>
           <button class="btn-flat blue-text" data-action="edit-project" data-id="${project.id}" title="Edit"><i class="material-icons tiny">edit</i></button>
           <button class="btn-flat red-text" data-action="delete-project" data-id="${project.id}" title="Delete"><i class="material-icons tiny">delete</i></button>
@@ -279,6 +280,7 @@ if (!isBrowserRuntime) {
     [fields.projectName, fields.clientName, fields.projectType, fields.managerId, fields.clientContact, fields.startDate, fields.endDate, fields.memberAreaFilter, fields.memberIds].forEach((el) => {
       el.disabled = readOnly;
     });
+    resetSelect('projectType', fields.projectType);
 
     if (readOnly) {
       ui.projectCancelEditBtn.textContent = 'Close';
@@ -304,6 +306,7 @@ if (!isBrowserRuntime) {
 
     if (section === 'projects') {
       ui.projectFormCard.hidden = true;
+      ui.projectMembersCard.hidden = true;
     }
 
     if (section === 'consultants') {
@@ -317,6 +320,7 @@ if (!isBrowserRuntime) {
     rebuildProjectSelects();
     setProjectFormMode('edit');
     ui.projectFormCard.hidden = true;
+    ui.projectMembersCard.hidden = true;
     updateTextFields();
   };
 
@@ -352,6 +356,7 @@ if (!isBrowserRuntime) {
   ui.showProjectFormBtn.addEventListener('click', () => {
     resetProjectForm();
     ui.projectFormCard.hidden = false;
+    ui.projectMembersCard.hidden = false;
   });
 
   ui.showConsultantFormBtn.addEventListener('click', () => {
@@ -474,6 +479,7 @@ if (!isBrowserRuntime) {
 
     setProjectFormMode(button.dataset.action === 'view-project' ? 'view' : 'edit');
     ui.projectFormCard.hidden = false;
+    ui.projectMembersCard.hidden = false;
     updateTextFields();
   });
 
