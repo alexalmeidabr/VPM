@@ -138,6 +138,11 @@ class VPMHandler(SimpleHTTPRequestHandler):
 
     return None
 
+
+  def _consultant_name(self, conn, consultant_id):
+    row = conn.execute('SELECT name FROM consultants WHERE id = ?', (consultant_id,)).fetchone()
+    return row['name'] if row else None
+
   def _consultant_ids_exist(self, conn, consultant_ids):
     if not consultant_ids:
       return True
@@ -236,14 +241,15 @@ class VPMHandler(SimpleHTTPRequestHandler):
           self._send_json({'error': 'Manager or members include unknown consultant IDs'}, HTTPStatus.BAD_REQUEST)
           return
 
+        manager_name = self._consultant_name(conn, payload['managerConsultantId'])
         cursor = conn.execute(
           '''
           INSERT INTO projects (
-            project_name, client_name, client_contact, start_date, end_date, manager_consultant_id
-          ) VALUES (?, ?, ?, ?, ?, ?)
+            project_name, client_name, project_lead, client_contact, start_date, end_date, manager_consultant_id
+          ) VALUES (?, ?, ?, ?, ?, ?, ?)
           ''',
           (
-            payload['projectName'], payload['clientName'], payload['clientContact'], payload['startDate'],
+            payload['projectName'], payload['clientName'], manager_name or 'Manager', payload['clientContact'], payload['startDate'],
             payload['endDate'], payload['managerConsultantId']
           )
         )
@@ -295,14 +301,15 @@ class VPMHandler(SimpleHTTPRequestHandler):
           self._send_json({'error': 'Manager or members include unknown consultant IDs'}, HTTPStatus.BAD_REQUEST)
           return
 
+        manager_name = self._consultant_name(conn, payload['managerConsultantId'])
         cursor = conn.execute(
           '''
           UPDATE projects
-          SET project_name = ?, client_name = ?, client_contact = ?, start_date = ?, end_date = ?, manager_consultant_id = ?
+          SET project_name = ?, client_name = ?, project_lead = ?, client_contact = ?, start_date = ?, end_date = ?, manager_consultant_id = ?
           WHERE id = ?
           ''',
           (
-            payload['projectName'], payload['clientName'], payload['clientContact'], payload['startDate'],
+            payload['projectName'], payload['clientName'], manager_name or 'Manager', payload['clientContact'], payload['startDate'],
             payload['endDate'], payload['managerConsultantId'], project_id
           )
         )
