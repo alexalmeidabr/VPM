@@ -18,9 +18,9 @@ if (!isBrowserRuntime) {
 
   const ui = {
     navMenu: document.getElementById('nav-menu'),
-
     projectsBody: document.getElementById('projects-body'),
     projectCount: document.getElementById('project-count'),
+    projectsPanelCard: document.getElementById('projects-panel-card'),
     projectsEmptyState: document.getElementById('projects-empty-state'),
     showProjectFormBtn: document.getElementById('show-project-form-btn'),
     projectFormCard: document.getElementById('project-form-card'),
@@ -28,8 +28,16 @@ if (!isBrowserRuntime) {
     projectFormTitle: document.getElementById('project-form-title'),
     projectSaveBtn: document.getElementById('project-save-btn'),
     projectCancelEditBtn: document.getElementById('project-cancel-edit-btn'),
+    backToProjectsBtn: document.getElementById('back-to-projects-btn'),
+    openConsultantModalBtn: document.getElementById('open-consultant-modal-btn'),
+    assignedConsultantsSummary: document.getElementById('assigned-consultants-summary'),
     projectMembersList: document.getElementById('project-members-list'),
     projectMembersCard: document.getElementById('project-members-card'),
+
+    consultantModal: document.getElementById('consultant-assignment-modal'),
+    consultantPickerList: document.getElementById('consultant-picker-list'),
+    consultantAreaFilterModal: document.getElementById('consultant-area-filter-modal'),
+    saveConsultantAssignmentsBtn: document.getElementById('save-consultant-assignments-btn'),
 
     consultantsBody: document.getElementById('consultants-body'),
     consultantCount: document.getElementById('consultant-count'),
@@ -55,8 +63,6 @@ if (!isBrowserRuntime) {
     clientContact: document.getElementById('client-contact'),
     startDate: document.getElementById('start-date'),
     endDate: document.getElementById('end-date'),
-    memberAreaFilter: document.getElementById('member-area-filter'),
-    memberIds: document.getElementById('consultant-ids'),
 
     consultantId: document.getElementById('consultant-id'),
     consultantName: document.getElementById('consultant-name'),
@@ -69,12 +75,16 @@ if (!isBrowserRuntime) {
   };
 
   const selectInstances = {};
+  let consultantModalInstance;
 
   let projects = [];
   let consultants = [];
   let roles = [];
   let areas = [];
   let projectViewMode = 'edit';
+  let selectedProjectMemberIds = [];
+  let modalSelectedAreaId = '';
+  let modalTempMemberIds = [];
 
   const toast = (message, classes = 'blue-grey darken-2') => {
     if (window.M?.toast) {
@@ -127,9 +137,7 @@ if (!isBrowserRuntime) {
     return Number.isNaN(date.getTime()) ? value : date.toLocaleDateString();
   };
 
-  const formatSalary = (value) => Number(value).toLocaleString(undefined, { style: 'currency', currency: 'USD' });
-
-  const selectedIds = (selectEl) => Array.from(selectEl.selectedOptions).map((opt) => Number(opt.value));
+  const formatSalary = (value) => Number(value).toLocaleString('en-IE', { style: 'currency', currency: 'EUR' });
 
   const resetSelect = (key, element) => {
     if (selectInstances[key]) {
@@ -142,16 +150,22 @@ if (!isBrowserRuntime) {
 
   const managerCandidates = () => consultants.filter((consultant) => (consultant.roles || []).includes('Project Manager'));
 
-  const consultantsByMemberArea = () => {
-    const areaId = Number(fields.memberAreaFilter.value);
-    if (!areaId) {
-      return consultants;
+  const memberIdsIncludingManager = () => {
+    const managerId = Number(fields.managerId.value);
+    const combined = managerId ? [managerId, ...selectedProjectMemberIds] : [...selectedProjectMemberIds];
+    return [...new Set(combined.map(Number))];
+  };
+
+  const updateAssignedConsultantsSummary = () => {
+    if (!selectedProjectMemberIds.length) {
+      ui.assignedConsultantsSummary.textContent = 'No consultants assigned yet.';
+      return;
     }
-    return consultants.filter((consultant) => (consultant.areaIds || []).map(Number).includes(areaId));
+    ui.assignedConsultantsSummary.textContent = `${selectedProjectMemberIds.length} consultant${selectedProjectMemberIds.length === 1 ? '' : 's'} assigned`;
   };
 
   const updateProjectMembersPanel = () => {
-    const ids = selectedIds(fields.memberIds);
+    const ids = memberIdsIncludingManager();
     ui.projectMembersList.innerHTML = '';
 
     if (!ids.length) {
@@ -171,25 +185,42 @@ if (!isBrowserRuntime) {
     });
   };
 
-  const rebuildProjectSelects = ({ managerId = '', memberIds = [], memberAreaId = '' } = {}) => {
+  const renderConsultantPickerList = () => {
+    if (!modalSelectedAreaId) {
+      ui.consultantPickerList.innerHTML = '<p class="grey-text">Select an area to view consultants.</p>';
+      return;
+    }
+
+    const areaId = Number(modalSelectedAreaId);
+    const candidates = consultants.filter((consultant) => (consultant.areaIds || []).map(Number).includes(areaId));
+
+    if (!candidates.length) {
+      ui.consultantPickerList.innerHTML = '<p class="grey-text">No consultants available in this area.</p>';
+      return;
+    }
+
+    ui.consultantPickerList.innerHTML = '';
+    candidates.forEach((consultant) => {
+      const wrapper = document.createElement('p');
+      wrapper.className = 'consultant-picker-item';
+      wrapper.innerHTML = `
+        <label>
+          <input type="checkbox" data-consultant-id="${consultant.id}" ${modalTempMemberIds.includes(Number(consultant.id)) ? 'checked' : ''} />
+          <span>${consultant.name}</span>
+        </label>
+      `;
+      ui.consultantPickerList.appendChild(wrapper);
+    });
+  };
+
+  const rebuildProjectSelects = ({ managerId = '' } = {}) => {
     fields.managerId.innerHTML = '<option value="" disabled selected>Select a manager</option>';
     managerCandidates().forEach((consultant) => {
       const option = new Option(consultant.name, consultant.id, false, Number(managerId) === Number(consultant.id));
       fields.managerId.add(option);
     });
-
-    fields.memberAreaFilter.innerHTML = '<option value="" selected>All Areas</option>';
-    areas.forEach((area) => fields.memberAreaFilter.add(new Option(area.name, area.id, false, Number(memberAreaId) === Number(area.id))));
-
-    fields.memberIds.innerHTML = '';
-    consultantsByMemberArea().forEach((consultant) => {
-      const option = new Option(consultant.name, consultant.id, false, memberIds.map(Number).includes(Number(consultant.id)));
-      fields.memberIds.add(option);
-    });
-
     resetSelect('manager', fields.managerId);
-    resetSelect('memberArea', fields.memberAreaFilter);
-    resetSelect('members', fields.memberIds);
+    resetSelect('projectType', fields.projectType);
     updateProjectMembersPanel();
   };
 
@@ -202,7 +233,14 @@ if (!isBrowserRuntime) {
 
     resetSelect('consultantAreas', fields.consultantAreaIds);
     resetSelect('consultantRoles', fields.consultantRoleIds);
-    resetSelect('projectType', fields.projectType);
+  };
+
+  const rebuildConsultantAreaModal = () => {
+    ui.consultantAreaFilterModal.innerHTML = '<option value="" selected disabled>Select area</option>';
+    areas.forEach((area) => {
+      ui.consultantAreaFilterModal.add(new Option(area.name, area.id, false, Number(modalSelectedAreaId) === Number(area.id)));
+    });
+    resetSelect('consultantAreaModal', ui.consultantAreaFilterModal);
   };
 
   const renderProjects = () => {
@@ -270,29 +308,33 @@ if (!isBrowserRuntime) {
     });
   };
 
+  const showProjectsPanel = () => {
+    ui.projectsPanelCard.hidden = false;
+    ui.projectFormCard.hidden = true;
+    ui.projectMembersCard.hidden = true;
+  };
+
+  const showManageProjectPanel = () => {
+    ui.projectsPanelCard.hidden = true;
+    ui.projectFormCard.hidden = false;
+    ui.projectMembersCard.hidden = false;
+  };
+
   const setProjectFormMode = (mode) => {
     projectViewMode = mode;
     const readOnly = mode === 'view';
 
     ui.projectFormTitle.textContent = readOnly ? 'Manage Project (View)' : 'Manage Project';
     ui.projectSaveBtn.hidden = readOnly;
+    ui.openConsultantModalBtn.disabled = readOnly;
 
-    [fields.projectName, fields.clientName, fields.projectType, fields.managerId, fields.clientContact, fields.startDate, fields.endDate, fields.memberAreaFilter, fields.memberIds].forEach((el) => {
+    [fields.projectName, fields.clientName, fields.projectType, fields.managerId, fields.clientContact, fields.startDate, fields.endDate].forEach((el) => {
       el.disabled = readOnly;
     });
-    resetSelect('projectType', fields.projectType);
 
-    if (readOnly) {
-      ui.projectCancelEditBtn.textContent = 'Close';
-    } else {
-      ui.projectCancelEditBtn.textContent = 'Cancel';
-    }
-
-    rebuildProjectSelects({
-      managerId: fields.managerId.value,
-      memberIds: selectedIds(fields.memberIds),
-      memberAreaId: fields.memberAreaFilter.value
-    });
+    ui.projectCancelEditBtn.textContent = readOnly ? 'Close' : 'Cancel';
+    rebuildProjectSelects({ managerId: fields.managerId.value });
+    updateProjectMembersPanel();
   };
 
   const setSection = (section) => {
@@ -305,8 +347,7 @@ if (!isBrowserRuntime) {
     });
 
     if (section === 'projects') {
-      ui.projectFormCard.hidden = true;
-      ui.projectMembersCard.hidden = true;
+      showProjectsPanel();
     }
 
     if (section === 'consultants') {
@@ -317,10 +358,13 @@ if (!isBrowserRuntime) {
   const resetProjectForm = () => {
     ui.projectForm.reset();
     fields.projectId.value = '';
+    selectedProjectMemberIds = [];
+    modalSelectedAreaId = '';
+    modalTempMemberIds = [];
+    updateAssignedConsultantsSummary();
     rebuildProjectSelects();
     setProjectFormMode('edit');
-    ui.projectFormCard.hidden = true;
-    ui.projectMembersCard.hidden = true;
+    showProjectsPanel();
     updateTextFields();
   };
 
@@ -349,14 +393,19 @@ if (!isBrowserRuntime) {
     renderProjects();
     renderConsultants();
     renderAdminLists();
-    rebuildProjectSelects();
+    rebuildProjectSelects({ managerId: fields.managerId.value });
     rebuildConsultantSelects();
+    rebuildConsultantAreaModal();
   };
 
   ui.showProjectFormBtn.addEventListener('click', () => {
     resetProjectForm();
-    ui.projectFormCard.hidden = false;
-    ui.projectMembersCard.hidden = false;
+    showManageProjectPanel();
+  });
+
+  ui.backToProjectsBtn.addEventListener('click', () => {
+    showProjectsPanel();
+    ui.projectFormCard.hidden = true;
   });
 
   ui.showConsultantFormBtn.addEventListener('click', () => {
@@ -367,15 +416,45 @@ if (!isBrowserRuntime) {
   ui.projectCancelEditBtn.addEventListener('click', resetProjectForm);
   ui.consultantCancelEditBtn.addEventListener('click', resetConsultantForm);
 
-  fields.memberAreaFilter.addEventListener('change', () => {
-    rebuildProjectSelects({
-      managerId: fields.managerId.value,
-      memberIds: selectedIds(fields.memberIds),
-      memberAreaId: fields.memberAreaFilter.value
-    });
+  fields.managerId.addEventListener('change', updateProjectMembersPanel);
+
+  ui.openConsultantModalBtn.addEventListener('click', () => {
+    if (!consultantModalInstance) {
+      return;
+    }
+    modalTempMemberIds = [...selectedProjectMemberIds];
+    modalSelectedAreaId = '';
+    rebuildConsultantAreaModal();
+    renderConsultantPickerList();
+    consultantModalInstance.open();
   });
 
-  fields.memberIds.addEventListener('change', updateProjectMembersPanel);
+  ui.consultantAreaFilterModal.addEventListener('change', () => {
+    modalSelectedAreaId = ui.consultantAreaFilterModal.value;
+    renderConsultantPickerList();
+  });
+
+  ui.consultantPickerList.addEventListener('change', (event) => {
+    const checkbox = event.target.closest('input[type="checkbox"][data-consultant-id]');
+    if (!checkbox) {
+      return;
+    }
+    const consultantId = Number(checkbox.dataset.consultantId);
+    if (checkbox.checked) {
+      modalTempMemberIds = [...new Set([...modalTempMemberIds, consultantId])];
+    } else {
+      modalTempMemberIds = modalTempMemberIds.filter((id) => Number(id) !== consultantId);
+    }
+  });
+
+  ui.saveConsultantAssignmentsBtn.addEventListener('click', () => {
+    selectedProjectMemberIds = [...new Set(modalTempMemberIds.map(Number))];
+    updateAssignedConsultantsSummary();
+    updateProjectMembersPanel();
+    if (consultantModalInstance) {
+      consultantModalInstance.close();
+    }
+  });
 
   ui.projectForm.addEventListener('submit', async (event) => {
     event.preventDefault();
@@ -391,7 +470,7 @@ if (!isBrowserRuntime) {
       clientContact: fields.clientContact.value.trim(),
       startDate: fields.startDate.value,
       endDate: fields.endDate.value,
-      consultantIds: selectedIds(fields.memberIds)
+      consultantIds: selectedProjectMemberIds
     };
 
     if (payload.startDate > payload.endDate) {
@@ -419,8 +498,8 @@ if (!isBrowserRuntime) {
 
     const payload = {
       name: fields.consultantName.value.trim(),
-      areaIds: selectedIds(fields.consultantAreaIds),
-      roleIds: selectedIds(fields.consultantRoleIds),
+      areaIds: Array.from(fields.consultantAreaIds.selectedOptions).map((opt) => Number(opt.value)),
+      roleIds: Array.from(fields.consultantRoleIds.selectedOptions).map((opt) => Number(opt.value)),
       salary: fields.consultantSalary.value
     };
 
@@ -470,16 +549,13 @@ if (!isBrowserRuntime) {
     fields.clientContact.value = project.clientContact;
     fields.startDate.value = project.startDate;
     fields.endDate.value = project.endDate;
+    selectedProjectMemberIds = (project.consultantIds || []).map(Number);
 
-    rebuildProjectSelects({
-      managerId: project.managerConsultantId,
-      memberIds: project.consultantIds || [],
-      memberAreaId: ''
-    });
+    updateAssignedConsultantsSummary();
+    rebuildProjectSelects({ managerId: project.managerConsultantId });
 
     setProjectFormMode(button.dataset.action === 'view-project' ? 'view' : 'edit');
-    ui.projectFormCard.hidden = false;
-    ui.projectMembersCard.hidden = false;
+    showManageProjectPanel();
     updateTextFields();
   });
 
@@ -582,6 +658,10 @@ if (!isBrowserRuntime) {
     }
     setSection(item.dataset.section);
   });
+
+  if (window.M?.Modal) {
+    consultantModalInstance = M.Modal.init(ui.consultantModal);
+  }
 
   setSection('projects');
   resetProjectForm();
