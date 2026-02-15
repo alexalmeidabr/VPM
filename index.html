@@ -24,29 +24,18 @@
     <main class="main-content section">
       <section id="projects-section">
         <div class="row projects-layout-row">
-          <div class="col s12 l8" id="projects-primary-column">
+          <div class="col s12 l8">
             <div class="card" id="projects-panel-card">
               <div class="card-content">
                 <div class="section-header">
                   <span class="card-title">Projects</span>
-                  <button class="btn waves-effect waves-light" id="show-project-form-btn" type="button">
-                    Add a New Project
-                    <i class="material-icons right">add</i>
-                  </button>
+                  <button class="btn waves-effect waves-light" id="show-project-form-btn" type="button">Add a New Project<i class="material-icons right">add</i></button>
                 </div>
                 <p class="grey-text" id="project-count"></p>
                 <div class="table-container projects-table-container">
                   <table class="striped responsive-table">
                     <thead>
-                      <tr>
-                        <th>Project</th>
-                        <th>Client</th>
-                        <th>Manager</th>
-                        <th>Type</th>
-                        <th>Client Contact</th>
-                        <th>Dates</th>
-                        <th>Actions</th>
-                      </tr>
+                      <tr><th>Project</th><th>Client</th><th>Manager</th><th>Type</th><th>Client Contact</th><th>Dates</th><th>Actions</th></tr>
                     </thead>
                     <tbody id="projects-body"></tbody>
                   </table>
@@ -63,52 +52,19 @@
                 </div>
                 <form id="project-form">
                   <input type="hidden" id="project-id" />
-
-                  <div class="input-field">
-                    <input id="project-name" type="text" required />
-                    <label for="project-name">Project Name</label>
-                  </div>
-
-                  <div class="input-field">
-                    <input id="client-name" type="text" required />
-                    <label for="client-name">Client Name</label>
-                  </div>
-
-                  <div class="input-field">
-                    <select id="project-type" required>
-                      <option value="" disabled selected>Select type</option>
-                      <option value="Time Material">Time Material</option>
-                      <option value="Fixed Price">Fixed Price</option>
-                    </select>
-                    <label for="project-type">Type</label>
-                  </div>
-
-                  <div class="input-field">
-                    <select id="manager-consultant-id" required></select>
-                    <label for="manager-consultant-id">Manager</label>
-                  </div>
-
-                  <div class="input-field">
-                    <input id="client-contact" type="text" required />
-                    <label for="client-contact">Client Contact</label>
-                  </div>
-
+                  <div class="input-field"><input id="project-name" type="text" required /><label for="project-name">Project Name</label></div>
+                  <div class="input-field"><input id="client-name" type="text" required /><label for="client-name">Client Name</label></div>
+                  <div class="input-field"><select id="project-type" required><option value="" disabled selected>Select type</option><option value="Time Material">Time Material</option><option value="Fixed Price">Fixed Price</option></select><label for="project-type">Type</label></div>
+                  <div class="input-field"><select id="manager-consultant-id" required></select><label for="manager-consultant-id">Manager</label></div>
+                  <div class="input-field"><input id="client-contact" type="text" required /><label for="client-contact">Client Contact</label></div>
                   <div class="row date-row">
-                    <div class="input-field col s12 m6">
-                      <input id="start-date" type="date" required />
-                      <label class="active" for="start-date">Start Date</label>
-                    </div>
-                    <div class="input-field col s12 m6">
-                      <input id="end-date" type="date" required />
-                      <label class="active" for="end-date">End Date</label>
-                    </div>
+                    <div class="input-field col s12 m6"><input id="start-date" type="date" required /><label class="active" for="start-date">Start Date</label></div>
+                    <div class="input-field col s12 m6"><input id="end-date" type="date" required /><label class="active" for="end-date">End Date</label></div>
                   </div>
-
                   <div class="consultant-assignment-row">
                     <button class="btn waves-effect waves-light" type="button" id="open-consultant-modal-btn">Add Consultant</button>
                     <span class="grey-text" id="assigned-consultants-summary">No consultants assigned yet.</span>
                   </div>
-
                   <div class="card-action action-row">
                     <button class="btn waves-effect waves-light" type="submit" id="project-save-btn">Save Project<i class="material-icons right">save</i></button>
                     <button class="btn-flat" type="button" id="project-cancel-edit-btn">Cancel</button>
@@ -129,7 +85,7 @@
         </div>
       </section>
 
-      <div id="consultants-section" hidden>
+      <section id="consultants-section" hidden>
         <div class="card" id="consultants-panel-card">
           <div class="card-content">
             <div class="section-header">
@@ -139,15 +95,7 @@
             <p class="grey-text" id="consultant-count"></p>
             <div class="table-container">
               <table class="striped responsive-table">
-                <thead>
-                  <tr>
-                    <th>Name</th>
-                    <th>Area</th>
-                    <th>Company Role</th>
-                    <th>Salary</th>
-                    <th>Actions</th>
-                  </tr>
-                </thead>
+                <thead><tr><th>Name</th><th>Area</th><th>Company Role</th><th>Salary</th><th>Actions</th></tr></thead>
                 <tbody id="consultants-body"></tbody>
               </table>
             </div>
@@ -163,70 +111,56 @@
               <span class="card-title" id="consultant-form-title">Manage Consultants</span>
               <button class="btn-flat" type="button" id="back-to-consultants-btn">Back to Consultants</button>
             </div>
+            <p class="grey-text" id="consultant-mode-label"></p>
             <form id="consultant-form">
               <input type="hidden" id="consultant-id" />
-
-              <div class="input-field">
-                <input id="consultant-name" type="text" required />
-                <label for="consultant-name">Name</label>
-              </div>
-
-              <div class="input-field">
-                <select id="consultant-area-ids" multiple required></select>
-                <label for="consultant-area-ids">Area</label>
-              </div>
-
-              <div class="input-field">
-                <select id="consultant-company-role-id" required></select>
-                <label for="consultant-company-role-id">Company Role</label>
-              </div>
-
-              <div class="input-field">
-                <input id="consultant-salary" type="number" min="0" step="0.01" required />
-                <label for="consultant-salary">Salary</label>
-              </div>
-
-              <div class="action-row">
-                <button type="button" class="btn blue-grey" id="open-vacation-modal-btn">Add Vacation/PTO</button>
-              </div>
-
+              <div class="input-field"><input id="consultant-name" type="text" required /><label for="consultant-name">Name</label></div>
+              <div class="input-field"><select id="consultant-area-ids" multiple required></select><label for="consultant-area-ids">Area</label></div>
+              <div class="input-field"><select id="consultant-company-role-id" required></select><label for="consultant-company-role-id">Company Role</label></div>
+              <div class="input-field"><input id="consultant-salary" type="number" min="0" step="0.01" required /><label for="consultant-salary">Salary</label></div>
+              <div class="action-row"><button type="button" class="btn blue-grey" id="open-days-off-modal-btn">Add Days Off</button></div>
               <div class="card-action action-row">
-                <button class="btn waves-effect waves-light" type="submit">Save Consultant<i class="material-icons right">save</i></button>
+                <button class="btn waves-effect waves-light" type="submit" id="consultant-save-btn">Save Consultant<i class="material-icons right">save</i></button>
                 <button class="btn-flat" type="button" id="consultant-cancel-edit-btn">Cancel</button>
               </div>
             </form>
+
+            <h6>Consultant Availability Timeline (Current Year)</h6>
+            <div id="consultant-availability-chart" class="availability-chart"></div>
+
+            <h6>Recorded Days Off</h6>
+            <ul id="consultant-days-off-list" class="collection"></ul>
           </div>
         </div>
-      </div>
+      </section>
 
       <div id="mass-update-section" hidden><div class="card"><div class="card-content"><span class="card-title">Mass Update</span><p class="grey-text">This section is available from the menu and will be implemented next.</p></div></div></div>
       <div id="authorization-section" hidden><div class="card"><div class="card-content"><span class="card-title">Authorization</span><p class="grey-text">This section is available from the menu and will be implemented next.</p></div></div></div>
 
-      <div id="administration-section" hidden>
+      <section id="administration-section" hidden>
         <div class="card">
           <div class="card-content">
             <span class="card-title">Administration</span>
             <div class="row">
-              <div class="col s12 m6">
+              <div class="col s12 m4">
                 <h6>Manage Roles</h6>
-                <form id="role-form" class="inline-form">
-                  <div class="input-field inline-input"><input id="role-name" type="text" required /><label for="role-name">New Role</label></div>
-                  <button class="btn" type="submit">Add</button>
-                </form>
+                <form id="role-form" class="inline-form"><div class="input-field inline-input"><input id="role-name" type="text" required /><label for="role-name">New Role</label></div><button class="btn" type="submit">Add</button></form>
                 <ul class="collection" id="roles-list"></ul>
               </div>
-              <div class="col s12 m6">
+              <div class="col s12 m4">
                 <h6>Manage Areas</h6>
-                <form id="area-form" class="inline-form">
-                  <div class="input-field inline-input"><input id="area-name" type="text" required /><label for="area-name">New Area</label></div>
-                  <button class="btn" type="submit">Add</button>
-                </form>
+                <form id="area-form" class="inline-form"><div class="input-field inline-input"><input id="area-name" type="text" required /><label for="area-name">New Area</label></div><button class="btn" type="submit">Add</button></form>
                 <ul class="collection" id="areas-list"></ul>
+              </div>
+              <div class="col s12 m4">
+                <h6>Manage Day Off Types</h6>
+                <form id="day-off-type-form" class="inline-form"><div class="input-field inline-input"><input id="day-off-type-name" type="text" required /><label for="day-off-type-name">New Type</label></div><button class="btn" type="submit">Add</button></form>
+                <ul class="collection" id="day-off-types-list"></ul>
               </div>
             </div>
           </div>
         </div>
-      </div>
+      </section>
     </main>
 
     <div id="consultant-assignment-modal" class="modal">
@@ -240,10 +174,7 @@
         </div>
         <div id="consultant-picker-list" class="consultant-picker-list"></div>
       </div>
-      <div class="modal-footer">
-        <button type="button" class="modal-close btn-flat">Cancel</button>
-        <button type="button" class="btn" id="save-consultant-assignments-btn">Apply</button>
-      </div>
+      <div class="modal-footer"><button type="button" class="modal-close btn-flat">Cancel</button><button type="button" class="btn" id="save-consultant-assignments-btn">Apply</button></div>
     </div>
 
     <div id="member-details-modal" class="modal">
@@ -257,26 +188,22 @@
           <div class="input-field col s12 m6"><input id="member-end-date-edit" type="date" /><label class="active" for="member-end-date-edit">End Date</label></div>
         </div>
       </div>
-      <div class="modal-footer">
-        <button type="button" class="modal-close btn-flat">Close</button>
-        <button type="button" class="btn" id="save-member-details-btn">Save</button>
-      </div>
+      <div class="modal-footer"><button type="button" class="modal-close btn-flat">Close</button><button type="button" class="btn" id="save-member-details-btn">Save</button></div>
     </div>
 
-    <div id="vacation-modal" class="modal">
+    <div id="days-off-modal" class="modal">
       <div class="modal-content">
-        <h5>Add Vacation/PTO</h5>
-        <div class="input-field"><select id="availability-type"><option value="" selected disabled>Select type</option><option value="Vacation">Vacation</option><option value="PTO">PTO</option></select><label for="availability-type">Type</label></div>
+        <h5>Add Days Off</h5>
+        <div class="input-field"><select id="availability-type"></select><label for="availability-type">Type</label></div>
         <div class="row date-row">
           <div class="input-field col s12 m6"><input id="availability-start-date" type="date" /><label class="active" for="availability-start-date">Start Date</label></div>
           <div class="input-field col s12 m6"><input id="availability-end-date" type="date" /><label class="active" for="availability-end-date">End Date</label></div>
         </div>
       </div>
-      <div class="modal-footer">
-        <button type="button" class="modal-close btn-flat">Cancel</button>
-        <button type="button" class="btn" id="save-availability-btn">Save</button>
-      </div>
+      <div class="modal-footer"><button type="button" class="modal-close btn-flat">Cancel</button><button type="button" class="btn" id="save-availability-btn">Save</button></div>
     </div>
+
+    <div id="week-tooltip" class="week-tooltip" hidden></div>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/js/materialize.min.js"></script>
     <script src="app.js"></script>

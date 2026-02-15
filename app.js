@@ -18,10 +18,11 @@ if (!isBrowserRuntime) {
 
   const ui = {
     navMenu: document.getElementById('nav-menu'),
+
     projectsBody: document.getElementById('projects-body'),
     projectCount: document.getElementById('project-count'),
-    projectsPanelCard: document.getElementById('projects-panel-card'),
     projectsEmptyState: document.getElementById('projects-empty-state'),
+    projectsPanelCard: document.getElementById('projects-panel-card'),
     showProjectFormBtn: document.getElementById('show-project-form-btn'),
     projectFormCard: document.getElementById('project-form-card'),
     projectForm: document.getElementById('project-form'),
@@ -34,12 +35,12 @@ if (!isBrowserRuntime) {
     projectMembersList: document.getElementById('project-members-list'),
     projectMembersCard: document.getElementById('project-members-card'),
 
-    consultantModal: document.getElementById('consultant-assignment-modal'),
-    consultantPickerList: document.getElementById('consultant-picker-list'),
+    consultantAssignmentModal: document.getElementById('consultant-assignment-modal'),
     consultantAreaFilterModal: document.getElementById('consultant-area-filter-modal'),
     projectRoleModal: document.getElementById('project-role-modal'),
     memberStartDateModal: document.getElementById('member-start-date-modal'),
     memberEndDateModal: document.getElementById('member-end-date-modal'),
+    consultantPickerList: document.getElementById('consultant-picker-list'),
     saveConsultantAssignmentsBtn: document.getElementById('save-consultant-assignments-btn'),
 
     memberDetailsModal: document.getElementById('member-details-modal'),
@@ -55,16 +56,21 @@ if (!isBrowserRuntime) {
     consultantsBody: document.getElementById('consultants-body'),
     consultantCount: document.getElementById('consultant-count'),
     consultantsEmptyState: document.getElementById('consultants-empty-state'),
+    availabilityChart: document.getElementById('availability-chart'),
+
     showConsultantFormBtn: document.getElementById('show-consultant-form-btn'),
     consultantFormCard: document.getElementById('consultant-form-card'),
     consultantForm: document.getElementById('consultant-form'),
     consultantFormTitle: document.getElementById('consultant-form-title'),
+    consultantModeLabel: document.getElementById('consultant-mode-label'),
+    consultantSaveBtn: document.getElementById('consultant-save-btn'),
     consultantCancelEditBtn: document.getElementById('consultant-cancel-edit-btn'),
     backToConsultantsBtn: document.getElementById('back-to-consultants-btn'),
-    openVacationModalBtn: document.getElementById('open-vacation-modal-btn'),
-    availabilityChart: document.getElementById('availability-chart'),
+    openDaysOffModalBtn: document.getElementById('open-days-off-modal-btn'),
+    consultantAvailabilityChart: document.getElementById('consultant-availability-chart'),
+    consultantDaysOffList: document.getElementById('consultant-days-off-list'),
 
-    vacationModal: document.getElementById('vacation-modal'),
+    daysOffModal: document.getElementById('days-off-modal'),
     availabilityType: document.getElementById('availability-type'),
     availabilityStartDate: document.getElementById('availability-start-date'),
     availabilityEndDate: document.getElementById('availability-end-date'),
@@ -72,8 +78,12 @@ if (!isBrowserRuntime) {
 
     roleForm: document.getElementById('role-form'),
     areaForm: document.getElementById('area-form'),
+    dayOffTypeForm: document.getElementById('day-off-type-form'),
     rolesList: document.getElementById('roles-list'),
-    areasList: document.getElementById('areas-list')
+    areasList: document.getElementById('areas-list'),
+    dayOffTypesList: document.getElementById('day-off-types-list'),
+
+    weekTooltip: document.getElementById('week-tooltip')
   };
 
   const fields = {
@@ -93,7 +103,8 @@ if (!isBrowserRuntime) {
     consultantSalary: document.getElementById('consultant-salary'),
 
     roleName: document.getElementById('role-name'),
-    areaName: document.getElementById('area-name')
+    areaName: document.getElementById('area-name'),
+    dayOffTypeName: document.getElementById('day-off-type-name')
   };
 
   const selectInstances = {};
@@ -103,11 +114,12 @@ if (!isBrowserRuntime) {
   let consultants = [];
   let roles = [];
   let areas = [];
+  let dayOffTypes = [];
   let projectViewMode = 'edit';
+  let consultantViewMode = 'edit';
   let selectedProjectAssignments = [];
   let modalSelectedAreaId = '';
   let modalTempConsultantIds = [];
-  let memberModalMode = 'view';
 
   const toast = (message, classes = 'blue-grey darken-2') => window.M?.toast && M.toast({ html: message, classes });
   const updateTextFields = () => window.M?.updateTextFields && M.updateTextFields();
@@ -143,6 +155,129 @@ if (!isBrowserRuntime) {
   const formatDate = (value) => (value ? new Date(value).toLocaleDateString() : '—');
   const formatSalary = (value) => Number(value).toLocaleString('en-IE', { style: 'currency', currency: 'EUR' });
 
+  const mondayForWeek = (year, weekNumber) => {
+    const jan4 = new Date(year, 0, 4);
+    const jan4Day = jan4.getDay() || 7;
+    const week1Monday = new Date(jan4);
+    week1Monday.setDate(jan4.getDate() - jan4Day + 1);
+    const monday = new Date(week1Monday);
+    monday.setDate(week1Monday.getDate() + (weekNumber - 1) * 7);
+    return monday;
+  };
+
+  const drawTimeline = (container, consultantsToRender) => {
+    const year = new Date().getFullYear();
+    container.innerHTML = '';
+
+    const legend = document.createElement('div');
+    legend.className = 'legend';
+    const usedTypes = [...new Set(consultantsToRender.flatMap((consultant) => (consultant.availability || []).map((entry) => entry.type)))];
+    usedTypes.forEach((type) => {
+      const span = document.createElement('span');
+      span.className = 'legend-item';
+      span.textContent = type;
+      span.style.color = type === 'Vacation' ? '#ef6c00' : type === 'PTO' ? '#00695c' : '#5e35b1';
+      legend.appendChild(span);
+    });
+    if (!usedTypes.length) {
+      const span = document.createElement('span');
+      span.textContent = 'No days off recorded yet.';
+      legend.appendChild(span);
+    }
+    container.appendChild(legend);
+
+    const monthHeader = document.createElement('div');
+    monthHeader.className = 'availability-month-header';
+    monthHeader.appendChild(document.createElement('div'));
+    const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    for (let week = 1; week <= 52; week += 1) {
+      const monday = mondayForWeek(year, week);
+      const monthCell = document.createElement('div');
+      monthCell.textContent = monday.getDate() <= 7 ? monthNames[monday.getMonth()] : '';
+      monthHeader.appendChild(monthCell);
+    }
+    container.appendChild(monthHeader);
+
+    const weekHeader = document.createElement('div');
+    weekHeader.className = 'availability-week-header';
+    weekHeader.appendChild(document.createElement('div'));
+    for (let week = 1; week <= 52; week += 1) {
+      const cell = document.createElement('div');
+      cell.textContent = week;
+      weekHeader.appendChild(cell);
+    }
+    container.appendChild(weekHeader);
+
+    consultantsToRender.forEach((consultant) => {
+      const row = document.createElement('div');
+      row.className = 'availability-row';
+      const name = document.createElement('div');
+      name.className = 'availability-name';
+      name.textContent = consultant.name;
+      row.appendChild(name);
+
+      for (let week = 1; week <= 52; week += 1) {
+        const weekStart = mondayForWeek(year, week);
+        const weekEnd = new Date(weekStart);
+        weekEnd.setDate(weekStart.getDate() + 6);
+
+        const cell = document.createElement('div');
+        cell.className = 'week-cell';
+        cell.dataset.monday = weekStart.toISOString().slice(0, 10);
+
+        (consultant.availability || []).forEach((entry) => {
+          const entryStart = new Date(entry.startDate);
+          const entryEnd = new Date(entry.endDate);
+          if (entryStart <= weekEnd && entryEnd >= weekStart) {
+            if (entry.type === 'Vacation') cell.classList.add('vacation');
+            else if (entry.type === 'PTO') cell.classList.add('pto');
+            else cell.classList.add('other');
+          }
+        });
+
+        row.appendChild(cell);
+      }
+      container.appendChild(row);
+    });
+  };
+
+  const bindWeekTooltip = (container) => {
+    container.addEventListener('mousemove', (event) => {
+      const weekCell = event.target.closest('.week-cell');
+      if (!weekCell) {
+        ui.weekTooltip.hidden = true;
+        return;
+      }
+      ui.weekTooltip.hidden = false;
+      ui.weekTooltip.textContent = `Week Monday: ${weekCell.dataset.monday}`;
+      ui.weekTooltip.style.left = `${event.clientX + 12}px`;
+      ui.weekTooltip.style.top = `${event.clientY + 12}px`;
+    });
+    container.addEventListener('mouseleave', () => {
+      ui.weekTooltip.hidden = true;
+    });
+  };
+
+  bindWeekTooltip(ui.availabilityChart);
+  bindWeekTooltip(ui.consultantAvailabilityChart);
+
+  const renderConsultantDaysOffList = (consultant) => {
+    ui.consultantDaysOffList.innerHTML = '';
+    if (!consultant || !(consultant.availability || []).length) {
+      const li = document.createElement('li');
+      li.className = 'collection-item grey-text';
+      li.textContent = 'No days off recorded.';
+      ui.consultantDaysOffList.appendChild(li);
+      return;
+    }
+    consultant.availability.forEach((entry) => {
+      const li = document.createElement('li');
+      li.className = 'collection-item';
+      li.textContent = `${entry.type}: ${formatDate(entry.startDate)} - ${formatDate(entry.endDate)}`;
+      ui.consultantDaysOffList.appendChild(li);
+    });
+  };
+
   const updateAssignedConsultantsSummary = () => {
     ui.assignedConsultantsSummary.textContent = selectedProjectAssignments.length
       ? `${selectedProjectAssignments.length} consultant${selectedProjectAssignments.length === 1 ? '' : 's'} assigned`
@@ -165,11 +300,17 @@ if (!isBrowserRuntime) {
     resetSelect('consultantCompanyRole', fields.consultantCompanyRoleId);
   };
 
+  const rebuildDayOffTypeSelect = () => {
+    ui.availabilityType.innerHTML = '<option value="" selected disabled>Select type</option>';
+    dayOffTypes.forEach((type) => ui.availabilityType.add(new Option(type.name, type.id)));
+    resetSelect('dayOffType', ui.availabilityType);
+  };
+
   const rebuildAssignmentModalSelects = () => {
     ui.consultantAreaFilterModal.innerHTML = '<option value="" selected disabled>Select area</option>';
     areas.forEach((area) => ui.consultantAreaFilterModal.add(new Option(area.name, area.id, false, Number(modalSelectedAreaId) === Number(area.id))));
     ui.projectRoleModal.innerHTML = '<option value="" selected disabled>Select project role</option>';
-    roles.forEach((role) => ui.projectRoleModal.add(new Option(role.name, role.name, false, false)));
+    roles.forEach((role) => ui.projectRoleModal.add(new Option(role.name, role.name)));
     resetSelect('assignmentArea', ui.consultantAreaFilterModal);
     resetSelect('assignmentRole', ui.projectRoleModal);
   };
@@ -193,10 +334,10 @@ if (!isBrowserRuntime) {
     }
     ui.consultantPickerList.innerHTML = '';
     candidates.forEach((consultant) => {
-      const wrapper = document.createElement('p');
-      wrapper.className = 'consultant-picker-item';
-      wrapper.innerHTML = `<label><input type="checkbox" data-consultant-id="${consultant.id}" ${modalTempConsultantIds.includes(Number(consultant.id)) ? 'checked' : ''} /><span>${consultant.name}</span></label>`;
-      ui.consultantPickerList.appendChild(wrapper);
+      const item = document.createElement('p');
+      item.className = 'consultant-picker-item';
+      item.innerHTML = `<label><input type="checkbox" data-consultant-id="${consultant.id}" ${modalTempConsultantIds.includes(Number(consultant.id)) ? 'checked' : ''} /><span>${consultant.name}</span></label>`;
+      ui.consultantPickerList.appendChild(item);
     });
   };
 
@@ -207,6 +348,7 @@ if (!isBrowserRuntime) {
     if (managerId && !allMembers.find((m) => Number(m.consultantId) === managerId)) {
       allMembers.unshift({ consultantId: managerId, projectRole: 'Project Manager', startDate: fields.startDate.value, endDate: fields.endDate.value, fromManager: true });
     }
+
     if (!allMembers.length) {
       ui.projectMembersList.innerHTML = '<p class="grey-text">No consultants assigned yet.</p>';
       return;
@@ -214,9 +356,9 @@ if (!isBrowserRuntime) {
 
     allMembers.forEach((member) => {
       const consultant = findConsultantById(member.consultantId);
+      const readOnlyManager = Boolean(member.fromManager);
       const wrapper = document.createElement('div');
       wrapper.className = 'member-card';
-      const readOnlyManager = Boolean(member.fromManager);
       wrapper.innerHTML = `
         <div class="member-header">
           <div>
@@ -267,6 +409,7 @@ if (!isBrowserRuntime) {
         <td>${consultant.companyRole || roleNameById(consultant.companyRoleId) || '—'}</td>
         <td>${formatSalary(consultant.salary)}</td>
         <td>
+          <button class="btn-flat teal-text" data-action="view-consultant" data-id="${consultant.id}"><i class="material-icons tiny">visibility</i></button>
           <button class="btn-flat blue-text" data-action="edit-consultant" data-id="${consultant.id}"><i class="material-icons tiny">edit</i></button>
           <button class="btn-flat red-text" data-action="delete-consultant" data-id="${consultant.id}"><i class="material-icons tiny">delete</i></button>
         </td>
@@ -275,35 +418,6 @@ if (!isBrowserRuntime) {
     });
     ui.consultantCount.textContent = `${consultants.length} consultant${consultants.length === 1 ? '' : 's'} tracked`;
     ui.consultantsEmptyState.hidden = consultants.length > 0;
-  };
-
-  const renderAvailabilityChart = () => {
-    const year = new Date().getFullYear();
-    ui.availabilityChart.innerHTML = '<div class="legend"><span class="vac">Vacation</span><span class="pto">PTO</span></div>';
-    consultants.forEach((consultant) => {
-      const row = document.createElement('div');
-      row.className = 'availability-row';
-      const name = document.createElement('div');
-      name.className = 'availability-name';
-      name.textContent = consultant.name;
-      row.appendChild(name);
-
-      for (let week = 1; week <= 52; week += 1) {
-        const cell = document.createElement('div');
-        cell.className = 'week-cell';
-        const weekStart = new Date(year, 0, 1 + (week - 1) * 7);
-        const weekEnd = new Date(year, 0, 1 + week * 7);
-        (consultant.availability || []).forEach((entry) => {
-          const entryStart = new Date(entry.startDate);
-          const entryEnd = new Date(entry.endDate);
-          if (entryStart <= weekEnd && entryEnd >= weekStart) {
-            cell.classList.add(entry.type === 'Vacation' ? 'vacation' : 'pto');
-          }
-        });
-        row.appendChild(cell);
-      }
-      ui.availabilityChart.appendChild(row);
-    });
   };
 
   const renderAdminLists = () => {
@@ -321,6 +435,14 @@ if (!isBrowserRuntime) {
       li.className = 'collection-item';
       li.innerHTML = `${area.name}<button class="btn-flat secondary-content red-text" data-action="delete-area" data-id="${area.id}"><i class="material-icons tiny">delete</i></button>`;
       ui.areasList.appendChild(li);
+    });
+
+    ui.dayOffTypesList.innerHTML = '';
+    dayOffTypes.forEach((type) => {
+      const li = document.createElement('li');
+      li.className = 'collection-item';
+      li.innerHTML = `${type.name}<button class="btn-flat secondary-content red-text" data-action="delete-day-off-type" data-id="${type.id}"><i class="material-icons tiny">delete</i></button>`;
+      ui.dayOffTypesList.appendChild(li);
     });
   };
 
@@ -340,6 +462,20 @@ if (!isBrowserRuntime) {
     updateProjectMembersPanel();
   };
 
+  const setConsultantFormMode = (mode) => {
+    consultantViewMode = mode;
+    const readOnly = mode === 'view';
+    ui.consultantFormTitle.textContent = readOnly ? 'Manage Consultants (View)' : 'Manage Consultants';
+    ui.consultantModeLabel.textContent = readOnly ? 'Read-only mode' : 'Edit mode';
+    ui.consultantSaveBtn.hidden = readOnly;
+    ui.openDaysOffModalBtn.disabled = readOnly;
+    [fields.consultantName, fields.consultantAreaIds, fields.consultantCompanyRoleId, fields.consultantSalary].forEach((el) => {
+      el.disabled = readOnly;
+    });
+    resetSelect('consultantAreas', fields.consultantAreaIds);
+    resetSelect('consultantCompanyRole', fields.consultantCompanyRoleId);
+  };
+
   const setSection = (section) => {
     Object.entries(sections).forEach(([key, element]) => { element.hidden = key !== section; });
     document.querySelectorAll('#nav-menu .collection-item').forEach((item) => item.classList.toggle('active', item.dataset.section === section));
@@ -356,8 +492,8 @@ if (!isBrowserRuntime) {
     updateAssignedConsultantsSummary();
     rebuildProjectSelects();
     setProjectFormMode('edit');
-    showProjectsPanel();
     updateProjectMembersPanel();
+    showProjectsPanel();
     updateTextFields();
   };
 
@@ -365,34 +501,46 @@ if (!isBrowserRuntime) {
     ui.consultantForm.reset();
     fields.consultantId.value = '';
     rebuildConsultantSelects();
+    setConsultantFormMode('edit');
+    drawTimeline(ui.consultantAvailabilityChart, []);
+    renderConsultantDaysOffList(null);
     showConsultantsPanel();
     updateTextFields();
   };
 
   const loadAll = async () => {
-    const [projectsRes, consultantsRes, rolesRes, areasRes] = await Promise.all([
-      request('/api/projects'), request('/api/consultants'), request('/api/roles'), request('/api/areas')
+    const [projectsRes, consultantsRes, rolesRes, areasRes, dayOffTypesRes] = await Promise.all([
+      request('/api/projects'),
+      request('/api/consultants'),
+      request('/api/roles'),
+      request('/api/areas'),
+      request('/api/day-off-types')
     ]);
+
     projects = projectsRes.projects || [];
     consultants = consultantsRes.consultants || [];
     roles = rolesRes.roles || [];
     areas = areasRes.areas || [];
+    dayOffTypes = dayOffTypesRes.dayOffTypes || [];
+
     renderProjects();
     renderConsultants();
     renderAdminLists();
-    renderAvailabilityChart();
+    drawTimeline(ui.availabilityChart, consultants);
     rebuildProjectSelects({ managerId: fields.managerId.value });
-    rebuildConsultantSelects();
+    rebuildConsultantSelects({ areaIds: selectedIds(fields.consultantAreaIds), companyRoleId: fields.consultantCompanyRoleId.value });
     rebuildAssignmentModalSelects();
+    rebuildDayOffTypeSelect();
   };
 
   ui.showProjectFormBtn.addEventListener('click', () => { resetProjectForm(); showManageProjectPanel(); });
   ui.backToProjectsBtn.addEventListener('click', showProjectsPanel);
+  ui.projectCancelEditBtn.addEventListener('click', resetProjectForm);
+  fields.managerId.addEventListener('change', updateProjectMembersPanel);
+
   ui.showConsultantFormBtn.addEventListener('click', () => { resetConsultantForm(); showManageConsultantsPanel(); });
   ui.backToConsultantsBtn.addEventListener('click', showConsultantsPanel);
-  ui.projectCancelEditBtn.addEventListener('click', resetProjectForm);
   ui.consultantCancelEditBtn.addEventListener('click', resetConsultantForm);
-  fields.managerId.addEventListener('change', updateProjectMembersPanel);
 
   ui.openConsultantModalBtn.addEventListener('click', () => {
     modalTempConsultantIds = selectedProjectAssignments.map((item) => Number(item.consultantId));
@@ -405,7 +553,11 @@ if (!isBrowserRuntime) {
     modals.consultantAssignment?.open();
   });
 
-  ui.consultantAreaFilterModal.addEventListener('change', () => { modalSelectedAreaId = ui.consultantAreaFilterModal.value; renderConsultantPickerList(); });
+  ui.consultantAreaFilterModal.addEventListener('change', () => {
+    modalSelectedAreaId = ui.consultantAreaFilterModal.value;
+    renderConsultantPickerList();
+  });
+
   ui.consultantPickerList.addEventListener('change', (event) => {
     const box = event.target.closest('input[type="checkbox"][data-consultant-id]');
     if (!box) return;
@@ -446,15 +598,14 @@ if (!isBrowserRuntime) {
       return;
     }
 
-    memberModalMode = button.dataset.action === 'edit-member' ? 'edit' : 'view';
-    ui.memberModalTitle.textContent = memberModalMode === 'edit' ? 'Edit Project Member' : 'View Project Member';
+    const readOnly = button.dataset.action === 'view-member';
+    ui.memberModalTitle.textContent = readOnly ? 'View Project Member' : 'Edit Project Member';
     ui.memberEditConsultantId.value = consultantId;
     ui.memberNameModal.value = consultantNameById(consultantId);
     ui.memberStartDateEdit.value = member.startDate || '';
     ui.memberEndDateEdit.value = member.endDate || '';
     rebuildMemberRoleSelect(member.projectRole || 'Project Member');
 
-    const readOnly = memberModalMode === 'view';
     ui.memberProjectRoleModal.disabled = readOnly;
     ui.memberStartDateEdit.disabled = readOnly;
     ui.memberEndDateEdit.disabled = readOnly;
@@ -511,6 +662,8 @@ if (!isBrowserRuntime) {
 
   ui.consultantForm.addEventListener('submit', async (event) => {
     event.preventDefault();
+    if (consultantViewMode === 'view') return;
+
     const payload = {
       name: fields.consultantName.value.trim(),
       areaIds: selectedIds(fields.consultantAreaIds),
@@ -531,28 +684,28 @@ if (!isBrowserRuntime) {
     }
   });
 
-  ui.openVacationModalBtn.addEventListener('click', () => {
+  ui.openDaysOffModalBtn.addEventListener('click', () => {
     if (!fields.consultantId.value) {
-      toast('Save consultant first before adding Vacation/PTO', 'orange darken-2');
+      toast('Save consultant first before adding days off', 'orange darken-2');
       return;
     }
     ui.availabilityType.value = '';
     ui.availabilityStartDate.value = '';
     ui.availabilityEndDate.value = '';
-    resetSelect('availabilityType', ui.availabilityType);
-    modals.vacation?.open();
+    rebuildDayOffTypeSelect();
+    modals.daysOff?.open();
   });
 
   ui.saveAvailabilityBtn.addEventListener('click', async () => {
     const consultantId = Number(fields.consultantId.value);
     if (!consultantId) { toast('No consultant selected', 'red darken-1'); return; }
     const payload = {
-      type: ui.availabilityType.value,
+      dayOffTypeId: Number(ui.availabilityType.value),
       startDate: ui.availabilityStartDate.value,
       endDate: ui.availabilityEndDate.value
     };
-    if (!payload.type || !payload.startDate || !payload.endDate) {
-      toast('All Vacation/PTO fields are required', 'red darken-1');
+    if (!payload.dayOffTypeId || !payload.startDate || !payload.endDate) {
+      toast('All Days Off fields are required', 'red darken-1');
       return;
     }
     try {
@@ -560,10 +713,13 @@ if (!isBrowserRuntime) {
         method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload)
       });
       await loadAll();
-      modals.vacation?.close();
-      toast('Availability period added', 'teal darken-1');
+      const consultant = findConsultantById(consultantId);
+      drawTimeline(ui.consultantAvailabilityChart, consultant ? [consultant] : []);
+      renderConsultantDaysOffList(consultant);
+      modals.daysOff?.close();
+      toast('Days off added', 'teal darken-1');
     } catch (error) {
-      toast(error.message || 'Failed to add availability', 'red darken-1');
+      toast(error.message || 'Failed to add days off', 'red darken-1');
     }
   });
 
@@ -575,7 +731,13 @@ if (!isBrowserRuntime) {
     if (!project) return;
 
     if (button.dataset.action === 'delete-project') {
-      try { await request(`/api/projects/${id}`, { method: 'DELETE' }); await loadAll(); toast('Project removed', 'orange darken-2'); } catch (error) { toast(error.message || 'Failed to delete project', 'red darken-1'); }
+      try {
+        await request(`/api/projects/${id}`, { method: 'DELETE' });
+        await loadAll();
+        toast('Project removed', 'orange darken-2');
+      } catch (error) {
+        toast(error.message || 'Failed to delete project', 'red darken-1');
+      }
       return;
     }
 
@@ -588,7 +750,10 @@ if (!isBrowserRuntime) {
     fields.startDate.value = project.startDate;
     fields.endDate.value = project.endDate;
     selectedProjectAssignments = (project.consultantAssignments || []).map((item) => ({
-      consultantId: Number(item.consultantId), projectRole: item.projectRole || 'Project Member', startDate: item.startDate || '', endDate: item.endDate || ''
+      consultantId: Number(item.consultantId),
+      projectRole: item.projectRole || 'Project Member',
+      startDate: item.startDate || '',
+      endDate: item.endDate || ''
     }));
 
     updateAssignedConsultantsSummary();
@@ -607,7 +772,13 @@ if (!isBrowserRuntime) {
     if (!consultant) return;
 
     if (button.dataset.action === 'delete-consultant') {
-      try { await request(`/api/consultants/${id}`, { method: 'DELETE' }); await loadAll(); toast('Consultant removed', 'orange darken-2'); } catch (error) { toast(error.message || 'Failed to delete consultant', 'red darken-1'); }
+      try {
+        await request(`/api/consultants/${id}`, { method: 'DELETE' });
+        await loadAll();
+        toast('Consultant removed', 'orange darken-2');
+      } catch (error) {
+        toast(error.message || 'Failed to delete consultant', 'red darken-1');
+      }
       return;
     }
 
@@ -615,6 +786,9 @@ if (!isBrowserRuntime) {
     fields.consultantName.value = consultant.name;
     fields.consultantSalary.value = consultant.salary;
     rebuildConsultantSelects({ areaIds: consultant.areaIds || [], companyRoleId: consultant.companyRoleId || '' });
+    setConsultantFormMode(button.dataset.action === 'view-consultant' ? 'view' : 'edit');
+    drawTimeline(ui.consultantAvailabilityChart, [consultant]);
+    renderConsultantDaysOffList(consultant);
     showManageConsultantsPanel();
     updateTextFields();
   });
@@ -626,7 +800,9 @@ if (!isBrowserRuntime) {
       ui.roleForm.reset();
       await loadAll();
       toast('Role added', 'teal darken-1');
-    } catch (error) { toast(error.message || 'Failed to add role', 'red darken-1'); }
+    } catch (error) {
+      toast(error.message || 'Failed to add role', 'red darken-1');
+    }
   });
 
   ui.areaForm.addEventListener('submit', async (event) => {
@@ -636,19 +812,57 @@ if (!isBrowserRuntime) {
       ui.areaForm.reset();
       await loadAll();
       toast('Area added', 'teal darken-1');
-    } catch (error) { toast(error.message || 'Failed to add area', 'red darken-1'); }
+    } catch (error) {
+      toast(error.message || 'Failed to add area', 'red darken-1');
+    }
+  });
+
+  ui.dayOffTypeForm.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    try {
+      await request('/api/day-off-types', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: fields.dayOffTypeName.value.trim() }) });
+      ui.dayOffTypeForm.reset();
+      await loadAll();
+      toast('Day off type added', 'teal darken-1');
+    } catch (error) {
+      toast(error.message || 'Failed to add day off type', 'red darken-1');
+    }
   });
 
   ui.rolesList.addEventListener('click', async (event) => {
     const button = event.target.closest('button[data-action="delete-role"]');
     if (!button) return;
-    try { await request(`/api/roles/${button.dataset.id}`, { method: 'DELETE' }); await loadAll(); toast('Role removed', 'orange darken-2'); } catch (error) { toast(error.message || 'Failed to delete role', 'red darken-1'); }
+    try {
+      await request(`/api/roles/${button.dataset.id}`, { method: 'DELETE' });
+      await loadAll();
+      toast('Role removed', 'orange darken-2');
+    } catch (error) {
+      toast(error.message || 'Failed to delete role', 'red darken-1');
+    }
   });
 
   ui.areasList.addEventListener('click', async (event) => {
     const button = event.target.closest('button[data-action="delete-area"]');
     if (!button) return;
-    try { await request(`/api/areas/${button.dataset.id}`, { method: 'DELETE' }); await loadAll(); toast('Area removed', 'orange darken-2'); } catch (error) { toast(error.message || 'Failed to delete area', 'red darken-1'); }
+    try {
+      await request(`/api/areas/${button.dataset.id}`, { method: 'DELETE' });
+      await loadAll();
+      toast('Area removed', 'orange darken-2');
+    } catch (error) {
+      toast(error.message || 'Failed to delete area', 'red darken-1');
+    }
+  });
+
+  ui.dayOffTypesList.addEventListener('click', async (event) => {
+    const button = event.target.closest('button[data-action="delete-day-off-type"]');
+    if (!button) return;
+    try {
+      await request(`/api/day-off-types/${button.dataset.id}`, { method: 'DELETE' });
+      await loadAll();
+      toast('Day off type removed', 'orange darken-2');
+    } catch (error) {
+      toast(error.message || 'Failed to delete day off type', 'red darken-1');
+    }
   });
 
   ui.navMenu.addEventListener('click', (event) => {
@@ -658,9 +872,9 @@ if (!isBrowserRuntime) {
   });
 
   if (window.M?.Modal) {
-    modals.consultantAssignment = M.Modal.init(ui.consultantModal);
+    modals.consultantAssignment = M.Modal.init(ui.consultantAssignmentModal);
     modals.memberDetails = M.Modal.init(ui.memberDetailsModal);
-    modals.vacation = M.Modal.init(ui.vacationModal);
+    modals.daysOff = M.Modal.init(ui.daysOffModal);
   }
 
   setSection('projects');

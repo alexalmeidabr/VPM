@@ -28,16 +28,31 @@ body { min-height: 100vh; }
 .member-card { border: 1px solid #dfe7ea; border-radius: 8px; padding: 0.65rem; }
 .member-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 0.5rem; }
 .member-meta { font-size: 0.9rem; color: #546e7a; }
-.availability-chart { border: 1px solid #cfd8dc; border-radius: 8px; overflow-x: auto; padding: 0.5rem; }
-.availability-row { display: grid; grid-template-columns: 170px repeat(52, 16px); align-items: center; gap: 2px; margin-bottom: 4px; }
-.availability-name { font-size: 0.85rem; font-weight: 600; }
-.week-cell { width: 16px; height: 14px; background: #eceff1; border-radius: 2px; }
+
+.availability-chart { border: 1px solid #cfd8dc; border-radius: 8px; overflow-x: auto; padding: 0.5rem; margin-bottom: 1rem; }
+.availability-month-header, .availability-week-header, .availability-row { display: grid; grid-template-columns: 170px repeat(52, 18px); gap: 2px; min-width: 1160px; }
+.availability-month-header { margin-bottom: 4px; font-size: 0.72rem; color: #546e7a; }
+.availability-week-header { margin-bottom: 6px; font-size: 0.65rem; color: #607d8b; }
+.availability-week-header div, .availability-month-header div { text-align: center; }
+.availability-name { font-size: 0.85rem; font-weight: 600; text-align: left !important; }
+.week-cell { width: 18px; height: 16px; background: #eceff1; border-radius: 2px; cursor: help; }
 .week-cell.vacation { background: #ffcc80; }
 .week-cell.pto { background: #80cbc4; }
-.legend { display: flex; gap: 1rem; font-size: 0.82rem; color: #455a64; margin-bottom: 0.45rem; }
+.week-cell.other { background: #b39ddb; }
+.legend { display: flex; gap: 1rem; font-size: 0.82rem; color: #455a64; margin-bottom: 0.45rem; flex-wrap: wrap; }
 .legend span::before { content: ''; display: inline-block; width: 12px; height: 12px; margin-right: 6px; border-radius: 2px; vertical-align: middle; }
-.legend .vac::before { background: #ffcc80; }
-.legend .pto::before { background: #80cbc4; }
+.legend .legend-item::before { background: currentColor; opacity: 0.8; }
+
+.week-tooltip {
+  position: fixed;
+  background: #263238;
+  color: #fff;
+  font-size: 0.75rem;
+  padding: 0.35rem 0.5rem;
+  border-radius: 4px;
+  pointer-events: none;
+  z-index: 999;
+}
 
 @media (max-width: 992px) {
   .app-shell { display: block; }

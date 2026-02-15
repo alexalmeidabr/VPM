@@ -11,20 +11,11 @@ BASE_DIR = Path(__file__).resolve().parent
 DB_PATH = BASE_DIR / 'projects.db'
 
 DEFAULT_ROLES = [
-  'TM Junior Consultant',
-  'TM Regular Consultant',
-  'TM Senior Consultant',
-  'Project Manager',
-  'EWM Junior Consultant',
-  'EWM Regular Consultant',
-  'EWM Senior Consultant'
+  'TM Junior Consultant', 'TM Regular Consultant', 'TM Senior Consultant',
+  'Project Manager', 'EWM Junior Consultant', 'EWM Regular Consultant', 'EWM Senior Consultant'
 ]
-
-DEFAULT_AREAS = [
-  'TM (Transport Management)',
-  'EWM (Extended Warehouse Management)',
-  'YL (Yard Logistics)'
-]
+DEFAULT_AREAS = ['TM (Transport Management)', 'EWM (Extended Warehouse Management)', 'YL (Yard Logistics)']
+DEFAULT_DAY_OFF_TYPES = ['Vacation', 'PTO']
 
 
 def get_connection():
@@ -47,6 +38,9 @@ def seed_defaults(conn):
   if conn.execute('SELECT COUNT(*) AS total FROM areas').fetchone()['total'] == 0:
     for area in DEFAULT_AREAS:
       conn.execute('INSERT INTO areas (name) VALUES (?)', (area,))
+  if conn.execute('SELECT COUNT(*) AS total FROM day_off_types').fetchone()['total'] == 0:
+    for day_off_type in DEFAULT_DAY_OFF_TYPES:
+      conn.execute('INSERT INTO day_off_types (name) VALUES (?)', (day_off_type,))
 
 
 def init_db():
@@ -60,6 +54,12 @@ def init_db():
       );
 
       CREATE TABLE IF NOT EXISTS areas (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT NOT NULL UNIQUE,
+        created_at TEXT DEFAULT CURRENT_TIMESTAMP
+      );
+
+      CREATE TABLE IF NOT EXISTS day_off_types (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         name TEXT NOT NULL UNIQUE,
         created_at TEXT DEFAULT CURRENT_TIMESTAMP
@@ -93,11 +93,13 @@ def init_db():
       CREATE TABLE IF NOT EXISTS consultant_availability (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         consultant_id INTEGER NOT NULL,
-        type TEXT NOT NULL,
+        day_off_type_id INTEGER,
+        type TEXT,
         start_date TEXT NOT NULL,
         end_date TEXT NOT NULL,
         created_at TEXT DEFAULT CURRENT_TIMESTAMP,
-        FOREIGN KEY (consultant_id) REFERENCES consultants(id) ON DELETE CASCADE
+        FOREIGN KEY (consultant_id) REFERENCES consultants(id) ON DELETE CASCADE,
+        FOREIGN KEY (day_off_type_id) REFERENCES day_off_types(id) ON DELETE SET NULL
       );
 
       CREATE TABLE IF NOT EXISTS projects (
@@ -132,6 +134,8 @@ def init_db():
     ensure_column(conn, 'project_consultants', 'project_role', 'project_role TEXT')
     ensure_column(conn, 'project_consultants', 'start_date', 'start_date TEXT')
     ensure_column(conn, 'project_consultants', 'end_date', 'end_date TEXT')
+    ensure_column(conn, 'consultant_availability', 'day_off_type_id', 'day_off_type_id INTEGER')
+    ensure_column(conn, 'consultant_availability', 'type', 'type TEXT')
     seed_defaults(conn)
 
 
@@ -172,9 +176,9 @@ class VPMHandler(SimpleHTTPRequestHandler):
 
   def _availability_route(self):
     parts = self._parts()
-    if len(parts) == 4 and parts[:3] == ['api', 'consultants', parts[2]] and parts[2].isdigit() and parts[3] == 'availability':
+    if len(parts) == 4 and parts[0:2] == ['api', 'consultants'] and parts[2].isdigit() and parts[3] == 'availability':
       return int(parts[2]), None
-    if len(parts) == 5 and parts[:3] == ['api', 'consultants', parts[2]] and parts[2].isdigit() and parts[3] == 'availability' and parts[4].isdigit():
+    if len(parts) == 5 and parts[0:2] == ['api', 'consultants'] and parts[2].isdigit() and parts[3] == 'availability' and parts[4].isdigit():
       return int(parts[2]), int(parts[4])
     return None, None
 
@@ -212,9 +216,12 @@ class VPMHandler(SimpleHTTPRequestHandler):
     except ValueError:
       return False
 
+  def _name_payload_error(self, payload):
+    payload['name'] = str(payload.get('name', '')).strip()
+    return None if payload['name'] else 'name is required'
+
   def _project_payload_error(self, payload):
-    required = ['projectName', 'clientName', 'clientContact', 'startDate', 'endDate', 'managerConsultantId', 'projectType']
-    for field in required:
+    for field in ['projectName', 'clientName', 'clientContact', 'startDate', 'endDate', 'managerConsultantId', 'projectType']:
       value = str(payload.get(field, '')).strip()
       if not value:
         return f'{field} is required'
@@ -222,7 +229,6 @@ class VPMHandler(SimpleHTTPRequestHandler):
 
     if payload['projectType'] not in ('Time Material', 'Fixed Price'):
       return 'projectType must be Time Material or Fixed Price'
-
     if payload['startDate'] > payload['endDate']:
       return 'startDate cannot be after endDate'
 
@@ -231,24 +237,7 @@ class VPMHandler(SimpleHTTPRequestHandler):
     except (TypeError, ValueError):
       return 'managerConsultantId must be numeric'
 
-    assignments = payload.get('consultantAssignments')
-    if assignments is None:
-      consultant_ids = payload.get('consultantIds', [])
-      if not isinstance(consultant_ids, list):
-        return 'consultantIds must be a list'
-      try:
-        assignments = [
-          {
-            'consultantId': int(cid),
-            'projectRole': 'Project Member',
-            'startDate': payload['startDate'],
-            'endDate': payload['endDate']
-          }
-          for cid in consultant_ids
-        ]
-      except (TypeError, ValueError):
-        return 'consultantIds must contain numeric IDs'
-
+    assignments = payload.get('consultantAssignments', [])
     if not isinstance(assignments, list):
       return 'consultantAssignments must be a list'
 
@@ -259,22 +248,17 @@ class VPMHandler(SimpleHTTPRequestHandler):
       role = str(assignment.get('projectRole', '')).strip()
       if not role:
         return 'projectRole is required for each project consultant'
-      start_date = str(assignment.get('startDate', '')).strip()
-      end_date = str(assignment.get('endDate', '')).strip()
-      if start_date and end_date and start_date > end_date:
+      start = str(assignment.get('startDate', '')).strip()
+      end = str(assignment.get('endDate', '')).strip()
+      if start and end and start > end:
         return 'project member startDate cannot be after endDate'
-      if not self._valid_iso_date(start_date) or not self._valid_iso_date(end_date):
+      if not self._valid_iso_date(start) or not self._valid_iso_date(end):
         return 'project member dates must be YYYY-MM-DD'
       try:
         consultant_id = int(assignment.get('consultantId'))
       except (TypeError, ValueError):
         return 'consultantId must be numeric for each project consultant'
-      normalized.append({
-        'consultantId': consultant_id,
-        'projectRole': role,
-        'startDate': start_date,
-        'endDate': end_date
-      })
+      normalized.append({'consultantId': consultant_id, 'projectRole': role, 'startDate': start, 'endDate': end})
 
     payload['consultantAssignments'] = normalized
     return None
@@ -283,54 +267,45 @@ class VPMHandler(SimpleHTTPRequestHandler):
     payload['name'] = str(payload.get('name', '')).strip()
     if not payload['name']:
       return 'name is required'
-
     try:
       payload['salary'] = float(payload.get('salary'))
     except (TypeError, ValueError):
       return 'salary must be a number'
-
     if payload['salary'] < 0:
       return 'salary must be zero or more'
-
     area_ids = payload.get('areaIds', [])
     if not isinstance(area_ids, list) or not area_ids:
       return 'areaIds is required'
-
-    company_role_id = payload.get('companyRoleId')
-    if company_role_id in (None, ''):
-      role_ids = payload.get('roleIds', [])
-      if isinstance(role_ids, list) and role_ids:
-        company_role_id = role_ids[0]
-
     try:
       payload['areaIds'] = [int(value) for value in area_ids]
-      payload['companyRoleId'] = int(company_role_id)
+      payload['companyRoleId'] = int(payload.get('companyRoleId'))
     except (TypeError, ValueError):
       return 'areaIds and companyRoleId must be numeric IDs'
-
     return None
 
-  def _availability_payload_error(self, payload):
-    leave_type = str(payload.get('type', '')).strip()
+  def _availability_payload_error(self, conn, payload):
+    day_off_type_id = payload.get('dayOffTypeId')
+    try:
+      payload['dayOffTypeId'] = int(day_off_type_id)
+    except (TypeError, ValueError):
+      return 'dayOffTypeId is required and must be numeric'
+
+    type_row = conn.execute('SELECT name FROM day_off_types WHERE id = ?', (payload['dayOffTypeId'],)).fetchone()
+    if not type_row:
+      return 'Selected day off type does not exist'
+
     start = str(payload.get('startDate', '')).strip()
     end = str(payload.get('endDate', '')).strip()
-    if leave_type not in ('Vacation', 'PTO'):
-      return 'type must be Vacation or PTO'
     if not start or not end:
       return 'startDate and endDate are required'
     if not self._valid_iso_date(start) or not self._valid_iso_date(end):
       return 'startDate and endDate must be YYYY-MM-DD'
     if start > end:
       return 'startDate cannot be after endDate'
-    payload['type'] = leave_type
+
+    payload['typeName'] = type_row['name']
     payload['startDate'] = start
     payload['endDate'] = end
-    return None
-
-  def _name_payload_error(self, payload):
-    payload['name'] = str(payload.get('name', '')).strip()
-    if not payload['name']:
-      return 'name is required'
     return None
 
   def _fetch_simple_table(self, conn, table):
@@ -338,62 +313,57 @@ class VPMHandler(SimpleHTTPRequestHandler):
     return [{'id': row['id'], 'name': row['name']} for row in rows]
 
   def _fetch_consultants(self, conn):
-    consultant_rows = conn.execute('SELECT id, name, salary FROM consultants ORDER BY created_at DESC, id DESC').fetchall()
+    rows = conn.execute('SELECT id, name, salary FROM consultants ORDER BY created_at DESC, id DESC').fetchall()
     consultants = []
-    for consultant in consultant_rows:
+    for consultant in rows:
       role_row = conn.execute(
         '''
-        SELECT r.id, r.name
-        FROM consultant_roles cr
+        SELECT r.id, r.name FROM consultant_roles cr
         JOIN roles r ON r.id = cr.role_id
-        WHERE cr.consultant_id = ?
-        ORDER BY r.name
-        LIMIT 1
+        WHERE cr.consultant_id = ? ORDER BY r.name LIMIT 1
         ''',
         (consultant['id'],)
       ).fetchone()
 
       area_rows = conn.execute(
         '''
-        SELECT a.id, a.name
-        FROM consultant_areas ca
+        SELECT a.id, a.name FROM consultant_areas ca
         JOIN areas a ON a.id = ca.area_id
-        WHERE ca.consultant_id = ?
-        ORDER BY a.name
+        WHERE ca.consultant_id = ? ORDER BY a.name
         ''',
         (consultant['id'],)
       ).fetchall()
 
       availability_rows = conn.execute(
         '''
-        SELECT id, type, start_date, end_date
-        FROM consultant_availability
-        WHERE consultant_id = ?
-        ORDER BY start_date
+        SELECT ca.id, ca.day_off_type_id, ca.type, ca.start_date, ca.end_date, dot.name AS type_name
+        FROM consultant_availability ca
+        LEFT JOIN day_off_types dot ON dot.id = ca.day_off_type_id
+        WHERE ca.consultant_id = ?
+        ORDER BY ca.start_date
         ''',
         (consultant['id'],)
       ).fetchall()
 
-      consultants.append(
-        {
-          'id': consultant['id'],
-          'name': consultant['name'],
-          'salary': consultant['salary'],
-          'companyRoleId': role_row['id'] if role_row else None,
-          'companyRole': role_row['name'] if role_row else None,
-          'areaIds': [row['id'] for row in area_rows],
-          'areaNames': [row['name'] for row in area_rows],
-          'availability': [
-            {
-              'id': row['id'],
-              'type': row['type'],
-              'startDate': row['start_date'],
-              'endDate': row['end_date']
-            }
-            for row in availability_rows
-          ]
-        }
-      )
+      consultants.append({
+        'id': consultant['id'],
+        'name': consultant['name'],
+        'salary': consultant['salary'],
+        'companyRoleId': role_row['id'] if role_row else None,
+        'companyRole': role_row['name'] if role_row else None,
+        'areaIds': [row['id'] for row in area_rows],
+        'areaNames': [row['name'] for row in area_rows],
+        'availability': [
+          {
+            'id': row['id'],
+            'dayOffTypeId': row['day_off_type_id'],
+            'type': row['type_name'] or row['type'] or 'Days Off',
+            'startDate': row['start_date'],
+            'endDate': row['end_date']
+          }
+          for row in availability_rows
+        ]
+      })
     return consultants
 
   def _fetch_projects(self, conn):
@@ -411,38 +381,34 @@ class VPMHandler(SimpleHTTPRequestHandler):
     for row in rows:
       members = conn.execute(
         '''
-        SELECT pc.consultant_id, pc.project_role, pc.start_date, pc.end_date, c.name as consultant_name
+        SELECT pc.consultant_id, pc.project_role, pc.start_date, pc.end_date, c.name AS consultant_name
         FROM project_consultants pc
         JOIN consultants c ON c.id = pc.consultant_id
-        WHERE pc.project_id = ?
-        ORDER BY c.name
+        WHERE pc.project_id = ? ORDER BY c.name
         ''',
         (row['id'],)
       ).fetchall()
-      projects.append(
-        {
-          'id': row['id'],
-          'projectName': row['project_name'],
-          'clientName': row['client_name'],
-          'clientContact': row['client_contact'],
-          'startDate': row['start_date'],
-          'endDate': row['end_date'],
-          'projectType': row['project_type'],
-          'managerConsultantId': row['manager_consultant_id'],
-          'managerName': row['manager_name'],
-          'consultantIds': [member['consultant_id'] for member in members],
-          'consultantAssignments': [
-            {
-              'consultantId': member['consultant_id'],
-              'consultantName': member['consultant_name'],
-              'projectRole': member['project_role'] or 'Project Member',
-              'startDate': member['start_date'] or '',
-              'endDate': member['end_date'] or ''
-            }
-            for member in members
-          ]
-        }
-      )
+      projects.append({
+        'id': row['id'],
+        'projectName': row['project_name'],
+        'clientName': row['client_name'],
+        'clientContact': row['client_contact'],
+        'startDate': row['start_date'],
+        'endDate': row['end_date'],
+        'projectType': row['project_type'],
+        'managerConsultantId': row['manager_consultant_id'],
+        'managerName': row['manager_name'],
+        'consultantAssignments': [
+          {
+            'consultantId': m['consultant_id'],
+            'consultantName': m['consultant_name'],
+            'projectRole': m['project_role'] or 'Project Member',
+            'startDate': m['start_date'] or '',
+            'endDate': m['end_date'] or ''
+          }
+          for m in members
+        ]
+      })
     return projects
 
   def do_GET(self):
@@ -460,11 +426,14 @@ class VPMHandler(SimpleHTTPRequestHandler):
       if path == '/api/areas':
         self._send_json({'areas': self._fetch_simple_table(conn, 'areas')})
         return
+      if path == '/api/day-off-types':
+        self._send_json({'dayOffTypes': self._fetch_simple_table(conn, 'day_off_types')})
+        return
+
     super().do_GET()
 
   def do_POST(self):
     path = self._path()
-
     try:
       payload = self._read_json()
     except json.JSONDecodeError:
@@ -473,17 +442,17 @@ class VPMHandler(SimpleHTTPRequestHandler):
 
     consultant_id, _ = self._availability_route()
     if consultant_id is not None and path.endswith('/availability'):
-      error = self._availability_payload_error(payload)
-      if error:
-        self._send_json({'error': error}, HTTPStatus.BAD_REQUEST)
-        return
       with get_connection() as conn:
         if not self._ids_exist(conn, 'consultants', [consultant_id]):
           self._send_json({'error': 'Consultant not found'}, HTTPStatus.NOT_FOUND)
           return
+        error = self._availability_payload_error(conn, payload)
+        if error:
+          self._send_json({'error': error}, HTTPStatus.BAD_REQUEST)
+          return
         cursor = conn.execute(
-          'INSERT INTO consultant_availability (consultant_id, type, start_date, end_date) VALUES (?, ?, ?, ?)',
-          (consultant_id, payload['type'], payload['startDate'], payload['endDate'])
+          'INSERT INTO consultant_availability (consultant_id, day_off_type_id, type, start_date, end_date) VALUES (?, ?, ?, ?, ?)',
+          (consultant_id, payload['dayOffTypeId'], payload['typeName'], payload['startDate'], payload['endDate'])
         )
       self._send_json({'id': cursor.lastrowid}, HTTPStatus.CREATED)
       return
@@ -508,10 +477,7 @@ class VPMHandler(SimpleHTTPRequestHandler):
           INSERT INTO projects (project_name, client_name, project_lead, client_contact, start_date, end_date, manager_consultant_id, project_type)
           VALUES (?, ?, ?, ?, ?, ?, ?, ?)
           ''',
-          (
-            payload['projectName'], payload['clientName'], manager_name or 'Manager', payload['clientContact'],
-            payload['startDate'], payload['endDate'], payload['managerConsultantId'], payload['projectType']
-          )
+          (payload['projectName'], payload['clientName'], manager_name or 'Manager', payload['clientContact'], payload['startDate'], payload['endDate'], payload['managerConsultantId'], payload['projectType'])
         )
         project_id = cursor.lastrowid
         for item in payload['consultantAssignments']:
@@ -519,7 +485,6 @@ class VPMHandler(SimpleHTTPRequestHandler):
             'INSERT INTO project_consultants (project_id, consultant_id, project_role, start_date, end_date) VALUES (?, ?, ?, ?, ?)',
             (project_id, item['consultantId'], item['projectRole'], item['startDate'], item['endDate'])
           )
-
       self._send_json({'id': project_id}, HTTPStatus.CREATED)
       return
 
@@ -535,19 +500,17 @@ class VPMHandler(SimpleHTTPRequestHandler):
         if not self._ids_exist(conn, 'roles', [payload['companyRoleId']]):
           self._send_json({'error': 'Selected company role does not exist'}, HTTPStatus.BAD_REQUEST)
           return
-
         first_area = conn.execute('SELECT name FROM areas WHERE id = ? LIMIT 1', (payload['areaIds'][0],)).fetchone()
         role_row = conn.execute('SELECT name FROM roles WHERE id = ? LIMIT 1', (payload['companyRoleId'],)).fetchone()
-
         cursor = conn.execute(
           'INSERT INTO consultants (name, area, position, salary) VALUES (?, ?, ?, ?)',
           (payload['name'], first_area['name'] if first_area else None, role_row['name'] if role_row else None, payload['salary'])
         )
-        new_consultant_id = cursor.lastrowid
+        consultant_id = cursor.lastrowid
         for area_id in sorted(set(payload['areaIds'])):
-          conn.execute('INSERT INTO consultant_areas (consultant_id, area_id) VALUES (?, ?)', (new_consultant_id, area_id))
-        conn.execute('INSERT INTO consultant_roles (consultant_id, role_id) VALUES (?, ?)', (new_consultant_id, payload['companyRoleId']))
-      self._send_json({'id': new_consultant_id}, HTTPStatus.CREATED)
+          conn.execute('INSERT INTO consultant_areas (consultant_id, area_id) VALUES (?, ?)', (consultant_id, area_id))
+        conn.execute('INSERT INTO consultant_roles (consultant_id, role_id) VALUES (?, ?)', (consultant_id, payload['companyRoleId']))
+      self._send_json({'id': consultant_id}, HTTPStatus.CREATED)
       return
 
     if path == '/api/roles':
@@ -578,6 +541,20 @@ class VPMHandler(SimpleHTTPRequestHandler):
       self._send_json({'id': cursor.lastrowid}, HTTPStatus.CREATED)
       return
 
+    if path == '/api/day-off-types':
+      error = self._name_payload_error(payload)
+      if error:
+        self._send_json({'error': error}, HTTPStatus.BAD_REQUEST)
+        return
+      with get_connection() as conn:
+        try:
+          cursor = conn.execute('INSERT INTO day_off_types (name) VALUES (?)', (payload['name'],))
+        except sqlite3.IntegrityError:
+          self._send_json({'error': 'Day off type already exists'}, HTTPStatus.BAD_REQUEST)
+          return
+      self._send_json({'id': cursor.lastrowid}, HTTPStatus.CREATED)
+      return
+
     self.send_error(HTTPStatus.NOT_FOUND)
 
   def do_PUT(self):
@@ -595,7 +572,6 @@ class VPMHandler(SimpleHTTPRequestHandler):
       if error:
         self._send_json({'error': error}, HTTPStatus.BAD_REQUEST)
         return
-
       with get_connection() as conn:
         ids_to_check = [item['consultantId'] for item in payload['consultantAssignments']] + [payload['managerConsultantId']]
         if not self._ids_exist(conn, 'consultants', ids_to_check):
@@ -612,22 +588,17 @@ class VPMHandler(SimpleHTTPRequestHandler):
           SET project_name = ?, client_name = ?, project_lead = ?, client_contact = ?, start_date = ?, end_date = ?, manager_consultant_id = ?, project_type = ?
           WHERE id = ?
           ''',
-          (
-            payload['projectName'], payload['clientName'], manager_name or 'Manager', payload['clientContact'],
-            payload['startDate'], payload['endDate'], payload['managerConsultantId'], payload['projectType'], project_id
-          )
+          (payload['projectName'], payload['clientName'], manager_name or 'Manager', payload['clientContact'], payload['startDate'], payload['endDate'], payload['managerConsultantId'], payload['projectType'], project_id)
         )
         if cursor.rowcount == 0:
           self._send_json({'error': 'Project not found'}, HTTPStatus.NOT_FOUND)
           return
-
         conn.execute('DELETE FROM project_consultants WHERE project_id = ?', (project_id,))
         for item in payload['consultantAssignments']:
           conn.execute(
             'INSERT INTO project_consultants (project_id, consultant_id, project_role, start_date, end_date) VALUES (?, ?, ?, ?, ?)',
             (project_id, item['consultantId'], item['projectRole'], item['startDate'], item['endDate'])
           )
-
       self._send_json({'status': 'updated'})
       return
 
@@ -636,7 +607,6 @@ class VPMHandler(SimpleHTTPRequestHandler):
       if error:
         self._send_json({'error': error}, HTTPStatus.BAD_REQUEST)
         return
-
       with get_connection() as conn:
         if not self._ids_exist(conn, 'areas', payload['areaIds']):
           self._send_json({'error': 'Unknown area selected'}, HTTPStatus.BAD_REQUEST)
@@ -644,30 +614,20 @@ class VPMHandler(SimpleHTTPRequestHandler):
         if not self._ids_exist(conn, 'roles', [payload['companyRoleId']]):
           self._send_json({'error': 'Selected company role does not exist'}, HTTPStatus.BAD_REQUEST)
           return
-
         first_area = conn.execute('SELECT name FROM areas WHERE id = ? LIMIT 1', (payload['areaIds'][0],)).fetchone()
         role_row = conn.execute('SELECT name FROM roles WHERE id = ? LIMIT 1', (payload['companyRoleId'],)).fetchone()
-
         cursor = conn.execute(
           'UPDATE consultants SET name = ?, area = ?, position = ?, salary = ? WHERE id = ?',
-          (
-            payload['name'],
-            first_area['name'] if first_area else None,
-            role_row['name'] if role_row else None,
-            payload['salary'],
-            consultant_id
-          )
+          (payload['name'], first_area['name'] if first_area else None, role_row['name'] if role_row else None, payload['salary'], consultant_id)
         )
         if cursor.rowcount == 0:
           self._send_json({'error': 'Consultant not found'}, HTTPStatus.NOT_FOUND)
           return
-
         conn.execute('DELETE FROM consultant_areas WHERE consultant_id = ?', (consultant_id,))
         conn.execute('DELETE FROM consultant_roles WHERE consultant_id = ?', (consultant_id,))
         for area_id in sorted(set(payload['areaIds'])):
           conn.execute('INSERT INTO consultant_areas (consultant_id, area_id) VALUES (?, ?)', (consultant_id, area_id))
         conn.execute('INSERT INTO consultant_roles (consultant_id, role_id) VALUES (?, ?)', (consultant_id, payload['companyRoleId']))
-
       self._send_json({'status': 'updated'})
       return
 
@@ -678,14 +638,12 @@ class VPMHandler(SimpleHTTPRequestHandler):
     consultant_id = self._resource_id('consultants')
     role_id = self._resource_id('roles')
     area_id = self._resource_id('areas')
+    day_off_type_id = self._resource_id('day-off-types')
     availability_consultant_id, availability_id = self._availability_route()
 
     if availability_consultant_id is not None and availability_id is not None:
       with get_connection() as conn:
-        cursor = conn.execute(
-          'DELETE FROM consultant_availability WHERE id = ? AND consultant_id = ?',
-          (availability_id, availability_consultant_id)
-        )
+        cursor = conn.execute('DELETE FROM consultant_availability WHERE id = ? AND consultant_id = ?', (availability_id, availability_consultant_id))
       if cursor.rowcount == 0:
         self._send_json({'error': 'Availability entry not found'}, HTTPStatus.NOT_FOUND)
         return
@@ -724,6 +682,15 @@ class VPMHandler(SimpleHTTPRequestHandler):
         cursor = conn.execute('DELETE FROM areas WHERE id = ?', (area_id,))
       if cursor.rowcount == 0:
         self._send_json({'error': 'Area not found'}, HTTPStatus.NOT_FOUND)
+        return
+      self._send_json({'status': 'deleted'})
+      return
+
+    if day_off_type_id is not None:
+      with get_connection() as conn:
+        cursor = conn.execute('DELETE FROM day_off_types WHERE id = ?', (day_off_type_id,))
+      if cursor.rowcount == 0:
+        self._send_json({'error': 'Day off type not found'}, HTTPStatus.NOT_FOUND)
         return
       self._send_json({'status': 'deleted'})
       return
