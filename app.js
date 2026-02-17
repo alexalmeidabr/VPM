@@ -941,7 +941,9 @@ if (!isBrowserRuntime) {
     ui.projectFormTitle.textContent = readOnly ? 'Manage Project (View)' : 'Manage Project';
     ui.projectSaveBtn.hidden = readOnly;
     ui.openConsultantModalBtn.disabled = readOnly;
-    [fields.projectName, fields.clientName, fields.projectType, fields.managerId, fields.clientContact, fields.startDate, fields.endDate].forEach((el) => { el.disabled = readOnly; });
+    [fields.projectName, fields.clientName, fields.clientContact, fields.startDate, fields.endDate].forEach((el) => { el.disabled = readOnly; });
+    fields.projectType.disabled = false;
+    fields.managerId.disabled = false;
     ui.projectCancelEditBtn.textContent = readOnly ? 'Close' : 'Cancel';
     updateProjectMembersPanel();
   };
