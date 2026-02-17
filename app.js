@@ -717,6 +717,14 @@ if (!isBrowserRuntime) {
     ui.monthDetailTitle.textContent = `${monthNames[m]} ${y} – Daily Detail`;
     ui.monthDetailTimeline.innerHTML = '';
 
+    const firstDay = new Date(y, m, 1);
+    const mondayIndex = (firstDay.getDay() + 6) % 7;
+    for (let i = 0; i < mondayIndex; i += 1) {
+      const spacer = document.createElement('div');
+      spacer.className = 'week-day-cell month-day-spacer';
+      ui.monthDetailTimeline.appendChild(spacer);
+    }
+
     const daysInMonth = new Date(y, m + 1, 0).getDate();
     for (let dayNum = 1; dayNum <= daysInMonth; dayNum += 1) {
       const day = new Date(y, m, dayNum);
