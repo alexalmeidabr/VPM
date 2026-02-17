@@ -97,3 +97,6 @@ body { min-height: 100vh; }
 .week-day-cell.weekend-default-off { background: #ffebee; border-color: #ef9a9a; }
 .week-day-cell.weekend-default-off .week-day-status { color: #b71c1c; font-weight: 600; }
 @media (max-width: 992px) { .week-detail-timeline { grid-template-columns: repeat(2, minmax(130px, 1fr)); } }
+
+.icon-only-btn { display: inline-flex; align-items: center; justify-content: center; min-width: 44px; }
+#consultant-save-btn { display: inline-flex; align-items: center; justify-content: center; min-width: 44px; }

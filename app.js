@@ -185,23 +185,28 @@ if (!isBrowserRuntime) {
     return { start, end };
   };
 
-  const isConsultantAllocatedInWeek = (consultantId, weekStart, weekEnd) => {
+  const consultantProjectNamesInWeek = (consultantId, weekStart, weekEnd) => {
     const id = Number(consultantId);
-    return projects.some((project) => {
-      const assignments = (project.consultantAssignments || []).filter((assignment) => Number(assignment.consultantId) === id);
-      const hasManager = Number(project.managerConsultantId) === id;
+    const names = projects
+      .filter((project) => {
+        const assignments = (project.consultantAssignments || []).filter((assignment) => Number(assignment.consultantId) === id);
+        const hasManager = Number(project.managerConsultantId) === id;
 
-      const windows = assignments
-        .map((assignment) => assignmentWindowForProject(project, assignment))
-        .filter(Boolean);
+        const windows = assignments
+          .map((assignment) => assignmentWindowForProject(project, assignment))
+          .filter(Boolean);
 
-      if (hasManager && !windows.length) {
-        const managerWindow = assignmentWindowForProject(project, { startDate: project.startDate, endDate: project.endDate });
-        if (managerWindow) windows.push(managerWindow);
-      }
+        if (hasManager && !windows.length) {
+          const managerWindow = assignmentWindowForProject(project, { startDate: project.startDate, endDate: project.endDate });
+          if (managerWindow) windows.push(managerWindow);
+        }
 
-      return windows.some(({ start, end }) => start <= weekEnd && end >= weekStart);
-    });
+        return windows.some(({ start, end }) => start <= weekEnd && end >= weekStart);
+      })
+      .map((project) => project.projectName)
+      .filter(Boolean);
+
+    return [...new Set(names)];
   };
 
   const mondayForWeek = (year, weekNumber) => {
@@ -265,10 +270,13 @@ if (!isBrowserRuntime) {
     const legend = document.createElement('div');
     legend.className = 'legend';
     if (options.showAllocationStatus) {
-      const allocated = document.createElement('span');
-      allocated.className = 'legend-item allocated-legend';
-      allocated.textContent = 'Allocated';
-      legend.appendChild(allocated);
+      const projectNames = [...new Set(projects.map((project) => project.projectName).filter(Boolean))];
+      projectNames.forEach((projectName) => {
+        const projectSpan = document.createElement('span');
+        projectSpan.className = 'legend-item allocated-legend';
+        projectSpan.textContent = projectName;
+        legend.appendChild(projectSpan);
+      });
 
       const available = document.createElement('span');
       available.className = 'legend-item available-legend';
@@ -372,20 +380,28 @@ if (!isBrowserRuntime) {
         cell.className = 'week-cell';
         cell.dataset.monday = weekStart.toISOString().slice(0, 10);
 
-        if (options.showAllocationStatus) {
-          const allocated = isConsultantAllocatedInWeek(consultant.id, weekStart, weekEnd);
-          cell.classList.add(allocated ? 'allocated' : 'available');
-        }
-
-        (consultant.availability || []).forEach((entry) => {
+        const overlappingDaysOff = (consultant.availability || []).filter((entry) => {
           const entryStart = new Date(entry.startDate);
           const entryEnd = new Date(entry.endDate);
-          if (entryStart <= weekEnd && entryEnd >= weekStart) {
-            if (entry.type === 'Vacation') cell.classList.add('vacation');
-            else if (entry.type === 'PTO') cell.classList.add('pto');
-            else cell.classList.add('other');
-          }
+          return entryStart <= weekEnd && entryEnd >= weekStart;
         });
+
+        if (overlappingDaysOff.some((entry) => entry.type === 'Vacation')) cell.classList.add('vacation');
+        else if (overlappingDaysOff.some((entry) => entry.type === 'PTO')) cell.classList.add('pto');
+        else if (overlappingDaysOff.length) cell.classList.add('other');
+
+        if (options.showAllocationStatus) {
+          const projectNames = consultantProjectNamesInWeek(consultant.id, weekStart, weekEnd);
+          if (overlappingDaysOff.length) {
+            cell.dataset.status = overlappingDaysOff.map((entry) => entry.type).join(', ');
+          } else if (projectNames.length) {
+            cell.classList.add('allocated');
+            cell.dataset.status = projectNames.join(', ');
+          } else {
+            cell.classList.add('available');
+            cell.dataset.status = 'Available';
+          }
+        }
 
         row.appendChild(cell);
       });
@@ -537,7 +553,8 @@ if (!isBrowserRuntime) {
         return;
       }
       ui.weekTooltip.hidden = false;
-      ui.weekTooltip.textContent = `Week Monday: ${weekCell.dataset.monday}`;
+      const status = weekCell.dataset.status ? ` • ${weekCell.dataset.status}` : '';
+      ui.weekTooltip.textContent = `Week Monday: ${weekCell.dataset.monday}${status}`;
       ui.weekTooltip.style.left = `${event.clientX + 12}px`;
       ui.weekTooltip.style.top = `${event.clientY + 12}px`;
     });
@@ -995,7 +1012,7 @@ if (!isBrowserRuntime) {
     modals.memberDetails?.open();
   });
 
-  ui.saveMemberDetailsBtn.addEventListener('click', () => {
+  ui.saveMemberDetailsBtn.addEventListener('click', async () => {
     const consultantId = Number(ui.memberEditConsultantId.value);
     const item = selectedProjectAssignments.find((member) => Number(member.consultantId) === consultantId);
     if (!item) { modals.memberDetails?.close(); return; }
@@ -1008,12 +1025,35 @@ if (!isBrowserRuntime) {
       toast('Allocation must be between 0 and 100', 'red darken-1');
       return;
     }
+
     item.projectRole = ui.memberProjectRoleModal.value;
     item.allocation = allocation;
     item.startDate = ui.memberStartDateEdit.value;
     item.endDate = ui.memberEndDateEdit.value;
-    updateProjectMembersPanel();
-    modals.memberDetails?.close();
+
+    try {
+      if (fields.projectId.value) {
+        const payload = {
+          projectName: fields.projectName.value.trim(),
+          clientName: fields.clientName.value.trim(),
+          projectType: fields.projectType.value,
+          managerConsultantId: Number(fields.managerId.value),
+          clientContact: fields.clientContact.value.trim(),
+          startDate: fields.startDate.value,
+          endDate: fields.endDate.value,
+          consultantAssignments: selectedProjectAssignments
+        };
+        await request(`/api/projects/${fields.projectId.value}`, {
+          method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload)
+        });
+        await loadAll();
+      }
+      updateProjectMembersPanel();
+      modals.memberDetails?.close();
+      toast('Project member updated', 'teal darken-1');
+    } catch (error) {
+      toast(error.message || 'Failed to save project member', 'red darken-1');
+    }
   });
 
   ui.projectForm.addEventListener('submit', async (event) => {
