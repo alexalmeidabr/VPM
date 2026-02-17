@@ -70,6 +70,9 @@ if (!isBrowserRuntime) {
     openDaysOffModalBtn: document.getElementById('open-days-off-modal-btn'),
     consultantAvailabilityChart: document.getElementById('consultant-availability-chart'),
     consultantDaysOffList: document.getElementById('consultant-days-off-list'),
+    weekDetailCard: document.getElementById('week-detail-card'),
+    weekDetailTitle: document.getElementById('week-detail-title'),
+    weekDetailTimeline: document.getElementById('week-detail-timeline'),
 
     daysOffModal: document.getElementById('days-off-modal'),
     availabilityType: document.getElementById('availability-type'),
@@ -156,6 +159,19 @@ if (!isBrowserRuntime) {
   const roleNameById = (id) => roles.find((role) => Number(role.id) === Number(id))?.name || '—';
   const formatDate = (value) => (value ? new Date(value).toLocaleDateString() : '—');
   const formatSalary = (value) => Number(value).toLocaleString('en-IE', { style: 'currency', currency: 'EUR' });
+
+  const parseIsoDate = (value) => {
+    if (!value) return null;
+    const [year, month, day] = value.split('-').map(Number);
+    return new Date(year, month - 1, day);
+  };
+
+  const formatIsoDate = (date) => {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
 
   const mondayForWeek = (year, weekNumber) => {
     const jan4 = new Date(year, 0, 4);
@@ -348,6 +364,69 @@ if (!isBrowserRuntime) {
 
   bindWeekTooltip(ui.availabilityChart);
   bindWeekTooltip(ui.consultantAvailabilityChart);
+
+  const renderWeekDetail = (consultant, weekMondayIso) => {
+    if (!ui.weekDetailCard || !ui.weekDetailTimeline || !ui.weekDetailTitle) return;
+    if (!consultant || !weekMondayIso) {
+      ui.weekDetailCard.hidden = true;
+      ui.weekDetailTimeline.innerHTML = '';
+      return;
+    }
+
+    const start = parseIsoDate(weekMondayIso);
+    if (!start) {
+      ui.weekDetailCard.hidden = true;
+      ui.weekDetailTimeline.innerHTML = '';
+      return;
+    }
+
+    const end = new Date(start);
+    end.setDate(start.getDate() + 6);
+    ui.weekDetailTitle.textContent = `Week Timeline (${formatDate(start)} - ${formatDate(end)})`;
+
+    const dayNames = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+    ui.weekDetailTimeline.innerHTML = '';
+
+    dayNames.forEach((dayName, index) => {
+      const day = new Date(start);
+      day.setDate(start.getDate() + index);
+      const dayIso = formatIsoDate(day);
+      const cell = document.createElement('div');
+      cell.className = 'week-day-cell';
+
+      const overlaps = (consultant.availability || []).filter((entry) => {
+        const entryStart = parseIsoDate(entry.startDate);
+        const entryEnd = parseIsoDate(entry.endDate);
+        return entryStart && entryEnd && entryStart <= day && entryEnd >= day;
+      });
+
+      if (overlaps.length) {
+        const primary = overlaps[0];
+        if (primary.type === 'Vacation') cell.classList.add('vacation');
+        else if (primary.type === 'PTO') cell.classList.add('pto');
+        else cell.classList.add('other');
+      }
+
+      const name = document.createElement('div');
+      name.className = 'week-day-name';
+      name.textContent = dayName;
+
+      const date = document.createElement('div');
+      date.className = 'week-day-date';
+      date.textContent = dayIso;
+
+      const status = document.createElement('div');
+      status.className = 'week-day-status';
+      status.textContent = overlaps.length ? overlaps.map((entry) => entry.type).join(', ') : 'Available';
+
+      cell.appendChild(name);
+      cell.appendChild(date);
+      cell.appendChild(status);
+      ui.weekDetailTimeline.appendChild(cell);
+    });
+
+    ui.weekDetailCard.hidden = false;
+  };
 
   const renderConsultantDaysOffList = (consultant) => {
     ui.consultantDaysOffList.innerHTML = '';
@@ -592,6 +671,7 @@ if (!isBrowserRuntime) {
     setConsultantFormMode('edit');
     drawTimeline(ui.consultantAvailabilityChart, [], { year: selectedTimelineYear, centerOnCurrentWeek: Boolean(ui.centerCurrentWeekToggle?.checked) });
     renderConsultantDaysOffList(null);
+    renderWeekDetail(null, '');
     showConsultantsPanel();
     updateTextFields();
   };
@@ -886,6 +966,7 @@ if (!isBrowserRuntime) {
     setConsultantFormMode(button.dataset.action === 'view-consultant' ? 'view' : 'edit');
     drawTimeline(ui.consultantAvailabilityChart, [consultant], { year: selectedTimelineYear, centerOnCurrentWeek: Boolean(ui.centerCurrentWeekToggle?.checked) });
     renderConsultantDaysOffList(consultant);
+    renderWeekDetail(null, '');
     showManageConsultantsPanel();
     updateTextFields();
   });
@@ -975,6 +1056,19 @@ if (!isBrowserRuntime) {
 
   ui.centerCurrentWeekToggle?.addEventListener('change', refreshTimelines);
 
+
+
+  ui.consultantAvailabilityChart.addEventListener('click', (event) => {
+    const weekCell = event.target.closest('.week-cell');
+    if (!weekCell) return;
+    const consultantId = Number(fields.consultantId.value);
+    const consultant = consultantId ? findConsultantById(consultantId) : null;
+    if (!consultant) {
+      toast('Open a consultant to view week details', 'orange darken-2');
+      return;
+    }
+    renderWeekDetail(consultant, weekCell.dataset.monday);
+  });
 
   ui.navMenu.addEventListener('click', (event) => {
     const item = event.target.closest('li[data-section]');
