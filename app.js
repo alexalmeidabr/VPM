@@ -942,6 +942,8 @@ if (!isBrowserRuntime) {
     ui.projectSaveBtn.hidden = readOnly;
     ui.openConsultantModalBtn.disabled = readOnly;
     [fields.projectName, fields.clientName, fields.projectType, fields.managerId, fields.clientContact, fields.startDate, fields.endDate].forEach((el) => { el.disabled = readOnly; });
+    resetSelect('manager', fields.managerId);
+    resetSelect('projectType', fields.projectType);
     ui.projectCancelEditBtn.textContent = readOnly ? 'Close' : 'Cancel';
     updateProjectMembersPanel();
   };
