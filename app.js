@@ -232,7 +232,16 @@ if (!isBrowserRuntime) {
     }
     container.appendChild(legend);
 
+    const columns = `170px repeat(${weeks.length}, 18px)`;
+
     if (options.showYearNavigation) {
+      const yearRow = document.createElement('div');
+      yearRow.className = 'timeline-year-row';
+      yearRow.style.gridTemplateColumns = columns;
+
+      const spacer = document.createElement('div');
+      yearRow.appendChild(spacer);
+
       const yearControls = document.createElement('div');
       yearControls.className = 'timeline-year-controls-row';
 
@@ -259,10 +268,9 @@ if (!isBrowserRuntime) {
       nextButton.innerHTML = '<i class="material-icons">chevron_right</i>';
       yearControls.appendChild(nextButton);
 
-      container.appendChild(yearControls);
+      yearRow.appendChild(yearControls);
+      container.appendChild(yearRow);
     }
-
-    const columns = `170px repeat(${weeks.length}, 18px)`;
 
     const monthHeader = document.createElement('div');
     monthHeader.className = 'availability-month-header';

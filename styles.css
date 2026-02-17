@@ -32,7 +32,8 @@ body { min-height: 100vh; }
 .timeline-header-row h6 { margin: 0; }
 .timeline-center-toggle { margin-left: auto; }
 
-.timeline-year-controls-row { display: grid; grid-template-columns: 2rem auto 2rem; align-items: center; justify-content: center; min-width: 1160px; margin: 0 auto 0.35rem; }
+.timeline-year-row { display: grid; gap: 2px; min-width: 1160px; margin-bottom: 0.35rem; }
+.timeline-year-controls-row { grid-column: 2 / -1; display: grid; grid-template-columns: 2rem auto 2rem; align-items: center; justify-content: center; }
 .timeline-year-label { font-size: 1rem; font-weight: 600; color: #455a64; min-width: 4rem; text-align: center; margin: 0; }
 .timeline-nav-btn { min-width: 2rem; padding: 0 0.3rem; }
 .timeline-nav-btn .material-icons { font-size: 1.25rem; }
