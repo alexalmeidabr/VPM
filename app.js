@@ -34,6 +34,7 @@ if (!isBrowserRuntime) {
     assignedConsultantsSummary: document.getElementById('assigned-consultants-summary'),
     projectMembersList: document.getElementById('project-members-list'),
     projectMembersCard: document.getElementById('project-members-card'),
+    projectTimelineChart: document.getElementById('project-timeline-chart'),
 
     consultantAssignmentModal: document.getElementById('consultant-assignment-modal'),
     consultantAreaFilterModal: document.getElementById('consultant-area-filter-modal'),
@@ -125,6 +126,7 @@ if (!isBrowserRuntime) {
   let modalSelectedAreaId = '';
   let modalTempConsultantIds = [];
   let selectedTimelineYear = new Date().getFullYear();
+  let selectedProjectTimelineYear = new Date().getFullYear();
 
   const toast = (message, classes = 'blue-grey darken-2') => window.M?.toast && M.toast({ html: message, classes });
   const updateTextFields = () => window.M?.updateTextFields && M.updateTextFields();
@@ -345,6 +347,130 @@ if (!isBrowserRuntime) {
     });
   };
 
+
+  const drawProjectTimeline = (container, options = {}) => {
+    if (!container) return;
+    const year = options.year || new Date().getFullYear();
+    const centered = Boolean(options.centerOnCurrentWeek);
+    const weeks = buildTimelineWeeks({ year, centered });
+    container.innerHTML = '';
+
+    const legend = document.createElement('div');
+    legend.className = 'legend';
+    legend.innerHTML = '<span class="legend-item project-legend">Project Duration</span><span class="legend-item member-legend">Member Assignment</span>';
+    container.appendChild(legend);
+
+    const columns = `170px repeat(${weeks.length}, 18px)`;
+
+    const yearRow = document.createElement('div');
+    yearRow.className = 'timeline-year-row';
+    yearRow.style.gridTemplateColumns = columns;
+    yearRow.appendChild(document.createElement('div'));
+
+    const yearControls = document.createElement('div');
+    yearControls.className = 'timeline-year-controls-row';
+
+    const prevButton = document.createElement('button');
+    prevButton.className = 'btn-flat timeline-nav-btn';
+    prevButton.type = 'button';
+    prevButton.dataset.action = 'prev-project-year';
+    prevButton.disabled = centered;
+    prevButton.setAttribute('aria-label', 'Previous year');
+    prevButton.innerHTML = '<i class="material-icons">chevron_left</i>';
+
+    const yearLabel = document.createElement('div');
+    yearLabel.className = 'timeline-year-label';
+    yearLabel.textContent = timelineTitle({ year, centered, weeks });
+
+    const nextButton = document.createElement('button');
+    nextButton.className = 'btn-flat timeline-nav-btn';
+    nextButton.type = 'button';
+    nextButton.dataset.action = 'next-project-year';
+    nextButton.disabled = centered;
+    nextButton.setAttribute('aria-label', 'Next year');
+    nextButton.innerHTML = '<i class="material-icons">chevron_right</i>';
+
+    yearControls.append(prevButton, yearLabel, nextButton);
+    yearRow.appendChild(yearControls);
+    container.appendChild(yearRow);
+
+    const monthHeader = document.createElement('div');
+    monthHeader.className = 'availability-month-header';
+    monthHeader.style.gridTemplateColumns = columns;
+    monthHeader.appendChild(document.createElement('div'));
+    const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    weeks.forEach(({ monday }) => {
+      const monthCell = document.createElement('div');
+      monthCell.textContent = monday.getDate() <= 7 ? monthNames[monday.getMonth()] : '';
+      monthHeader.appendChild(monthCell);
+    });
+    container.appendChild(monthHeader);
+
+    const weekHeader = document.createElement('div');
+    weekHeader.className = 'availability-week-header';
+    weekHeader.style.gridTemplateColumns = columns;
+    weekHeader.appendChild(document.createElement('div'));
+    weeks.forEach(({ weekNumber }) => {
+      const cell = document.createElement('div');
+      cell.textContent = weekNumber;
+      weekHeader.appendChild(cell);
+    });
+    container.appendChild(weekHeader);
+
+    const projectStart = parseIsoDate(fields.startDate.value);
+    const projectEnd = parseIsoDate(fields.endDate.value);
+
+    const rows = [];
+    rows.push({ label: 'Project', startDate: projectStart, endDate: projectEnd, type: 'project' });
+
+    const managerId = Number(fields.managerId.value);
+    const merged = [...selectedProjectAssignments];
+    if (managerId && !merged.some((item) => Number(item.consultantId) == managerId)) {
+      merged.unshift({ consultantId: managerId, projectRole: 'Project Manager', startDate: fields.startDate.value, endDate: fields.endDate.value });
+    }
+
+    merged.forEach((member) => {
+      const consultant = findConsultantById(member.consultantId);
+      rows.push({
+        label: consultant ? `${consultant.name} (${member.projectRole || 'Member'})` : `Consultant ${member.consultantId}`,
+        startDate: parseIsoDate(member.startDate) || projectStart,
+        endDate: parseIsoDate(member.endDate) || projectEnd,
+        type: 'member'
+      });
+    });
+
+    rows.forEach((item) => {
+      const row = document.createElement('div');
+      row.className = 'availability-row';
+      row.style.gridTemplateColumns = columns;
+
+      const name = document.createElement('div');
+      name.className = 'availability-name';
+      name.textContent = item.label;
+      row.appendChild(name);
+
+      weeks.forEach(({ monday }) => {
+        const weekStart = new Date(monday);
+        const weekEnd = new Date(weekStart);
+        weekEnd.setDate(weekStart.getDate() + 6);
+
+        const cell = document.createElement('div');
+        cell.className = 'week-cell';
+        if (item.startDate && item.endDate && item.startDate <= weekEnd && item.endDate >= weekStart) {
+          cell.classList.add(item.type === 'project' ? 'project-range' : 'member-range');
+        }
+        row.appendChild(cell);
+      });
+
+      container.appendChild(row);
+    });
+  };
+
+  const refreshProjectTimeline = () => {
+    const centerOnCurrentWeek = Boolean(ui.centerCurrentWeekToggle?.checked);
+    drawProjectTimeline(ui.projectTimelineChart, { year: selectedProjectTimelineYear, centerOnCurrentWeek });
+  };
+
   const bindWeekTooltip = (container) => {
     container.addEventListener('mousemove', (event) => {
       const weekCell = event.target.closest('.week-cell');
@@ -364,6 +490,7 @@ if (!isBrowserRuntime) {
 
   bindWeekTooltip(ui.availabilityChart);
   bindWeekTooltip(ui.consultantAvailabilityChart);
+  bindWeekTooltip(ui.projectTimelineChart);
 
   const renderWeekDetail = (consultant, weekMondayIso) => {
     if (!ui.weekDetailCard || !ui.weekDetailTimeline || !ui.weekDetailTitle) return;
@@ -526,6 +653,7 @@ if (!isBrowserRuntime) {
 
     if (!allMembers.length) {
       ui.projectMembersList.innerHTML = '<p class="grey-text">No consultants assigned yet.</p>';
+      refreshProjectTimeline();
       return;
     }
 
@@ -549,6 +677,7 @@ if (!isBrowserRuntime) {
       `;
       ui.projectMembersList.appendChild(wrapper);
     });
+    refreshProjectTimeline();
   };
 
   const renderProjects = () => {
@@ -668,6 +797,8 @@ if (!isBrowserRuntime) {
     rebuildProjectSelects();
     setProjectFormMode('edit');
     updateProjectMembersPanel();
+    selectedProjectTimelineYear = new Date().getFullYear();
+    refreshProjectTimeline();
     showProjectsPanel();
     updateTextFields();
   };
@@ -722,6 +853,8 @@ if (!isBrowserRuntime) {
   ui.backToProjectsBtn.addEventListener('click', showProjectsPanel);
   ui.projectCancelEditBtn.addEventListener('click', resetProjectForm);
   fields.managerId.addEventListener('change', updateProjectMembersPanel);
+  fields.startDate.addEventListener('change', updateProjectMembersPanel);
+  fields.endDate.addEventListener('change', updateProjectMembersPanel);
 
   ui.showConsultantFormBtn.addEventListener('click', () => { resetConsultantForm(); showManageConsultantsPanel(); });
   ui.backToConsultantsBtn.addEventListener('click', showConsultantsPanel);
@@ -941,6 +1074,7 @@ if (!isBrowserRuntime) {
       endDate: item.endDate || ''
     }));
 
+    selectedProjectTimelineYear = (parseIsoDate(project.startDate)?.getFullYear()) || new Date().getFullYear();
     updateAssignedConsultantsSummary();
     rebuildProjectSelects({ managerId: project.managerConsultantId });
     setProjectFormMode(button.dataset.action === 'view-project' ? 'view' : 'edit');
@@ -1062,7 +1196,7 @@ if (!isBrowserRuntime) {
     refreshTimelines();
   });
 
-  ui.centerCurrentWeekToggle?.addEventListener('change', refreshTimelines);
+  ui.centerCurrentWeekToggle?.addEventListener('change', () => { refreshTimelines(); refreshProjectTimeline(); });
 
 
 
@@ -1076,6 +1210,16 @@ if (!isBrowserRuntime) {
       return;
     }
     renderWeekDetail(consultant, weekCell.dataset.monday);
+  });
+
+
+  ui.projectTimelineChart?.addEventListener('click', (event) => {
+    const button = event.target.closest('button[data-action]');
+    if (!button) return;
+    if (ui.centerCurrentWeekToggle?.checked) return;
+    if (button.dataset.action === 'prev-project-year') selectedProjectTimelineYear -= 1;
+    if (button.dataset.action === 'next-project-year') selectedProjectTimelineYear += 1;
+    refreshProjectTimeline();
   });
 
   ui.navMenu.addEventListener('click', (event) => {
