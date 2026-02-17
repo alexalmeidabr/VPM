@@ -32,7 +32,7 @@ body { min-height: 100vh; }
 .timeline-header-row h6 { margin: 0; }
 .timeline-center-toggle { margin-left: auto; }
 
-.timeline-year-controls-row { display: flex; align-items: center; justify-content: center; gap: 0.2rem; min-width: 1160px; margin-bottom: 0.35rem; }
+.timeline-year-controls-row { display: grid; grid-template-columns: 2rem auto 2rem; align-items: center; justify-content: center; min-width: 1160px; margin: 0 auto 0.35rem; }
 .timeline-year-label { font-size: 1rem; font-weight: 600; color: #455a64; min-width: 4rem; text-align: center; margin: 0; }
 .timeline-nav-btn { min-width: 2rem; padding: 0 0.3rem; }
 .timeline-nav-btn .material-icons { font-size: 1.25rem; }
@@ -48,7 +48,7 @@ body { min-height: 100vh; }
 .week-cell.vacation { background: #ffcc80; }
 .week-cell.pto { background: #80cbc4; }
 .week-cell.other { background: #b39ddb; }
-.legend { display: flex; gap: 1rem; font-size: 0.82rem; color: #455a64; margin-bottom: 0.45rem; flex-wrap: wrap; }
+.legend { display: flex; gap: 1rem; font-size: 0.82rem; color: #455a64; margin-bottom: 0.45rem; flex-wrap: wrap; align-items: center; }
 .legend span::before { content: ''; display: inline-block; width: 12px; height: 12px; margin-right: 6px; border-radius: 2px; vertical-align: middle; }
 .legend .legend-item::before { background: currentColor; opacity: 0.8; }
 

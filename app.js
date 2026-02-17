@@ -215,6 +215,23 @@ if (!isBrowserRuntime) {
     const weeks = buildTimelineWeeks({ year, centered });
     container.innerHTML = '';
 
+    const legend = document.createElement('div');
+    legend.className = 'legend';
+    const usedTypes = [...new Set(consultantsToRender.flatMap((consultant) => (consultant.availability || []).map((entry) => entry.type)))];
+    usedTypes.forEach((type) => {
+      const span = document.createElement('span');
+      span.className = 'legend-item';
+      span.textContent = type;
+      span.style.color = type === 'Vacation' ? '#ef6c00' : type === 'PTO' ? '#00695c' : '#5e35b1';
+      legend.appendChild(span);
+    });
+    if (!usedTypes.length) {
+      const span = document.createElement('span');
+      span.textContent = 'No days off recorded yet.';
+      legend.appendChild(span);
+    }
+    container.appendChild(legend);
+
     if (options.showYearNavigation) {
       const yearControls = document.createElement('div');
       yearControls.className = 'timeline-year-controls-row';
@@ -245,21 +262,6 @@ if (!isBrowserRuntime) {
       container.appendChild(yearControls);
     }
 
-    const legend = document.createElement('div');
-    legend.className = 'legend';
-    const usedTypes = [...new Set(consultantsToRender.flatMap((consultant) => (consultant.availability || []).map((entry) => entry.type)))];
-    usedTypes.forEach((type) => {
-      const span = document.createElement('span');
-      span.className = 'legend-item';
-      span.textContent = type;
-      span.style.color = type === 'Vacation' ? '#ef6c00' : type === 'PTO' ? '#00695c' : '#5e35b1';
-      legend.appendChild(span);
-    });
-    if (!usedTypes.length) {
-      const span = document.createElement('span');
-      span.textContent = 'No days off recorded yet.';
-      legend.appendChild(span);
-    }
     const columns = `170px repeat(${weeks.length}, 18px)`;
 
     const monthHeader = document.createElement('div');
@@ -284,7 +286,6 @@ if (!isBrowserRuntime) {
       weekHeader.appendChild(cell);
     });
     container.appendChild(weekHeader);
-    container.appendChild(legend);
 
     consultantsToRender.forEach((consultant) => {
       const row = document.createElement('div');
