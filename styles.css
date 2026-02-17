@@ -52,6 +52,9 @@ body { min-height: 100vh; }
 
 .week-cell.project-range { background: #546e7a; }
 .week-cell.member-range { background: #90a4ae; }
+.week-cell.member-dayoff-vacation { background: #ffcc80; }
+.week-cell.member-dayoff-pto { background: #80cbc4; }
+.week-cell.member-dayoff-other { background: #b39ddb; }
 .legend .project-legend::before { background: #546e7a; }
 .legend .member-legend::before { background: #90a4ae; }
 .legend { display: flex; gap: 1rem; font-size: 0.82rem; color: #455a64; margin-bottom: 0.45rem; flex-wrap: wrap; align-items: center; }

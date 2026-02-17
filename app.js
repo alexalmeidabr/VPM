@@ -435,6 +435,7 @@ if (!isBrowserRuntime) {
         label: consultant ? `${consultant.name} (${member.projectRole || 'Member'})` : `Consultant ${member.consultantId}`,
         startDate: parseIsoDate(member.startDate) || projectStart,
         endDate: parseIsoDate(member.endDate) || projectEnd,
+        consultant,
         type: 'member'
       });
     });
@@ -456,8 +457,19 @@ if (!isBrowserRuntime) {
 
         const cell = document.createElement('div');
         cell.className = 'week-cell';
-        if (item.startDate && item.endDate && item.startDate <= weekEnd && item.endDate >= weekStart) {
+        const inAssignmentRange = item.startDate && item.endDate && item.startDate <= weekEnd && item.endDate >= weekStart;
+        if (inAssignmentRange) {
           cell.classList.add(item.type === 'project' ? 'project-range' : 'member-range');
+          if (item.type === 'member' && item.consultant) {
+            const overlaps = (item.consultant.availability || []).filter((entry) => {
+              const entryStart = parseIsoDate(entry.startDate);
+              const entryEnd = parseIsoDate(entry.endDate);
+              return entryStart && entryEnd && entryStart <= weekEnd && entryEnd >= weekStart;
+            });
+            if (overlaps.some((entry) => entry.type === 'Vacation')) cell.classList.add('member-dayoff-vacation');
+            else if (overlaps.some((entry) => entry.type === 'PTO')) cell.classList.add('member-dayoff-pto');
+            else if (overlaps.length) cell.classList.add('member-dayoff-other');
+          }
         }
         row.appendChild(cell);
       });
@@ -769,7 +781,7 @@ if (!isBrowserRuntime) {
   const setConsultantFormMode = (mode) => {
     consultantViewMode = mode;
     const readOnly = mode === 'view';
-    ui.consultantFormTitle.textContent = readOnly ? 'Manage Consultants (View)' : 'Manage Consultants';
+    ui.consultantFormTitle.textContent = readOnly ? 'Manage Consultant (View)' : 'Manage Consultant';
     ui.consultantModeLabel.textContent = readOnly ? 'Read-only mode' : 'Edit mode';
     ui.consultantSaveBtn.hidden = readOnly;
     ui.openDaysOffModalBtn.disabled = readOnly;

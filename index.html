@@ -62,7 +62,6 @@
                     <div class="input-field col s12 m6"><input id="end-date" type="date" required /><label class="active" for="end-date">End Date</label></div>
                   </div>
                   <div class="consultant-assignment-row">
-                    <button class="btn waves-effect waves-light" type="button" id="open-consultant-modal-btn">Add Consultant</button>
                     <span class="grey-text" id="assigned-consultants-summary">No consultants assigned yet.</span>
                   </div>
                   <div class="card-action action-row">
@@ -80,7 +79,10 @@
           <div class="col s12 l4">
             <div class="card sticky-members-panel" id="project-members-card" hidden>
               <div class="card-content">
-                <span class="card-title">Project Members</span>
+                <div class="section-header">
+                  <span class="card-title">Project Members</span>
+                  <button class="btn waves-effect waves-light" type="button" id="open-consultant-modal-btn">Add Consultant</button>
+                </div>
                 <div id="project-members-list" class="project-members-list"></div>
               </div>
             </div>
@@ -121,7 +123,7 @@
         <div class="card" id="consultant-form-card" hidden>
           <div class="card-content">
             <div class="section-header">
-              <span class="card-title" id="consultant-form-title">Manage Consultants</span>
+              <span class="card-title" id="consultant-form-title">Manage Consultant</span>
               <button class="btn-flat" type="button" id="back-to-consultants-btn">Back to Consultants</button>
             </div>
             <p class="grey-text" id="consultant-mode-label"></p>
