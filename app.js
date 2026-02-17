@@ -1398,19 +1398,19 @@ if (!isBrowserRuntime) {
 
 
 
-  ui.projectTimelineChart?.addEventListener('mousemove', (event) => {
+  ui.projectTimelineChart?.addEventListener('click', (event) => {
+    const button = event.target.closest('button[data-action]');
+    if (button) {
+      if (ui.centerCurrentWeekToggle?.checked) return;
+      if (button.dataset.action === 'prev-project-year') selectedProjectTimelineYear -= 1;
+      if (button.dataset.action === 'next-project-year') selectedProjectTimelineYear += 1;
+      refreshProjectTimeline();
+      return;
+    }
+
     const weekCell = event.target.closest('.week-cell');
     if (!weekCell) return;
     renderProjectWeekDetail(weekCell.dataset.monday, weekCell.dataset.consultantId, weekCell.dataset.rowType);
-  });
-
-  ui.projectTimelineChart?.addEventListener('click', (event) => {
-    const button = event.target.closest('button[data-action]');
-    if (!button) return;
-    if (ui.centerCurrentWeekToggle?.checked) return;
-    if (button.dataset.action === 'prev-project-year') selectedProjectTimelineYear -= 1;
-    if (button.dataset.action === 'next-project-year') selectedProjectTimelineYear += 1;
-    refreshProjectTimeline();
   });
 
   ui.navMenu.addEventListener('click', (event) => {
