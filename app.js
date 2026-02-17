@@ -213,6 +213,30 @@ if (!isBrowserRuntime) {
     return [...new Set(names)];
   };
 
+  const consultantProjectNamesOnDate = (consultantId, date) => {
+    const id = Number(consultantId);
+    const names = projects
+      .filter((project) => {
+        const assignments = (project.consultantAssignments || []).filter((assignment) => Number(assignment.consultantId) === id);
+        const hasManager = Number(project.managerConsultantId) === id;
+
+        const windows = assignments
+          .map((assignment) => assignmentWindowForProject(project, assignment))
+          .filter(Boolean);
+
+        if (hasManager && !windows.length) {
+          const managerWindow = assignmentWindowForProject(project, { startDate: project.startDate, endDate: project.endDate });
+          if (managerWindow) windows.push(managerWindow);
+        }
+
+        return windows.some(({ start, end }) => start <= date && end >= date);
+      })
+      .map((project) => project.projectName)
+      .filter(Boolean);
+
+    return [...new Set(names)];
+  };
+
   const mondayForWeek = (year, weekNumber) => {
     const jan4 = new Date(year, 0, 4);
     const jan4Day = jan4.getDay() || 7;
@@ -635,7 +659,8 @@ if (!isBrowserRuntime) {
         cell.classList.add('weekend-default-off');
         status.textContent = 'Not Available';
       } else {
-        status.textContent = 'Available';
+        const projectNames = consultantProjectNamesOnDate(consultant.id, day);
+        status.textContent = projectNames.length ? projectNames.join(', ') : 'Available';
       }
 
       cell.appendChild(name);
@@ -683,17 +708,28 @@ if (!isBrowserRuntime) {
       const status = document.createElement('div');
       status.className = 'week-day-status';
 
+      const isWeekend = index >= 5;
       if (rowType === 'member' && consultant) {
         const overlaps = (consultant.availability || []).filter((entry) => {
           const entryStart = parseIsoDate(entry.startDate);
           const entryEnd = parseIsoDate(entry.endDate);
           return entryStart && entryEnd && entryStart <= day && entryEnd >= day;
         });
-        if (overlaps.some((entry) => entry.type === 'Vacation')) cell.classList.add('vacation');
-        else if (overlaps.some((entry) => entry.type === 'PTO')) cell.classList.add('pto');
-        else if (overlaps.length) cell.classList.add('other');
+        if (!isWeekend) {
+          if (overlaps.some((entry) => entry.type === 'Vacation')) cell.classList.add('vacation');
+          else if (overlaps.some((entry) => entry.type === 'PTO')) cell.classList.add('pto');
+          else if (overlaps.length) cell.classList.add('other');
+        }
 
-        status.textContent = overlaps.length ? overlaps.map((entry) => entry.type).join(', ') : 'Assigned';
+        if (isWeekend) {
+          cell.classList.add('weekend-default-off');
+          status.textContent = 'Not Available';
+        } else {
+          status.textContent = overlaps.length ? overlaps.map((entry) => entry.type).join(', ') : 'Assigned';
+        }
+      } else if (isWeekend) {
+        cell.classList.add('weekend-default-off');
+        status.textContent = 'Not Available';
       } else {
         status.textContent = 'Project Active';
       }
