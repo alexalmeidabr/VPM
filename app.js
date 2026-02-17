@@ -415,9 +415,17 @@ if (!isBrowserRuntime) {
       date.className = 'week-day-date';
       date.textContent = dayIso;
 
+      const isWeekend = index >= 5;
       const status = document.createElement('div');
       status.className = 'week-day-status';
-      status.textContent = overlaps.length ? overlaps.map((entry) => entry.type).join(', ') : 'Available';
+      if (overlaps.length) {
+        status.textContent = overlaps.map((entry) => entry.type).join(', ');
+      } else if (isWeekend) {
+        cell.classList.add('weekend-default-off');
+        status.textContent = 'Not Available';
+      } else {
+        status.textContent = 'Available';
+      }
 
       cell.appendChild(name);
       cell.appendChild(date);
