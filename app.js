@@ -35,6 +35,9 @@ if (!isBrowserRuntime) {
     projectMembersList: document.getElementById('project-members-list'),
     projectMembersCard: document.getElementById('project-members-card'),
     projectTimelineChart: document.getElementById('project-timeline-chart'),
+    projectWeekDetailCard: document.getElementById('project-week-detail-card'),
+    projectWeekDetailTitle: document.getElementById('project-week-detail-title'),
+    projectWeekDetailTimeline: document.getElementById('project-week-detail-timeline'),
 
     consultantAssignmentModal: document.getElementById('consultant-assignment-modal'),
     consultantAreaFilterModal: document.getElementById('consultant-area-filter-modal'),
@@ -50,6 +53,7 @@ if (!isBrowserRuntime) {
     memberNameModal: document.getElementById('member-name-modal'),
     memberProjectRoleModal: document.getElementById('member-project-role-modal'),
     memberAllocationEdit: document.getElementById('member-allocation-edit'),
+    memberCommentsEdit: document.getElementById('member-comments-edit'),
     memberStartDateEdit: document.getElementById('member-start-date-edit'),
     memberEndDateEdit: document.getElementById('member-end-date-edit'),
     saveMemberDetailsBtn: document.getElementById('save-member-details-btn'),
@@ -498,6 +502,7 @@ if (!isBrowserRuntime) {
         startDate: parseIsoDate(member.startDate) || projectStart,
         endDate: parseIsoDate(member.endDate) || projectEnd,
         consultant,
+        consultantId: member.consultantId,
         type: 'member'
       });
     });
@@ -519,6 +524,9 @@ if (!isBrowserRuntime) {
 
         const cell = document.createElement('div');
         cell.className = 'week-cell';
+        cell.dataset.monday = weekStart.toISOString().slice(0, 10);
+        cell.dataset.rowType = item.type;
+        if (item.consultantId) cell.dataset.consultantId = String(item.consultantId);
         const inAssignmentRange = item.startDate && item.endDate && item.startDate <= weekEnd && item.endDate >= weekStart;
         if (inAssignmentRange) {
           cell.classList.add(item.type === 'project' ? 'project-range' : 'member-range');
@@ -531,6 +539,7 @@ if (!isBrowserRuntime) {
             if (overlaps.some((entry) => entry.type === 'Vacation')) cell.classList.add('member-dayoff-vacation');
             else if (overlaps.some((entry) => entry.type === 'PTO')) cell.classList.add('member-dayoff-pto');
             else if (overlaps.length) cell.classList.add('member-dayoff-other');
+            if (overlaps.length) cell.dataset.status = overlaps.map((entry) => entry.type).join(', ');
           }
         }
         row.appendChild(cell);
@@ -638,6 +647,64 @@ if (!isBrowserRuntime) {
     ui.weekDetailCard.hidden = false;
   };
 
+  const renderProjectWeekDetail = (weekMondayIso, consultantId, rowType) => {
+    if (!ui.projectWeekDetailCard || !ui.projectWeekDetailTimeline || !ui.projectWeekDetailTitle) return;
+    if (!weekMondayIso) {
+      ui.projectWeekDetailCard.hidden = true;
+      ui.projectWeekDetailTimeline.innerHTML = '';
+      return;
+    }
+
+    const start = parseIsoDate(weekMondayIso);
+    if (!start) return;
+    const end = new Date(start);
+    end.setDate(start.getDate() + 6);
+
+    ui.projectWeekDetailTitle.textContent = `Project Week Detail (${formatDate(start)} - ${formatDate(end)})`;
+    ui.projectWeekDetailTimeline.innerHTML = '';
+
+    const consultant = consultantId ? findConsultantById(Number(consultantId)) : null;
+    const dayNames = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+    dayNames.forEach((dayName, index) => {
+      const day = new Date(start);
+      day.setDate(start.getDate() + index);
+      const dayIso = formatIsoDate(day);
+      const cell = document.createElement('div');
+      cell.className = 'week-day-cell';
+
+      const name = document.createElement('div');
+      name.className = 'week-day-name';
+      name.textContent = dayName;
+
+      const date = document.createElement('div');
+      date.className = 'week-day-date';
+      date.textContent = dayIso;
+
+      const status = document.createElement('div');
+      status.className = 'week-day-status';
+
+      if (rowType === 'member' && consultant) {
+        const overlaps = (consultant.availability || []).filter((entry) => {
+          const entryStart = parseIsoDate(entry.startDate);
+          const entryEnd = parseIsoDate(entry.endDate);
+          return entryStart && entryEnd && entryStart <= day && entryEnd >= day;
+        });
+        if (overlaps.some((entry) => entry.type === 'Vacation')) cell.classList.add('vacation');
+        else if (overlaps.some((entry) => entry.type === 'PTO')) cell.classList.add('pto');
+        else if (overlaps.length) cell.classList.add('other');
+
+        status.textContent = overlaps.length ? overlaps.map((entry) => entry.type).join(', ') : 'Assigned';
+      } else {
+        status.textContent = 'Project Active';
+      }
+
+      cell.append(name, date, status);
+      ui.projectWeekDetailTimeline.appendChild(cell);
+    });
+
+    ui.projectWeekDetailCard.hidden = false;
+  };
+
   const renderConsultantDaysOffList = (consultant) => {
     ui.consultantDaysOffList.innerHTML = '';
     if (!consultant || !(consultant.availability || []).length) {
@@ -723,7 +790,7 @@ if (!isBrowserRuntime) {
     const managerId = Number(fields.managerId.value);
     const allMembers = [...selectedProjectAssignments];
     if (managerId && !allMembers.find((m) => Number(m.consultantId) === managerId)) {
-      allMembers.unshift({ consultantId: managerId, projectRole: 'Project Manager', startDate: fields.startDate.value, endDate: fields.endDate.value, allocation: 100, fromManager: true });
+      allMembers.unshift({ consultantId: managerId, projectRole: 'Project Manager', startDate: fields.startDate.value, endDate: fields.endDate.value, allocation: 100, comments: '', fromManager: true });
     }
 
     if (!allMembers.length) {
@@ -744,6 +811,7 @@ if (!isBrowserRuntime) {
             <div class="member-meta">Project Role: ${member.projectRole || '—'}</div>
             <div class="member-meta">Dates: ${formatDate(member.startDate)} - ${formatDate(member.endDate)}</div>
             <div class="member-meta">Allocation: ${Number(member.allocation ?? 100)}%</div>
+            <div class="member-meta">Comments: ${member.comments || '—'}</div>
           </div>
           <div>
             <button class="btn-flat teal-text" data-action="view-member" data-id="${member.consultantId}"><i class="material-icons tiny">visibility</i></button>
@@ -875,6 +943,7 @@ if (!isBrowserRuntime) {
     updateProjectMembersPanel();
     selectedProjectTimelineYear = new Date().getFullYear();
     refreshProjectTimeline();
+    renderProjectWeekDetail('', '', '');
     showProjectsPanel();
     updateTextFields();
   };
@@ -968,7 +1037,7 @@ if (!isBrowserRuntime) {
     if (start && end && start > end) { toast('Start date cannot be after end date', 'red darken-1'); return; }
 
     selectedProjectAssignments = selectedProjectAssignments.filter((item) => !modalTempConsultantIds.includes(Number(item.consultantId)));
-    modalTempConsultantIds.forEach((consultantId) => selectedProjectAssignments.push({ consultantId, projectRole: role, startDate: start, endDate: end, allocation: 100 }));
+    modalTempConsultantIds.forEach((consultantId) => selectedProjectAssignments.push({ consultantId, projectRole: role, startDate: start, endDate: end, allocation: 100, comments: '' }));
     updateAssignedConsultantsSummary();
     updateProjectMembersPanel();
     modals.consultantAssignment?.close();
@@ -983,7 +1052,8 @@ if (!isBrowserRuntime) {
       projectRole: 'Project Manager',
       startDate: fields.startDate.value,
       endDate: fields.endDate.value,
-      allocation: 100
+      allocation: 100,
+      comments: ''
     };
 
     if (button.dataset.action === 'remove-member') {
@@ -998,12 +1068,14 @@ if (!isBrowserRuntime) {
     ui.memberEditConsultantId.value = consultantId;
     ui.memberNameModal.value = consultantNameById(consultantId);
     ui.memberAllocationEdit.value = Number(member.allocation ?? 100);
+    ui.memberCommentsEdit.value = member.comments || '';
     ui.memberStartDateEdit.value = member.startDate || '';
     ui.memberEndDateEdit.value = member.endDate || '';
     rebuildMemberRoleSelect(member.projectRole || 'Project Member');
 
     ui.memberProjectRoleModal.disabled = readOnly;
     ui.memberAllocationEdit.disabled = readOnly;
+    ui.memberCommentsEdit.disabled = readOnly;
     ui.memberStartDateEdit.disabled = readOnly;
     ui.memberEndDateEdit.disabled = readOnly;
     ui.saveMemberDetailsBtn.hidden = readOnly;
@@ -1028,6 +1100,7 @@ if (!isBrowserRuntime) {
 
     item.projectRole = ui.memberProjectRoleModal.value;
     item.allocation = allocation;
+    item.comments = ui.memberCommentsEdit.value.trim();
     item.startDate = ui.memberStartDateEdit.value;
     item.endDate = ui.memberEndDateEdit.value;
 
@@ -1180,7 +1253,8 @@ if (!isBrowserRuntime) {
       projectRole: item.projectRole || 'Project Member',
       startDate: item.startDate || '',
       endDate: item.endDate || '',
-      allocation: Number(item.allocation ?? 100)
+      allocation: Number(item.allocation ?? 100),
+      comments: item.comments || ''
     }));
 
     selectedProjectTimelineYear = (parseIsoDate(project.startDate)?.getFullYear()) || new Date().getFullYear();
@@ -1189,6 +1263,7 @@ if (!isBrowserRuntime) {
     setProjectFormMode(button.dataset.action === 'view-project' ? 'view' : 'edit');
     showManageProjectPanel();
     updateProjectMembersPanel();
+    renderProjectWeekDetail('', '', '');
     updateTextFields();
   });
 
@@ -1321,6 +1396,13 @@ if (!isBrowserRuntime) {
     renderWeekDetail(consultant, weekCell.dataset.monday);
   });
 
+
+
+  ui.projectTimelineChart?.addEventListener('mousemove', (event) => {
+    const weekCell = event.target.closest('.week-cell');
+    if (!weekCell) return;
+    renderProjectWeekDetail(weekCell.dataset.monday, weekCell.dataset.consultantId, weekCell.dataset.rowType);
+  });
 
   ui.projectTimelineChart?.addEventListener('click', (event) => {
     const button = event.target.closest('button[data-action]');
