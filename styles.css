@@ -49,6 +49,10 @@ body { min-height: 100vh; }
 .week-cell.vacation { background: #ffcc80; }
 .week-cell.pto { background: #80cbc4; }
 .week-cell.other { background: #b39ddb; }
+.week-cell.allocated { background: #90a4ae; }
+.week-cell.available { background: #c8e6c9; }
+.legend .allocated-legend::before { background: #90a4ae; }
+.legend .available-legend::before { background: #66bb6a; }
 
 .week-cell.project-range { background: #546e7a; }
 .week-cell.member-range { background: #90a4ae; }

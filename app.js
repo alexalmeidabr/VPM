@@ -49,6 +49,7 @@ if (!isBrowserRuntime) {
     memberEditConsultantId: document.getElementById('member-edit-consultant-id'),
     memberNameModal: document.getElementById('member-name-modal'),
     memberProjectRoleModal: document.getElementById('member-project-role-modal'),
+    memberAllocationEdit: document.getElementById('member-allocation-edit'),
     memberStartDateEdit: document.getElementById('member-start-date-edit'),
     memberEndDateEdit: document.getElementById('member-end-date-edit'),
     saveMemberDetailsBtn: document.getElementById('save-member-details-btn'),
@@ -175,6 +176,34 @@ if (!isBrowserRuntime) {
     return `${year}-${month}-${day}`;
   };
 
+  const assignmentWindowForProject = (project, assignment) => {
+    const projectStart = parseIsoDate(project.startDate);
+    const projectEnd = parseIsoDate(project.endDate);
+    const start = parseIsoDate(assignment?.startDate) || projectStart;
+    const end = parseIsoDate(assignment?.endDate) || projectEnd;
+    if (!start || !end) return null;
+    return { start, end };
+  };
+
+  const isConsultantAllocatedInWeek = (consultantId, weekStart, weekEnd) => {
+    const id = Number(consultantId);
+    return projects.some((project) => {
+      const assignments = (project.consultantAssignments || []).filter((assignment) => Number(assignment.consultantId) === id);
+      const hasManager = Number(project.managerConsultantId) === id;
+
+      const windows = assignments
+        .map((assignment) => assignmentWindowForProject(project, assignment))
+        .filter(Boolean);
+
+      if (hasManager && !windows.length) {
+        const managerWindow = assignmentWindowForProject(project, { startDate: project.startDate, endDate: project.endDate });
+        if (managerWindow) windows.push(managerWindow);
+      }
+
+      return windows.some(({ start, end }) => start <= weekEnd && end >= weekStart);
+    });
+  };
+
   const mondayForWeek = (year, weekNumber) => {
     const jan4 = new Date(year, 0, 4);
     const jan4Day = jan4.getDay() || 7;
@@ -235,6 +264,18 @@ if (!isBrowserRuntime) {
 
     const legend = document.createElement('div');
     legend.className = 'legend';
+    if (options.showAllocationStatus) {
+      const allocated = document.createElement('span');
+      allocated.className = 'legend-item allocated-legend';
+      allocated.textContent = 'Allocated';
+      legend.appendChild(allocated);
+
+      const available = document.createElement('span');
+      available.className = 'legend-item available-legend';
+      available.textContent = 'Available';
+      legend.appendChild(available);
+    }
+
     const usedTypes = [...new Set(consultantsToRender.flatMap((consultant) => (consultant.availability || []).map((entry) => entry.type)))];
     usedTypes.forEach((type) => {
       const span = document.createElement('span');
@@ -330,6 +371,11 @@ if (!isBrowserRuntime) {
         const cell = document.createElement('div');
         cell.className = 'week-cell';
         cell.dataset.monday = weekStart.toISOString().slice(0, 10);
+
+        if (options.showAllocationStatus) {
+          const allocated = isConsultantAllocatedInWeek(consultant.id, weekStart, weekEnd);
+          cell.classList.add(allocated ? 'allocated' : 'available');
+        }
 
         (consultant.availability || []).forEach((entry) => {
           const entryStart = new Date(entry.startDate);
@@ -660,7 +706,7 @@ if (!isBrowserRuntime) {
     const managerId = Number(fields.managerId.value);
     const allMembers = [...selectedProjectAssignments];
     if (managerId && !allMembers.find((m) => Number(m.consultantId) === managerId)) {
-      allMembers.unshift({ consultantId: managerId, projectRole: 'Project Manager', startDate: fields.startDate.value, endDate: fields.endDate.value, fromManager: true });
+      allMembers.unshift({ consultantId: managerId, projectRole: 'Project Manager', startDate: fields.startDate.value, endDate: fields.endDate.value, allocation: 100, fromManager: true });
     }
 
     if (!allMembers.length) {
@@ -680,6 +726,7 @@ if (!isBrowserRuntime) {
             <strong>${consultant?.name || 'Unknown Consultant'}</strong>
             <div class="member-meta">Project Role: ${member.projectRole || '—'}</div>
             <div class="member-meta">Dates: ${formatDate(member.startDate)} - ${formatDate(member.endDate)}</div>
+            <div class="member-meta">Allocation: ${Number(member.allocation ?? 100)}%</div>
           </div>
           <div>
             <button class="btn-flat teal-text" data-action="view-member" data-id="${member.consultantId}"><i class="material-icons tiny">visibility</i></button>
@@ -820,7 +867,7 @@ if (!isBrowserRuntime) {
     fields.consultantId.value = '';
     rebuildConsultantSelects();
     setConsultantFormMode('edit');
-    drawTimeline(ui.consultantAvailabilityChart, [], { year: selectedTimelineYear, centerOnCurrentWeek: Boolean(ui.centerCurrentWeekToggle?.checked) });
+    drawTimeline(ui.consultantAvailabilityChart, [], { year: selectedTimelineYear, centerOnCurrentWeek: Boolean(ui.centerCurrentWeekToggle?.checked), showAllocationStatus: true });
     renderConsultantDaysOffList(null);
     renderWeekDetail(null, '');
     showConsultantsPanel();
@@ -830,10 +877,10 @@ if (!isBrowserRuntime) {
 
   const refreshTimelines = () => {
     const centerOnCurrentWeek = Boolean(ui.centerCurrentWeekToggle?.checked);
-    drawTimeline(ui.availabilityChart, consultants, { year: selectedTimelineYear, centerOnCurrentWeek, showYearNavigation: true });
+    drawTimeline(ui.availabilityChart, consultants, { year: selectedTimelineYear, centerOnCurrentWeek, showYearNavigation: true, showAllocationStatus: true });
     const consultantId = Number(fields.consultantId.value);
     const consultant = consultantId ? findConsultantById(consultantId) : null;
-    drawTimeline(ui.consultantAvailabilityChart, consultant ? [consultant] : [], { year: selectedTimelineYear, centerOnCurrentWeek });
+    drawTimeline(ui.consultantAvailabilityChart, consultant ? [consultant] : [], { year: selectedTimelineYear, centerOnCurrentWeek, showAllocationStatus: true });
   };
 
   const loadAll = async () => {
@@ -904,7 +951,7 @@ if (!isBrowserRuntime) {
     if (start && end && start > end) { toast('Start date cannot be after end date', 'red darken-1'); return; }
 
     selectedProjectAssignments = selectedProjectAssignments.filter((item) => !modalTempConsultantIds.includes(Number(item.consultantId)));
-    modalTempConsultantIds.forEach((consultantId) => selectedProjectAssignments.push({ consultantId, projectRole: role, startDate: start, endDate: end }));
+    modalTempConsultantIds.forEach((consultantId) => selectedProjectAssignments.push({ consultantId, projectRole: role, startDate: start, endDate: end, allocation: 100 }));
     updateAssignedConsultantsSummary();
     updateProjectMembersPanel();
     modals.consultantAssignment?.close();
@@ -918,7 +965,8 @@ if (!isBrowserRuntime) {
       consultantId,
       projectRole: 'Project Manager',
       startDate: fields.startDate.value,
-      endDate: fields.endDate.value
+      endDate: fields.endDate.value,
+      allocation: 100
     };
 
     if (button.dataset.action === 'remove-member') {
@@ -932,11 +980,13 @@ if (!isBrowserRuntime) {
     ui.memberModalTitle.textContent = readOnly ? 'View Project Member' : 'Edit Project Member';
     ui.memberEditConsultantId.value = consultantId;
     ui.memberNameModal.value = consultantNameById(consultantId);
+    ui.memberAllocationEdit.value = Number(member.allocation ?? 100);
     ui.memberStartDateEdit.value = member.startDate || '';
     ui.memberEndDateEdit.value = member.endDate || '';
     rebuildMemberRoleSelect(member.projectRole || 'Project Member');
 
     ui.memberProjectRoleModal.disabled = readOnly;
+    ui.memberAllocationEdit.disabled = readOnly;
     ui.memberStartDateEdit.disabled = readOnly;
     ui.memberEndDateEdit.disabled = readOnly;
     ui.saveMemberDetailsBtn.hidden = readOnly;
@@ -953,7 +1003,13 @@ if (!isBrowserRuntime) {
       toast('Start date cannot be after end date', 'red darken-1');
       return;
     }
+    const allocation = Number(ui.memberAllocationEdit.value);
+    if (Number.isNaN(allocation) || allocation < 0 || allocation > 100) {
+      toast('Allocation must be between 0 and 100', 'red darken-1');
+      return;
+    }
     item.projectRole = ui.memberProjectRoleModal.value;
+    item.allocation = allocation;
     item.startDate = ui.memberStartDateEdit.value;
     item.endDate = ui.memberEndDateEdit.value;
     updateProjectMembersPanel();
@@ -1044,7 +1100,7 @@ if (!isBrowserRuntime) {
       });
       await loadAll();
       const consultant = findConsultantById(consultantId);
-      drawTimeline(ui.consultantAvailabilityChart, consultant ? [consultant] : [], { year: selectedTimelineYear, centerOnCurrentWeek: Boolean(ui.centerCurrentWeekToggle?.checked) });
+      drawTimeline(ui.consultantAvailabilityChart, consultant ? [consultant] : [], { year: selectedTimelineYear, centerOnCurrentWeek: Boolean(ui.centerCurrentWeekToggle?.checked), showAllocationStatus: true });
       renderConsultantDaysOffList(consultant);
       modals.daysOff?.close();
       toast('Days off added', 'teal darken-1');
@@ -1083,7 +1139,8 @@ if (!isBrowserRuntime) {
       consultantId: Number(item.consultantId),
       projectRole: item.projectRole || 'Project Member',
       startDate: item.startDate || '',
-      endDate: item.endDate || ''
+      endDate: item.endDate || '',
+      allocation: Number(item.allocation ?? 100)
     }));
 
     selectedProjectTimelineYear = (parseIsoDate(project.startDate)?.getFullYear()) || new Date().getFullYear();
@@ -1118,7 +1175,7 @@ if (!isBrowserRuntime) {
     fields.consultantSalary.value = consultant.salary;
     rebuildConsultantSelects({ areaIds: consultant.areaIds || [], companyRoleId: consultant.companyRoleId || '' });
     setConsultantFormMode(button.dataset.action === 'view-consultant' ? 'view' : 'edit');
-    drawTimeline(ui.consultantAvailabilityChart, [consultant], { year: selectedTimelineYear, centerOnCurrentWeek: Boolean(ui.centerCurrentWeekToggle?.checked) });
+    drawTimeline(ui.consultantAvailabilityChart, [consultant], { year: selectedTimelineYear, centerOnCurrentWeek: Boolean(ui.centerCurrentWeekToggle?.checked), showAllocationStatus: true });
     renderConsultantDaysOffList(consultant);
     renderWeekDetail(null, '');
     showManageConsultantsPanel();
