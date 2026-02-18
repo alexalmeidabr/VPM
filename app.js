@@ -136,6 +136,7 @@ if (!isBrowserRuntime) {
   let dayOffTypes = [];
   let holidayLocations = [];
   let loadedHolidays = [];
+  let activeHolidaySelection = null;
   let projectViewMode = 'edit';
   let consultantViewMode = 'edit';
   let selectedProjectAssignments = [];
@@ -194,14 +195,29 @@ if (!isBrowserRuntime) {
   };
 
 
+  const isWeekendDate = (date) => {
+    const day = date.getDay();
+    return day === 0 || day === 6;
+  };
+
+  const dateRangeHasWorkingDayOverlap = (start, end, rangeStart, rangeEnd) => {
+    const overlapStart = new Date(Math.max(start.getTime(), rangeStart.getTime()));
+    const overlapEnd = new Date(Math.min(end.getTime(), rangeEnd.getTime()));
+    if (overlapStart > overlapEnd) return false;
+    const cursor = new Date(overlapStart);
+    while (cursor <= overlapEnd) {
+      if (!isWeekendDate(cursor)) return true;
+      cursor.setDate(cursor.getDate() + 1);
+    }
+    return false;
+  };
+
   const holidayLocationById = (id) => holidayLocations.find((item) => Number(item.id) === Number(id));
   const holidayKey = (countryCode, regionCode) => `${String(countryCode || '').toUpperCase()}::${String(regionCode || '').toUpperCase()}`;
   const holidayByDateForConsultant = (consultant, date) => {
-    if (!consultant) return null;
+    if (!consultant || !activeHolidaySelection) return null;
     const dayIso = formatIsoDate(date);
-    const location = holidayLocationById(consultant.holidayLocationId);
-    if (!location) return null;
-    const key = holidayKey(location.countryCode, location.regionCode || '');
+    const key = holidayKey(activeHolidaySelection.countryCode, activeHolidaySelection.regionCode || '');
     const matches = loadedHolidays.filter((item) => holidayKey(item.countryCode, item.regionCode || '') === key && item.date === dayIso);
     if (!matches.length) return null;
     return matches.find((item) => item.scope === 'company_override') || matches[0];
@@ -209,12 +225,15 @@ if (!isBrowserRuntime) {
 
   const loadHolidaysForLocation = async ({ year, countryCode, regionCode }) => {
     if (!countryCode) return [];
+    const normalizedCountry = String(countryCode).toUpperCase();
+    const normalizedRegion = regionCode ? String(regionCode).toUpperCase() : '';
     const res = await request('/api/holidays/load', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ year, countryCode, regionCode: regionCode || '' })
+      body: JSON.stringify({ year, countryCode: normalizedCountry, regionCode: normalizedRegion })
     });
     loadedHolidays = res.holidays || [];
+    activeHolidaySelection = { countryCode: normalizedCountry, regionCode: normalizedRegion };
     return loadedHolidays;
   };
 
@@ -243,7 +262,7 @@ if (!isBrowserRuntime) {
           if (managerWindow) windows.push(managerWindow);
         }
 
-        return windows.some(({ start, end }) => start <= weekEnd && end >= weekStart);
+        return windows.some(({ start, end }) => dateRangeHasWorkingDayOverlap(start, end, weekStart, weekEnd));
       })
       .map((project) => project.projectName)
       .filter(Boolean);
@@ -252,6 +271,7 @@ if (!isBrowserRuntime) {
   };
 
   const consultantProjectNamesOnDate = (consultantId, date) => {
+    if (isWeekendDate(date)) return [];
     const id = Number(consultantId);
     const names = projects
       .filter((project) => {
@@ -306,12 +326,12 @@ if (!isBrowserRuntime) {
       return { className: 'other', text: details.join(' • ') || dayOffText };
     }
 
-    if (holiday) {
-      return { className: 'public-holiday', text: details.join(' • ') };
-    }
-
     if (mondayBasedIndex >= 5) {
       return { className: 'weekend-default-off', text: details.join(' • ') || 'Not Available' };
+    }
+
+    if (holiday) {
+      return { className: 'public-holiday', text: details.join(' • ') };
     }
 
     return { className: '', text: details.join(' • ') || 'Available' };
@@ -771,6 +791,7 @@ if (!isBrowserRuntime) {
     });
 
     ui.weekDetailCard.hidden = false;
+    if (ui.monthDetailCard) ui.monthDetailCard.hidden = true;
   };
 
   const renderMonthDetail = (consultant, year, monthIndex) => {
@@ -822,6 +843,7 @@ if (!isBrowserRuntime) {
     }
 
     ui.monthDetailCard.hidden = false;
+    if (ui.weekDetailCard) ui.weekDetailCard.hidden = true;
   };
 
   const renderProjectWeekDetail = (weekMondayIso, consultantId, rowType) => {
@@ -1173,6 +1195,7 @@ if (!isBrowserRuntime) {
     renderConsultantDaysOffList(null);
     renderWeekDetail(null, '');
     renderMonthDetail(null, NaN, NaN);
+    activeHolidaySelection = null;
     showConsultantsPanel();
     updateTextFields();
   };
@@ -1192,7 +1215,7 @@ if (!isBrowserRuntime) {
           toast(error.message || 'Failed to load holidays', 'orange darken-2');
         }
       }
-    } else {
+    } else if (!activeHolidaySelection) {
       loadedHolidays = [];
     }
     drawTimeline(ui.consultantAvailabilityChart, consultant ? [consultant] : [], { year: selectedTimelineYear, centerOnCurrentWeek, showAllocationStatus: true, enableMonthClick: true });

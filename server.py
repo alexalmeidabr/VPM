@@ -265,6 +265,30 @@ class VPMHandler(SimpleHTTPRequestHandler):
     except ValueError:
       return False
 
+  def _is_weekend(self, date_value):
+    return date_value.weekday() >= 5
+
+  def _next_weekday(self, date_value):
+    current = date_value
+    while self._is_weekend(current):
+      current += timedelta(days=1)
+    return current
+
+  def _previous_weekday(self, date_value):
+    current = date_value
+    while self._is_weekend(current):
+      current -= timedelta(days=1)
+    return current
+
+  def _normalize_assignment_weekdays(self, start_iso, end_iso):
+    if not start_iso or not end_iso:
+      return start_iso, end_iso
+    start_date = datetime.strptime(start_iso, '%Y-%m-%d').date()
+    end_date = datetime.strptime(end_iso, '%Y-%m-%d').date()
+    normalized_start = self._next_weekday(start_date) if self._is_weekend(start_date) else start_date
+    normalized_end = self._previous_weekday(end_date) if self._is_weekend(end_date) else end_date
+    return normalized_start.isoformat(), normalized_end.isoformat()
+
   def _name_payload_error(self, payload):
     payload['name'] = str(payload.get('name', '')).strip()
     return None if payload['name'] else 'name is required'
@@ -303,6 +327,9 @@ class VPMHandler(SimpleHTTPRequestHandler):
         return 'project member startDate cannot be after endDate'
       if not self._valid_iso_date(start) or not self._valid_iso_date(end):
         return 'project member dates must be YYYY-MM-DD'
+      start, end = self._normalize_assignment_weekdays(start, end)
+      if start and end and start > end:
+        return 'project member assignment only covers weekends; choose a range that includes at least one weekday'
       try:
         consultant_id = int(assignment.get('consultantId'))
       except (TypeError, ValueError):
