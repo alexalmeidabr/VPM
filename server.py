@@ -1,11 +1,16 @@
 #!/usr/bin/env python3
 import json
 import sqlite3
-from datetime import datetime
+from datetime import datetime, timedelta
 from http import HTTPStatus
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
-from urllib.parse import urlparse
+from urllib.parse import parse_qs, urlparse
+
+try:
+  import holidays as pyholidays
+except ImportError:
+  pyholidays = None
 
 BASE_DIR = Path(__file__).resolve().parent
 DB_PATH = BASE_DIR / 'projects.db'
@@ -70,8 +75,40 @@ def init_db():
         name TEXT NOT NULL,
         area TEXT,
         position TEXT,
+        holiday_location_id INTEGER,
         salary REAL NOT NULL,
-        created_at TEXT DEFAULT CURRENT_TIMESTAMP
+        created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (holiday_location_id) REFERENCES holiday_locations(id) ON DELETE SET NULL
+      );
+
+      CREATE TABLE IF NOT EXISTS holiday_locations (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        label TEXT NOT NULL,
+        country_code TEXT NOT NULL,
+        region_code TEXT,
+        created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE(country_code, region_code)
+      );
+
+      CREATE TABLE IF NOT EXISTS holidays (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        date TEXT NOT NULL,
+        name TEXT NOT NULL,
+        country_code TEXT NOT NULL,
+        region_code TEXT,
+        scope TEXT NOT NULL CHECK(scope IN ('national', 'regional', 'company_override')),
+        year INTEGER NOT NULL,
+        source TEXT NOT NULL,
+        UNIQUE(date, country_code, region_code, scope)
+      );
+
+      CREATE TABLE IF NOT EXISTS holiday_cache (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        country_code TEXT NOT NULL,
+        region_code TEXT,
+        year INTEGER NOT NULL,
+        fetched_at TEXT DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE(country_code, region_code, year)
       );
 
       CREATE TABLE IF NOT EXISTS consultant_roles (
@@ -136,6 +173,7 @@ def init_db():
     ensure_column(conn, 'project_consultants', 'end_date', 'end_date TEXT')
     ensure_column(conn, 'consultant_availability', 'day_off_type_id', 'day_off_type_id INTEGER')
     ensure_column(conn, 'consultant_availability', 'type', 'type TEXT')
+    ensure_column(conn, 'consultants', 'holiday_location_id', 'holiday_location_id INTEGER REFERENCES holiday_locations(id) ON DELETE SET NULL')
     seed_defaults(conn)
 
 
@@ -165,6 +203,9 @@ class VPMHandler(SimpleHTTPRequestHandler):
   def _path(self):
     return urlparse(self.path).path
 
+  def _query(self):
+    return parse_qs(urlparse(self.path).query)
+
   def _parts(self):
     return [part for part in self._path().split('/') if part]
 
@@ -181,6 +222,12 @@ class VPMHandler(SimpleHTTPRequestHandler):
     if len(parts) == 5 and parts[0:2] == ['api', 'consultants'] and parts[2].isdigit() and parts[3] == 'availability' and parts[4].isdigit():
       return int(parts[2]), int(parts[4])
     return None, None
+
+  def _holiday_location_id(self):
+    parts = self._parts()
+    if len(parts) == 3 and parts[0:2] == ['api', 'holiday-locations'] and parts[2].isdigit():
+      return int(parts[2])
+    return None
 
   def _ids_exist(self, conn, table, ids):
     unique_ids = sorted(set(ids))
@@ -281,7 +328,155 @@ class VPMHandler(SimpleHTTPRequestHandler):
       payload['companyRoleId'] = int(payload.get('companyRoleId'))
     except (TypeError, ValueError):
       return 'areaIds and companyRoleId must be numeric IDs'
+
+    holiday_location_id = payload.get('holidayLocationId')
+    if holiday_location_id in ('', None):
+      payload['holidayLocationId'] = None
+    else:
+      try:
+        payload['holidayLocationId'] = int(holiday_location_id)
+      except (TypeError, ValueError):
+        return 'holidayLocationId must be numeric when provided'
     return None
+
+  def _holiday_location_payload_error(self, payload):
+    label = str(payload.get('label', '')).strip()
+    country_code = str(payload.get('countryCode', '')).strip().upper()
+    region_raw = payload.get('regionCode')
+    region_code = str(region_raw).strip().upper() if region_raw not in (None, '') else None
+    if not label:
+      return 'label is required'
+    if len(country_code) != 2 or not country_code.isalpha():
+      return 'countryCode must be ISO alpha-2'
+    payload['label'] = label
+    payload['countryCode'] = country_code
+    payload['regionCode'] = region_code
+    return None
+
+  def _holiday_load_payload_error(self, payload):
+    country_code = str(payload.get('countryCode', '')).strip().upper()
+    region_raw = payload.get('regionCode')
+    region_code = str(region_raw).strip().upper() if region_raw not in (None, '') else None
+    try:
+      year = int(payload.get('year'))
+    except (TypeError, ValueError):
+      return 'year must be numeric'
+    if year < 1970 or year > 2100:
+      return 'year is out of supported range'
+    if len(country_code) != 2 or not country_code.isalpha():
+      return 'countryCode must be ISO alpha-2'
+    payload['year'] = year
+    payload['countryCode'] = country_code
+    payload['regionCode'] = region_code
+    return None
+
+  def _fetch_holiday_locations(self, conn):
+    rows = conn.execute(
+      '''
+      SELECT id, label, country_code, region_code
+      FROM holiday_locations
+      ORDER BY country_code, region_code, label
+      '''
+    ).fetchall()
+    return [
+      {
+        'id': row['id'],
+        'label': row['label'],
+        'countryCode': row['country_code'],
+        'regionCode': row['region_code']
+      }
+      for row in rows
+    ]
+
+  def _fetch_holidays(self, conn, year, country_code, region_code):
+    rows = conn.execute(
+      '''
+      SELECT id, date, name, country_code, region_code, scope, year, source
+      FROM holidays
+      WHERE year = ? AND country_code = ?
+        AND (region_code IS NULL OR region_code = ?)
+      ORDER BY date, CASE scope WHEN 'company_override' THEN 0 WHEN 'regional' THEN 1 ELSE 2 END
+      ''',
+      (year, country_code, region_code)
+    ).fetchall()
+    by_date = {}
+    for row in rows:
+      date_key = row['date']
+      current = by_date.get(date_key)
+      candidate = {
+        'id': row['id'],
+        'date': row['date'],
+        'name': row['name'],
+        'countryCode': row['country_code'],
+        'regionCode': row['region_code'],
+        'scope': row['scope'],
+        'year': row['year'],
+        'source': row['source']
+      }
+      if current is None:
+        by_date[date_key] = candidate
+        continue
+      if candidate['scope'] == 'company_override':
+        by_date[date_key] = candidate
+    return list(by_date.values())
+
+  def _cache_is_fresh(self, conn, year, country_code, region_code):
+    row = conn.execute(
+      'SELECT fetched_at FROM holiday_cache WHERE country_code = ? AND region_code IS ? AND year = ?',
+      (country_code, region_code, year)
+    ).fetchone()
+    if not row:
+      return False
+    try:
+      fetched = datetime.fromisoformat(str(row['fetched_at']).replace('Z', '+00:00'))
+    except ValueError:
+      return False
+    return fetched >= datetime.utcnow() - timedelta(days=30)
+
+  def _generate_holidays_for_location(self, year, country_code, region_code):
+    if pyholidays is None:
+      raise RuntimeError('Python package "holidays" is required. Install with: pip install holidays')
+    try:
+      generated = pyholidays.country_holidays(country_code, subdiv=region_code, years=[year])
+    except Exception as error:
+      raise RuntimeError(str(error)) from error
+    rows = []
+    for day, name in generated.items():
+      if int(day.year) != year:
+        continue
+      rows.append({'date': day.isoformat(), 'name': str(name), 'scope': 'regional' if region_code else 'national', 'source': 'library'})
+    return rows
+
+  def _load_holidays(self, conn, year, country_code, region_code):
+    if not self._cache_is_fresh(conn, year, country_code, region_code):
+      entries_to_store = []
+      national = self._generate_holidays_for_location(year, country_code, None)
+      entries_to_store.extend([(row, None, 'national') for row in national])
+      if region_code:
+        regional = self._generate_holidays_for_location(year, country_code, region_code)
+        entries_to_store.extend([(row, region_code, 'regional') for row in regional])
+
+      for row, row_region, row_scope in entries_to_store:
+        conn.execute(
+          '''
+          INSERT INTO holidays (date, name, country_code, region_code, scope, year, source)
+          VALUES (?, ?, ?, ?, ?, ?, ?)
+          ON CONFLICT(date, country_code, region_code, scope)
+          DO UPDATE SET name = excluded.name, source = excluded.source, year = excluded.year
+          ''',
+          (row['date'], row['name'], country_code, row_region, row_scope, year, row['source'])
+        )
+
+      conn.execute(
+        '''
+        INSERT INTO holiday_cache (country_code, region_code, year, fetched_at)
+        VALUES (?, ?, ?, CURRENT_TIMESTAMP)
+        ON CONFLICT(country_code, region_code, year)
+        DO UPDATE SET fetched_at = CURRENT_TIMESTAMP
+        ''',
+        (country_code, region_code, year)
+      )
+    return self._fetch_holidays(conn, year, country_code, region_code)
 
   def _availability_payload_error(self, conn, payload):
     day_off_type_id = payload.get('dayOffTypeId')
@@ -313,7 +508,7 @@ class VPMHandler(SimpleHTTPRequestHandler):
     return [{'id': row['id'], 'name': row['name']} for row in rows]
 
   def _fetch_consultants(self, conn):
-    rows = conn.execute('SELECT id, name, salary FROM consultants ORDER BY created_at DESC, id DESC').fetchall()
+    rows = conn.execute('SELECT id, name, salary, holiday_location_id FROM consultants ORDER BY created_at DESC, id DESC').fetchall()
     consultants = []
     for consultant in rows:
       role_row = conn.execute(
@@ -353,6 +548,7 @@ class VPMHandler(SimpleHTTPRequestHandler):
         'companyRole': role_row['name'] if role_row else None,
         'areaIds': [row['id'] for row in area_rows],
         'areaNames': [row['name'] for row in area_rows],
+        'holidayLocationId': consultant['holiday_location_id'],
         'availability': [
           {
             'id': row['id'],
@@ -413,6 +609,7 @@ class VPMHandler(SimpleHTTPRequestHandler):
 
   def do_GET(self):
     path = self._path()
+    query = self._query()
     with get_connection() as conn:
       if path == '/api/projects':
         self._send_json({'projects': self._fetch_projects(conn)})
@@ -428,6 +625,22 @@ class VPMHandler(SimpleHTTPRequestHandler):
         return
       if path == '/api/day-off-types':
         self._send_json({'dayOffTypes': self._fetch_simple_table(conn, 'day_off_types')})
+        return
+      if path == '/api/holiday-locations':
+        self._send_json({'holidayLocations': self._fetch_holiday_locations(conn)})
+        return
+      if path == '/api/holidays':
+        payload = {
+          'year': (query.get('year') or [None])[0],
+          'countryCode': (query.get('countryCode') or [''])[0],
+          'regionCode': (query.get('regionCode') or [''])[0]
+        }
+        error = self._holiday_load_payload_error(payload)
+        if error:
+          self._send_json({'error': error}, HTTPStatus.BAD_REQUEST)
+          return
+        rows = self._fetch_holidays(conn, payload['year'], payload['countryCode'], payload['regionCode'])
+        self._send_json({'holidays': rows})
         return
 
     super().do_GET()
@@ -502,9 +715,12 @@ class VPMHandler(SimpleHTTPRequestHandler):
           return
         first_area = conn.execute('SELECT name FROM areas WHERE id = ? LIMIT 1', (payload['areaIds'][0],)).fetchone()
         role_row = conn.execute('SELECT name FROM roles WHERE id = ? LIMIT 1', (payload['companyRoleId'],)).fetchone()
+        if payload['holidayLocationId'] is not None and not self._ids_exist(conn, 'holiday_locations', [payload['holidayLocationId']]):
+          self._send_json({'error': 'Selected holiday location does not exist'}, HTTPStatus.BAD_REQUEST)
+          return
         cursor = conn.execute(
-          'INSERT INTO consultants (name, area, position, salary) VALUES (?, ?, ?, ?)',
-          (payload['name'], first_area['name'] if first_area else None, role_row['name'] if role_row else None, payload['salary'])
+          'INSERT INTO consultants (name, area, position, salary, holiday_location_id) VALUES (?, ?, ?, ?, ?)',
+          (payload['name'], first_area['name'] if first_area else None, role_row['name'] if role_row else None, payload['salary'], payload['holidayLocationId'])
         )
         consultant_id = cursor.lastrowid
         for area_id in sorted(set(payload['areaIds'])):
@@ -555,11 +771,43 @@ class VPMHandler(SimpleHTTPRequestHandler):
       self._send_json({'id': cursor.lastrowid}, HTTPStatus.CREATED)
       return
 
+    if path == '/api/holiday-locations':
+      error = self._holiday_location_payload_error(payload)
+      if error:
+        self._send_json({'error': error}, HTTPStatus.BAD_REQUEST)
+        return
+      with get_connection() as conn:
+        try:
+          cursor = conn.execute(
+            'INSERT INTO holiday_locations (label, country_code, region_code) VALUES (?, ?, ?)',
+            (payload['label'], payload['countryCode'], payload['regionCode'])
+          )
+        except sqlite3.IntegrityError:
+          self._send_json({'error': 'Holiday location already exists for this country/region'}, HTTPStatus.BAD_REQUEST)
+          return
+      self._send_json({'id': cursor.lastrowid}, HTTPStatus.CREATED)
+      return
+
+    if path == '/api/holidays/load':
+      error = self._holiday_load_payload_error(payload)
+      if error:
+        self._send_json({'error': error}, HTTPStatus.BAD_REQUEST)
+        return
+      with get_connection() as conn:
+        try:
+          rows = self._load_holidays(conn, payload['year'], payload['countryCode'], payload['regionCode'])
+        except RuntimeError as error:
+          self._send_json({'error': str(error)}, HTTPStatus.BAD_REQUEST)
+          return
+      self._send_json({'holidays': rows})
+      return
+
     self.send_error(HTTPStatus.NOT_FOUND)
 
   def do_PUT(self):
     project_id = self._resource_id('projects')
     consultant_id = self._resource_id('consultants')
+    holiday_location_id = self._holiday_location_id()
 
     try:
       payload = self._read_json()
@@ -614,11 +862,14 @@ class VPMHandler(SimpleHTTPRequestHandler):
         if not self._ids_exist(conn, 'roles', [payload['companyRoleId']]):
           self._send_json({'error': 'Selected company role does not exist'}, HTTPStatus.BAD_REQUEST)
           return
+        if payload['holidayLocationId'] is not None and not self._ids_exist(conn, 'holiday_locations', [payload['holidayLocationId']]):
+          self._send_json({'error': 'Selected holiday location does not exist'}, HTTPStatus.BAD_REQUEST)
+          return
         first_area = conn.execute('SELECT name FROM areas WHERE id = ? LIMIT 1', (payload['areaIds'][0],)).fetchone()
         role_row = conn.execute('SELECT name FROM roles WHERE id = ? LIMIT 1', (payload['companyRoleId'],)).fetchone()
         cursor = conn.execute(
-          'UPDATE consultants SET name = ?, area = ?, position = ?, salary = ? WHERE id = ?',
-          (payload['name'], first_area['name'] if first_area else None, role_row['name'] if role_row else None, payload['salary'], consultant_id)
+          'UPDATE consultants SET name = ?, area = ?, position = ?, salary = ?, holiday_location_id = ? WHERE id = ?',
+          (payload['name'], first_area['name'] if first_area else None, role_row['name'] if role_row else None, payload['salary'], payload['holidayLocationId'], consultant_id)
         )
         if cursor.rowcount == 0:
           self._send_json({'error': 'Consultant not found'}, HTTPStatus.NOT_FOUND)
@@ -628,6 +879,26 @@ class VPMHandler(SimpleHTTPRequestHandler):
         for area_id in sorted(set(payload['areaIds'])):
           conn.execute('INSERT INTO consultant_areas (consultant_id, area_id) VALUES (?, ?)', (consultant_id, area_id))
         conn.execute('INSERT INTO consultant_roles (consultant_id, role_id) VALUES (?, ?)', (consultant_id, payload['companyRoleId']))
+      self._send_json({'status': 'updated'})
+      return
+
+    if holiday_location_id is not None:
+      error = self._holiday_location_payload_error(payload)
+      if error:
+        self._send_json({'error': error}, HTTPStatus.BAD_REQUEST)
+        return
+      with get_connection() as conn:
+        try:
+          cursor = conn.execute(
+            'UPDATE holiday_locations SET label = ?, country_code = ?, region_code = ? WHERE id = ?',
+            (payload['label'], payload['countryCode'], payload['regionCode'], holiday_location_id)
+          )
+        except sqlite3.IntegrityError:
+          self._send_json({'error': 'Holiday location already exists for this country/region'}, HTTPStatus.BAD_REQUEST)
+          return
+      if cursor.rowcount == 0:
+        self._send_json({'error': 'Holiday location not found'}, HTTPStatus.NOT_FOUND)
+        return
       self._send_json({'status': 'updated'})
       return
 

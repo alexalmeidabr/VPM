@@ -108,3 +108,9 @@ body { min-height: 100vh; }
 .month-click-target:hover { color: #263238; font-weight: 600; }
 
 .month-day-spacer { background: transparent; border-color: transparent; pointer-events: none; }
+
+.holiday-controls { display: flex; gap: 0.75rem; align-items: flex-end; flex-wrap: wrap; margin-bottom: 0.65rem; }
+.holiday-control { min-width: 200px; flex: 1; }
+.week-cell.public-holiday { background: #ffe082; }
+.week-day-cell.public-holiday { background: #fff8e1; border-color: #ffcc80; }
+.legend .public-holiday-legend::before { background: #ffca28; }

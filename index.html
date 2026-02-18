@@ -104,7 +104,7 @@
             <p class="grey-text" id="consultant-count"></p>
             <div class="table-container">
               <table class="striped responsive-table">
-                <thead><tr><th>Name</th><th>Area</th><th>Company Role</th><th>Daily Internal Cost</th><th>Actions</th></tr></thead>
+                <thead><tr><th>Name</th><th>Area</th><th>Company Role</th><th>Daily Internal Cost</th><th>Holiday Location</th><th>Actions</th></tr></thead>
                 <tbody id="consultants-body"></tbody>
               </table>
             </div>
@@ -137,6 +137,7 @@
               <div class="input-field"><select id="consultant-area-ids" multiple required></select><label for="consultant-area-ids">Area</label></div>
               <div class="input-field"><select id="consultant-company-role-id" required></select><label for="consultant-company-role-id">Company Role</label></div>
               <div class="input-field"><input id="consultant-salary" type="number" min="0" step="0.01" required /><label for="consultant-salary">Daily Internal Cost <i class="material-icons tiny inline-info-icon" tabindex="0" title="Internal cost includes direct compensation, employer taxes/social charges, and benefits.">info_outline</i></label></div>
+              <div class="input-field"><select id="consultant-holiday-location-id"></select><label for="consultant-holiday-location-id">Holiday Location</label></div>
                             <div class="card-action action-row">
                 <button class="btn waves-effect waves-light" type="submit" id="consultant-save-btn" aria-label="Save Consultant"><i class="material-icons">save</i></button>
                 <button class="btn-flat" type="button" id="consultant-cancel-edit-btn">Cancel</button>
@@ -144,6 +145,11 @@
             </form>
 
             <h6>Consultant Availability Timeline (Current Year)</h6>
+            <div class="holiday-controls">
+              <div class="input-field holiday-control"><select id="holiday-country-code"></select><label for="holiday-country-code">Holiday Country</label></div>
+              <div class="input-field holiday-control"><select id="holiday-region-code"></select><label for="holiday-region-code">Holiday Region (optional)</label></div>
+              <button type="button" class="btn blue-grey" id="load-holidays-btn">Load Holidays for Year</button>
+            </div>
             <div id="consultant-availability-chart" class="availability-chart"></div>
 
             <div id="week-detail-card" class="week-detail-card" hidden>

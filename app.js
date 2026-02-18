@@ -75,6 +75,9 @@ if (!isBrowserRuntime) {
     backToConsultantsBtn: document.getElementById('back-to-consultants-btn'),
     openDaysOffModalBtn: document.getElementById('open-days-off-modal-btn'),
     consultantAvailabilityChart: document.getElementById('consultant-availability-chart'),
+    holidayCountryCode: document.getElementById('holiday-country-code'),
+    holidayRegionCode: document.getElementById('holiday-region-code'),
+    loadHolidaysBtn: document.getElementById('load-holidays-btn'),
     consultantDaysOffList: document.getElementById('consultant-days-off-list'),
     weekDetailCard: document.getElementById('week-detail-card'),
     weekDetailTitle: document.getElementById('week-detail-title'),
@@ -114,6 +117,7 @@ if (!isBrowserRuntime) {
     consultantAreaIds: document.getElementById('consultant-area-ids'),
     consultantCompanyRoleId: document.getElementById('consultant-company-role-id'),
     consultantSalary: document.getElementById('consultant-salary'),
+    consultantHolidayLocationId: document.getElementById('consultant-holiday-location-id'),
 
     roleName: document.getElementById('role-name'),
     areaName: document.getElementById('area-name'),
@@ -128,6 +132,8 @@ if (!isBrowserRuntime) {
   let roles = [];
   let areas = [];
   let dayOffTypes = [];
+  let holidayLocations = [];
+  let loadedHolidays = [];
   let projectViewMode = 'edit';
   let consultantViewMode = 'edit';
   let selectedProjectAssignments = [];
@@ -181,6 +187,31 @@ if (!isBrowserRuntime) {
     const month = String(date.getMonth() + 1).padStart(2, '0');
     const day = String(date.getDate()).padStart(2, '0');
     return `${year}-${month}-${day}`;
+  };
+
+
+  const holidayLocationById = (id) => holidayLocations.find((item) => Number(item.id) === Number(id));
+  const holidayKey = (countryCode, regionCode) => `${String(countryCode || '').toUpperCase()}::${String(regionCode || '').toUpperCase()}`;
+  const holidayByDateForConsultant = (consultant, date) => {
+    if (!consultant) return null;
+    const dayIso = formatIsoDate(date);
+    const location = holidayLocationById(consultant.holidayLocationId);
+    if (!location) return null;
+    const key = holidayKey(location.countryCode, location.regionCode || '');
+    const matches = loadedHolidays.filter((item) => holidayKey(item.countryCode, item.regionCode || '') === key && item.date === dayIso);
+    if (!matches.length) return null;
+    return matches.find((item) => item.scope === 'company_override') || matches[0];
+  };
+
+  const loadHolidaysForLocation = async ({ year, countryCode, regionCode }) => {
+    if (!countryCode) return [];
+    const res = await request('/api/holidays/load', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ year, countryCode, regionCode: regionCode || '' })
+    });
+    loadedHolidays = res.holidays || [];
+    return loadedHolidays;
   };
 
   const assignmentWindowForProject = (project, assignment) => {
@@ -248,22 +279,38 @@ if (!isBrowserRuntime) {
       const entryEnd = parseIsoDate(entry.endDate);
       return entryStart && entryEnd && entryStart <= day && entryEnd >= day;
     });
+    const projectNames = consultant ? consultantProjectNamesOnDate(consultant.id, day) : [];
+    const holiday = holidayByDateForConsultant(consultant, day);
+    const details = [];
+
+    if (projectNames.length) details.push(`Project: ${projectNames.join(', ')}`);
+    if (holiday) details.push(`Holiday: ${holiday.name}`);
 
     if (overlaps.some((entry) => entry.type === 'Vacation')) {
-      return { className: 'vacation', text: overlaps.map((entry) => entry.type).join(', ') };
+      const dayOffText = overlaps.map((entry) => entry.type).join(', ');
+      details.unshift(`Days Off: ${dayOffText}`);
+      return { className: 'vacation', text: details.join(' • ') || dayOffText };
     }
     if (overlaps.some((entry) => entry.type === 'PTO')) {
-      return { className: 'pto', text: overlaps.map((entry) => entry.type).join(', ') };
+      const dayOffText = overlaps.map((entry) => entry.type).join(', ');
+      details.unshift(`Days Off: ${dayOffText}`);
+      return { className: 'pto', text: details.join(' • ') || dayOffText };
     }
     if (overlaps.length) {
-      return { className: 'other', text: overlaps.map((entry) => entry.type).join(', ') };
-    }
-    if (mondayBasedIndex >= 5) {
-      return { className: 'weekend-default-off', text: 'Not Available' };
+      const dayOffText = overlaps.map((entry) => entry.type).join(', ');
+      details.unshift(`Days Off: ${dayOffText}`);
+      return { className: 'other', text: details.join(' • ') || dayOffText };
     }
 
-    const projectNames = consultant ? consultantProjectNamesOnDate(consultant.id, day) : [];
-    return { className: '', text: projectNames.length ? projectNames.join(', ') : 'Available' };
+    if (holiday) {
+      return { className: 'public-holiday', text: details.join(' • ') };
+    }
+
+    if (mondayBasedIndex >= 5) {
+      return { className: 'weekend-default-off', text: details.join(' • ') || 'Not Available' };
+    }
+
+    return { className: '', text: details.join(' • ') || 'Available' };
   };
 
   const mondayForWeek = (year, weekNumber) => {
@@ -349,6 +396,11 @@ if (!isBrowserRuntime) {
       span.style.color = type === 'Vacation' ? '#ef6c00' : type === 'PTO' ? '#00695c' : '#5e35b1';
       legend.appendChild(span);
     });
+    const holidayLegend = document.createElement('span');
+    holidayLegend.className = 'legend-item public-holiday-legend';
+    holidayLegend.textContent = 'Public Holiday';
+    legend.appendChild(holidayLegend);
+
     if (!usedTypes.length) {
       const span = document.createElement('span');
       span.textContent = 'No days off recorded yet.';
@@ -458,14 +510,28 @@ if (!isBrowserRuntime) {
 
         if (options.showAllocationStatus) {
           const projectNames = consultantProjectNamesInWeek(consultant.id, weekStart, weekEnd);
+          const holidayNames = [];
+          for (let i = 0; i < 7; i += 1) {
+            const day = new Date(weekStart);
+            day.setDate(weekStart.getDate() + i);
+            const holiday = holidayByDateForConsultant(consultant, day);
+            if (holiday) holidayNames.push(holiday.name);
+          }
+          const uniqueHolidayNames = [...new Set(holidayNames)];
           if (overlappingDaysOff.length) {
-            cell.dataset.status = overlappingDaysOff.map((entry) => entry.type).join(', ');
+            cell.dataset.status = `Days Off: ${overlappingDaysOff.map((entry) => entry.type).join(', ')}`;
           } else if (projectNames.length) {
             cell.classList.add('allocated');
-            cell.dataset.status = projectNames.join(', ');
+            cell.dataset.status = `Project: ${projectNames.join(', ')}`;
+          } else if (uniqueHolidayNames.length) {
+            cell.classList.add('public-holiday');
+            cell.dataset.status = `Holiday: ${uniqueHolidayNames.join(', ')}`;
           } else {
             cell.classList.add('available');
             cell.dataset.status = 'Available';
+          }
+          if (uniqueHolidayNames.length && cell.dataset.status && !cell.dataset.status.includes('Holiday:')) {
+            cell.dataset.status = `${cell.dataset.status} • Holiday: ${uniqueHolidayNames.join(', ')}`;
           }
         }
 
@@ -853,13 +919,16 @@ if (!isBrowserRuntime) {
     resetSelect('projectType', fields.projectType);
   };
 
-  const rebuildConsultantSelects = ({ areaIds = [], companyRoleId = '' } = {}) => {
+  const rebuildConsultantSelects = ({ areaIds = [], companyRoleId = '', holidayLocationId = '' } = {}) => {
     fields.consultantAreaIds.innerHTML = '';
     areas.forEach((area) => fields.consultantAreaIds.add(new Option(area.name, area.id, false, areaIds.map(Number).includes(Number(area.id)))));
     fields.consultantCompanyRoleId.innerHTML = '<option value="" disabled selected>Select company role</option>';
     roles.forEach((role) => fields.consultantCompanyRoleId.add(new Option(role.name, role.id, false, Number(companyRoleId) === Number(role.id))));
+    fields.consultantHolidayLocationId.innerHTML = '<option value="" selected>No holiday location</option>';
+    holidayLocations.forEach((location) => fields.consultantHolidayLocationId.add(new Option(location.label, location.id, false, Number(holidayLocationId) === Number(location.id))));
     resetSelect('consultantAreas', fields.consultantAreaIds);
     resetSelect('consultantCompanyRole', fields.consultantCompanyRoleId);
+    resetSelect('consultantHolidayLocation', fields.consultantHolidayLocationId);
   };
 
   const rebuildDayOffTypeSelect = () => {
@@ -965,6 +1034,25 @@ if (!isBrowserRuntime) {
     ui.projectsEmptyState.hidden = projects.length > 0;
   };
 
+  const rebuildHolidayCountryRegionControls = ({ consultantHolidayLocationId = '' } = {}) => {
+    const countries = [...new Set(holidayLocations.map((item) => item.countryCode))].sort();
+    ui.holidayCountryCode.innerHTML = '<option value="" selected disabled>Select country</option>';
+    countries.forEach((country) => ui.holidayCountryCode.add(new Option(country, country)));
+
+    const selectedLocation = holidayLocationById(consultantHolidayLocationId);
+    if (selectedLocation?.countryCode) ui.holidayCountryCode.value = selectedLocation.countryCode;
+
+    const selectedCountry = ui.holidayCountryCode.value;
+    const regions = holidayLocations.filter((item) => item.countryCode === selectedCountry && item.regionCode).map((item) => item.regionCode);
+    const uniqueRegions = [...new Set(regions)].sort();
+    ui.holidayRegionCode.innerHTML = '<option value="" selected>No region</option>';
+    uniqueRegions.forEach((region) => ui.holidayRegionCode.add(new Option(region, region)));
+    if (selectedLocation?.regionCode) ui.holidayRegionCode.value = selectedLocation.regionCode;
+
+    resetSelect('holidayCountryCode', ui.holidayCountryCode);
+    resetSelect('holidayRegionCode', ui.holidayRegionCode);
+  };
+
   const renderConsultants = () => {
     ui.consultantsBody.innerHTML = '';
     consultants.forEach((consultant) => {
@@ -974,6 +1062,7 @@ if (!isBrowserRuntime) {
         <td>${(consultant.areaNames || []).join(', ') || (consultant.areaIds || []).map(areaNameById).join(', ') || '—'}</td>
         <td>${consultant.companyRole || roleNameById(consultant.companyRoleId) || '—'}</td>
         <td>${formatSalary(consultant.salary)}</td>
+        <td>${holidayLocationById(consultant.holidayLocationId)?.label || '—'}</td>
         <td>
           <button class="btn-flat teal-text" data-action="view-consultant" data-id="${consultant.id}"><i class="material-icons tiny">visibility</i></button>
           <button class="btn-flat blue-text" data-action="edit-consultant" data-id="${consultant.id}"><i class="material-icons tiny">edit</i></button>
@@ -1037,11 +1126,12 @@ if (!isBrowserRuntime) {
     ui.consultantModeLabel.textContent = readOnly ? 'Read-only mode' : 'Edit mode';
     ui.consultantSaveBtn.hidden = readOnly;
     ui.openDaysOffModalBtn.disabled = readOnly;
-    [fields.consultantName, fields.consultantAreaIds, fields.consultantCompanyRoleId, fields.consultantSalary].forEach((el) => {
+    [fields.consultantName, fields.consultantAreaIds, fields.consultantCompanyRoleId, fields.consultantSalary, fields.consultantHolidayLocationId].forEach((el) => {
       el.disabled = readOnly;
     });
     resetSelect('consultantAreas', fields.consultantAreaIds);
     resetSelect('consultantCompanyRole', fields.consultantCompanyRoleId);
+    resetSelect('consultantHolidayLocation', fields.consultantHolidayLocationId);
   };
 
   const setSection = (section) => {
@@ -1072,6 +1162,7 @@ if (!isBrowserRuntime) {
     ui.consultantForm.reset();
     fields.consultantId.value = '';
     rebuildConsultantSelects();
+    rebuildHolidayCountryRegionControls();
     setConsultantFormMode('edit');
     drawTimeline(ui.consultantAvailabilityChart, [], { year: selectedTimelineYear, centerOnCurrentWeek: Boolean(ui.centerCurrentWeekToggle?.checked), showAllocationStatus: true, enableMonthClick: true });
     renderConsultantDaysOffList(null);
@@ -1082,21 +1173,34 @@ if (!isBrowserRuntime) {
   };
 
 
-  const refreshTimelines = () => {
+  const refreshTimelines = async () => {
     const centerOnCurrentWeek = Boolean(ui.centerCurrentWeekToggle?.checked);
     drawTimeline(ui.availabilityChart, consultants, { year: selectedTimelineYear, centerOnCurrentWeek, showYearNavigation: true, showAllocationStatus: true, enableMonthClick: true });
     const consultantId = Number(fields.consultantId.value);
     const consultant = consultantId ? findConsultantById(consultantId) : null;
+    if (consultant?.holidayLocationId) {
+      const location = holidayLocationById(consultant.holidayLocationId);
+      if (location) {
+        try {
+          await loadHolidaysForLocation({ year: selectedTimelineYear, countryCode: location.countryCode, regionCode: location.regionCode });
+        } catch (error) {
+          toast(error.message || 'Failed to load holidays', 'orange darken-2');
+        }
+      }
+    } else {
+      loadedHolidays = [];
+    }
     drawTimeline(ui.consultantAvailabilityChart, consultant ? [consultant] : [], { year: selectedTimelineYear, centerOnCurrentWeek, showAllocationStatus: true, enableMonthClick: true });
   };
 
   const loadAll = async () => {
-    const [projectsRes, consultantsRes, rolesRes, areasRes, dayOffTypesRes] = await Promise.all([
+    const [projectsRes, consultantsRes, rolesRes, areasRes, dayOffTypesRes, holidayLocationsRes] = await Promise.all([
       request('/api/projects'),
       request('/api/consultants'),
       request('/api/roles'),
       request('/api/areas'),
-      request('/api/day-off-types')
+      request('/api/day-off-types'),
+      request('/api/holiday-locations')
     ]);
 
     projects = projectsRes.projects || [];
@@ -1104,13 +1208,15 @@ if (!isBrowserRuntime) {
     roles = rolesRes.roles || [];
     areas = areasRes.areas || [];
     dayOffTypes = dayOffTypesRes.dayOffTypes || [];
+    holidayLocations = holidayLocationsRes.holidayLocations || [];
 
     renderProjects();
     renderConsultants();
     renderAdminLists();
-    refreshTimelines();
+    await refreshTimelines();
     rebuildProjectSelects({ managerId: fields.managerId.value });
-    rebuildConsultantSelects({ areaIds: selectedIds(fields.consultantAreaIds), companyRoleId: fields.consultantCompanyRoleId.value });
+    rebuildConsultantSelects({ areaIds: selectedIds(fields.consultantAreaIds), companyRoleId: fields.consultantCompanyRoleId.value, holidayLocationId: fields.consultantHolidayLocationId.value });
+    rebuildHolidayCountryRegionControls({ consultantHolidayLocationId: fields.consultantHolidayLocationId.value });
     rebuildAssignmentModalSelects();
     rebuildDayOffTypeSelect();
   };
@@ -1288,7 +1394,8 @@ if (!isBrowserRuntime) {
       name: fields.consultantName.value.trim(),
       areaIds: selectedIds(fields.consultantAreaIds),
       companyRoleId: Number(fields.consultantCompanyRoleId.value),
-      salary: fields.consultantSalary.value
+      salary: fields.consultantSalary.value,
+      holidayLocationId: fields.consultantHolidayLocationId.value ? Number(fields.consultantHolidayLocationId.value) : null
     };
 
     try {
@@ -1334,7 +1441,7 @@ if (!isBrowserRuntime) {
       });
       await loadAll();
       const consultant = findConsultantById(consultantId);
-      drawTimeline(ui.consultantAvailabilityChart, consultant ? [consultant] : [], { year: selectedTimelineYear, centerOnCurrentWeek: Boolean(ui.centerCurrentWeekToggle?.checked), showAllocationStatus: true, enableMonthClick: true });
+      await refreshTimelines();
       renderConsultantDaysOffList(consultant);
       modals.daysOff?.close();
       toast('Days off added', 'teal darken-1');
@@ -1409,9 +1516,10 @@ if (!isBrowserRuntime) {
     fields.consultantId.value = consultant.id;
     fields.consultantName.value = consultant.name;
     fields.consultantSalary.value = consultant.salary;
-    rebuildConsultantSelects({ areaIds: consultant.areaIds || [], companyRoleId: consultant.companyRoleId || '' });
+    rebuildConsultantSelects({ areaIds: consultant.areaIds || [], companyRoleId: consultant.companyRoleId || '', holidayLocationId: consultant.holidayLocationId || '' });
+    rebuildHolidayCountryRegionControls({ consultantHolidayLocationId: consultant.holidayLocationId || '' });
     setConsultantFormMode(button.dataset.action === 'view-consultant' ? 'view' : 'edit');
-    drawTimeline(ui.consultantAvailabilityChart, [consultant], { year: selectedTimelineYear, centerOnCurrentWeek: Boolean(ui.centerCurrentWeekToggle?.checked), showAllocationStatus: true, enableMonthClick: true });
+    await refreshTimelines();
     renderConsultantDaysOffList(consultant);
     renderWeekDetail(null, '');
     renderMonthDetail(null, NaN, NaN);
@@ -1492,14 +1600,40 @@ if (!isBrowserRuntime) {
   });
 
 
-  ui.availabilityChart.addEventListener('click', (event) => {
+  ui.holidayCountryCode?.addEventListener('change', () => {
+    const selectedCountry = ui.holidayCountryCode.value;
+    const regions = holidayLocations.filter((item) => item.countryCode === selectedCountry && item.regionCode).map((item) => item.regionCode);
+    const uniqueRegions = [...new Set(regions)].sort();
+    ui.holidayRegionCode.innerHTML = '<option value="" selected>No region</option>';
+    uniqueRegions.forEach((region) => ui.holidayRegionCode.add(new Option(region, region)));
+    resetSelect('holidayRegionCode', ui.holidayRegionCode);
+  });
+
+  ui.loadHolidaysBtn?.addEventListener('click', async () => {
+    const countryCode = ui.holidayCountryCode.value;
+    const regionCode = ui.holidayRegionCode.value;
+    if (!countryCode) {
+      toast('Select a holiday country first', 'orange darken-2');
+      return;
+    }
+    try {
+      await loadHolidaysForLocation({ year: selectedTimelineYear, countryCode, regionCode });
+      const consultant = findConsultantById(Number(fields.consultantId.value));
+      await refreshTimelines();
+      toast('Holidays loaded', 'teal darken-1');
+    } catch (error) {
+      toast(error.message || 'Failed to load holidays', 'red darken-1');
+    }
+  });
+
+  ui.availabilityChart.addEventListener('click', async (event) => {
     const button = event.target.closest('button[data-action]');
     if (!button) return;
     if (ui.centerCurrentWeekToggle?.checked) return;
 
     if (button.dataset.action === 'prev-year') selectedTimelineYear -= 1;
     if (button.dataset.action === 'next-year') selectedTimelineYear += 1;
-    refreshTimelines();
+    await refreshTimelines();
   });
 
   ui.centerCurrentWeekToggle?.addEventListener('change', () => { refreshTimelines(); refreshProjectTimeline(); });
