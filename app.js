@@ -223,18 +223,18 @@ if (!isBrowserRuntime) {
     return matches.find((item) => item.scope === 'company_override') || matches[0];
   };
 
-  const loadHolidaysForLocation = async ({ year, countryCode, regionCode }) => {
+  const loadHolidaysForLocation = async ({ year, countryCode, regionCode, consultantId = null }) => {
     if (!countryCode) return [];
     const normalizedCountry = String(countryCode).toUpperCase();
     const normalizedRegion = regionCode ? String(regionCode).toUpperCase() : '';
     const res = await request('/api/holidays/load', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ year, countryCode: normalizedCountry, regionCode: normalizedRegion })
+      body: JSON.stringify({ year, countryCode: normalizedCountry, regionCode: normalizedRegion, consultantId })
     });
     loadedHolidays = res.holidays || [];
     activeHolidaySelection = { countryCode: normalizedCountry, regionCode: normalizedRegion };
-    return loadedHolidays;
+    return res;
   };
 
   const assignmentWindowForProject = (project, assignment) => {
@@ -917,14 +917,26 @@ if (!isBrowserRuntime) {
 
   const renderConsultantDaysOffList = (consultant) => {
     ui.consultantDaysOffList.innerHTML = '';
-    if (!consultant || !(consultant.availability || []).length) {
+    const dayOffEntries = consultant?.availability || [];
+    const holidayLoad = consultant?.holidayCalendarLoad || null;
+
+    if (!dayOffEntries.length && !holidayLoad) {
       const li = document.createElement('li');
       li.className = 'collection-item grey-text';
       li.textContent = 'No days off recorded.';
       ui.consultantDaysOffList.appendChild(li);
       return;
     }
-    consultant.availability.forEach((entry) => {
+
+    if (holidayLoad) {
+      const li = document.createElement('li');
+      li.className = 'collection-item';
+      const regionSuffix = holidayLoad.regionCode ? `-${holidayLoad.regionCode}` : '';
+      li.textContent = `Holiday Calendar ${holidayLoad.year}: ${holidayLoad.countryCode}${regionSuffix}`;
+      ui.consultantDaysOffList.appendChild(li);
+    }
+
+    dayOffEntries.forEach((entry) => {
       const li = document.createElement('li');
       li.className = 'collection-item';
       li.textContent = `${entry.type}: ${formatDate(entry.startDate)} - ${formatDate(entry.endDate)}`;
@@ -1153,9 +1165,10 @@ if (!isBrowserRuntime) {
     ui.consultantModeLabel.textContent = readOnly ? 'Read-only mode' : 'Edit mode';
     ui.consultantSaveBtn.hidden = readOnly;
     ui.openDaysOffModalBtn.disabled = readOnly;
-    [fields.consultantName, fields.consultantAreaIds, fields.consultantCompanyRoleId, fields.consultantSalary, fields.consultantHolidayLocationId].forEach((el) => {
+    [fields.consultantName, fields.consultantAreaIds, fields.consultantCompanyRoleId, fields.consultantSalary].forEach((el) => {
       el.disabled = readOnly;
     });
+    fields.consultantHolidayLocationId.disabled = true;
     resetSelect('consultantAreas', fields.consultantAreaIds);
     resetSelect('consultantCompanyRole', fields.consultantCompanyRoleId);
     resetSelect('consultantHolidayLocation', fields.consultantHolidayLocationId);
@@ -1655,8 +1668,23 @@ if (!isBrowserRuntime) {
       return;
     }
     try {
-      await loadHolidaysForLocation({ year: selectedTimelineYear, countryCode, regionCode });
-      await refreshTimelines();
+      const consultantId = Number(fields.consultantId.value);
+      const result = await loadHolidaysForLocation({ year: selectedTimelineYear, countryCode, regionCode, consultantId });
+      const consultant = consultantId ? findConsultantById(consultantId) : null;
+      if (consultant) {
+        if (result.holidayLocationId) {
+          consultant.holidayLocationId = result.holidayLocationId;
+          fields.consultantHolidayLocationId.value = String(result.holidayLocationId);
+        }
+        if (result.holidayCalendarLoad) {
+          consultant.holidayCalendarLoad = result.holidayCalendarLoad;
+        }
+      }
+      await loadAll();
+      if (consultant) {
+        const refreshed = findConsultantById(consultantId);
+        renderConsultantDaysOffList(refreshed || consultant);
+      }
       modals.holidayLoad?.close();
       toast('Holidays loaded', 'teal darken-1');
     } catch (error) {
