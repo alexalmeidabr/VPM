@@ -544,18 +544,18 @@ if (!isBrowserRuntime) {
           const uniqueHolidayNames = [...new Set(holidayNames)];
           if (overlappingDaysOff.length) {
             cell.dataset.status = `Days Off: ${overlappingDaysOff.map((entry) => entry.type).join(', ')}`;
-          } else if (projectNames.length) {
-            cell.classList.add('allocated');
-            cell.dataset.status = `Project: ${projectNames.join(', ')}`;
           } else if (uniqueHolidayNames.length) {
             cell.classList.add('public-holiday');
             cell.dataset.status = `Holiday: ${uniqueHolidayNames.join(', ')}`;
+            if (projectNames.length) {
+              cell.dataset.status = `${cell.dataset.status} • Project: ${projectNames.join(', ')}`;
+            }
+          } else if (projectNames.length) {
+            cell.classList.add('allocated');
+            cell.dataset.status = `Project: ${projectNames.join(', ')}`;
           } else {
             cell.classList.add('available');
             cell.dataset.status = 'Available';
-          }
-          if (uniqueHolidayNames.length && cell.dataset.status && !cell.dataset.status.includes('Holiday:')) {
-            cell.dataset.status = `${cell.dataset.status} • Holiday: ${uniqueHolidayNames.join(', ')}`;
           }
         }
 
