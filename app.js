@@ -520,7 +520,7 @@ if (!isBrowserRuntime) {
 
         const cell = document.createElement('div');
         cell.className = 'week-cell';
-        cell.dataset.monday = weekStart.toISOString().slice(0, 10);
+        cell.dataset.monday = formatIsoDate(weekStart);
 
         const overlappingDaysOff = (consultant.availability || []).filter((entry) => {
           const entryStart = new Date(entry.startDate);
@@ -676,7 +676,7 @@ if (!isBrowserRuntime) {
 
         const cell = document.createElement('div');
         cell.className = 'week-cell';
-        cell.dataset.monday = weekStart.toISOString().slice(0, 10);
+        cell.dataset.monday = formatIsoDate(weekStart);
         cell.dataset.rowType = item.type;
         if (item.consultantId) cell.dataset.consultantId = String(item.consultantId);
         const inAssignmentRange = item.startDate && item.endDate && item.startDate <= weekEnd && item.endDate >= weekStart;
