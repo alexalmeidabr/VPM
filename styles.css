@@ -64,6 +64,13 @@ body { min-height: 100vh; }
 .legend { display: flex; gap: 1rem; font-size: 0.82rem; color: #455a64; margin-bottom: 0.45rem; flex-wrap: wrap; align-items: center; }
 .legend span::before { content: ''; display: inline-block; width: 12px; height: 12px; margin-right: 6px; border-radius: 2px; vertical-align: middle; }
 .legend .legend-item::before { background: currentColor; opacity: 0.8; }
+/* Keep explicit legend swatch colors after generic legend-item rule */
+.legend .legend-item.allocated-legend::before { background: #90a4ae; }
+.legend .legend-item.available-legend::before { background: #c8e6c9; }
+.legend .legend-item.project-legend::before { background: #546e7a; }
+.legend .legend-item.member-legend::before { background: #90a4ae; }
+.legend .legend-item.public-holiday-legend::before { background: #ef9a9a; }
+
 
 .week-tooltip {
   position: fixed;
