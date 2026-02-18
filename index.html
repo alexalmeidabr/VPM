@@ -145,11 +145,6 @@
             </form>
 
             <h6>Consultant Availability Timeline (Current Year)</h6>
-            <div class="holiday-controls">
-              <div class="input-field holiday-control"><select id="holiday-country-code"></select><label for="holiday-country-code">Holiday Country</label></div>
-              <div class="input-field holiday-control"><select id="holiday-region-code"></select><label for="holiday-region-code">Holiday Region (optional)</label></div>
-              <button type="button" class="btn blue-grey" id="load-holidays-btn">Load Holidays for Year</button>
-            </div>
             <div id="consultant-availability-chart" class="availability-chart"></div>
 
             <div id="week-detail-card" class="week-detail-card" hidden>
@@ -165,6 +160,7 @@
             <div class="section-header recorded-days-off-header">
               <h6>Recorded Days Off</h6>
               <button type="button" class="btn blue-grey" id="open-days-off-modal-btn">Add Days Off</button>
+              <button type="button" class="btn blue-grey" id="open-holidays-modal-btn">Load Holidays</button>
             </div>
             <ul id="consultant-days-off-list" class="collection"></ul>
           </div>
@@ -240,6 +236,16 @@
         </div>
       </div>
       <div class="modal-footer"><button type="button" class="modal-close btn-flat">Cancel</button><button type="button" class="btn" id="save-availability-btn">Save</button></div>
+    </div>
+
+
+    <div id="holiday-load-modal" class="modal">
+      <div class="modal-content">
+        <h5>Load Holidays</h5>
+        <div class="input-field"><select id="holiday-country-code"></select><label for="holiday-country-code">Select country</label></div>
+        <div class="input-field"><select id="holiday-region-code"></select><label for="holiday-region-code">Holiday Region</label></div>
+      </div>
+      <div class="modal-footer"><button type="button" class="modal-close btn-flat">Cancel</button><button type="button" class="btn" id="load-holidays-btn">Load Holidays</button></div>
     </div>
 
     <div id="week-tooltip" class="week-tooltip" hidden></div>

@@ -74,6 +74,7 @@ if (!isBrowserRuntime) {
     consultantCancelEditBtn: document.getElementById('consultant-cancel-edit-btn'),
     backToConsultantsBtn: document.getElementById('back-to-consultants-btn'),
     openDaysOffModalBtn: document.getElementById('open-days-off-modal-btn'),
+    openHolidaysModalBtn: document.getElementById('open-holidays-modal-btn'),
     consultantAvailabilityChart: document.getElementById('consultant-availability-chart'),
     holidayCountryCode: document.getElementById('holiday-country-code'),
     holidayRegionCode: document.getElementById('holiday-region-code'),
@@ -87,6 +88,7 @@ if (!isBrowserRuntime) {
     monthDetailTimeline: document.getElementById('month-detail-timeline'),
 
     daysOffModal: document.getElementById('days-off-modal'),
+    holidayLoadModal: document.getElementById('holiday-load-modal'),
     availabilityType: document.getElementById('availability-type'),
     availabilityStartDate: document.getElementById('availability-start-date'),
     availabilityEndDate: document.getElementById('availability-end-date'),
@@ -141,6 +143,8 @@ if (!isBrowserRuntime) {
   let modalTempConsultantIds = [];
   let selectedTimelineYear = new Date().getFullYear();
   let selectedProjectTimelineYear = new Date().getFullYear();
+
+  const fallbackHolidayCountries = ['AD', 'AT', 'BE', 'CA', 'CH', 'DE', 'DK', 'ES', 'FI', 'FR', 'GB', 'IE', 'IT', 'MX', 'NL', 'NO', 'PL', 'PT', 'SE', 'US'];
 
   const toast = (message, classes = 'blue-grey darken-2') => window.M?.toast && M.toast({ html: message, classes });
   const updateTextFields = () => window.M?.updateTextFields && M.updateTextFields();
@@ -1035,7 +1039,8 @@ if (!isBrowserRuntime) {
   };
 
   const rebuildHolidayCountryRegionControls = ({ consultantHolidayLocationId = '' } = {}) => {
-    const countries = [...new Set(holidayLocations.map((item) => item.countryCode))].sort();
+    const countriesFromLocations = holidayLocations.map((item) => String(item.countryCode || '').toUpperCase()).filter(Boolean);
+    const countries = [...new Set([...countriesFromLocations, ...fallbackHolidayCountries])].sort();
     ui.holidayCountryCode.innerHTML = '<option value="" selected disabled>Select country</option>';
     countries.forEach((country) => ui.holidayCountryCode.add(new Option(country, country)));
 
@@ -1423,6 +1428,16 @@ if (!isBrowserRuntime) {
     modals.daysOff?.open();
   });
 
+  ui.openHolidaysModalBtn?.addEventListener('click', () => {
+    if (!fields.consultantId.value) {
+      toast('Open a consultant first to load holidays', 'orange darken-2');
+      return;
+    }
+    const consultant = findConsultantById(Number(fields.consultantId.value));
+    rebuildHolidayCountryRegionControls({ consultantHolidayLocationId: consultant?.holidayLocationId || fields.consultantHolidayLocationId.value });
+    modals.holidayLoad?.open();
+  });
+
   ui.saveAvailabilityBtn.addEventListener('click', async () => {
     const consultantId = Number(fields.consultantId.value);
     if (!consultantId) { toast('No consultant selected', 'red darken-1'); return; }
@@ -1618,8 +1633,8 @@ if (!isBrowserRuntime) {
     }
     try {
       await loadHolidaysForLocation({ year: selectedTimelineYear, countryCode, regionCode });
-      const consultant = findConsultantById(Number(fields.consultantId.value));
       await refreshTimelines();
+      modals.holidayLoad?.close();
       toast('Holidays loaded', 'teal darken-1');
     } catch (error) {
       toast(error.message || 'Failed to load holidays', 'red darken-1');
@@ -1686,6 +1701,7 @@ if (!isBrowserRuntime) {
     modals.consultantAssignment = M.Modal.init(ui.consultantAssignmentModal);
     modals.memberDetails = M.Modal.init(ui.memberDetailsModal);
     modals.daysOff = M.Modal.init(ui.daysOffModal);
+    modals.holidayLoad = M.Modal.init(ui.holidayLoadModal);
   }
 
   setSection('projects');
