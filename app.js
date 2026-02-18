@@ -136,7 +136,6 @@ if (!isBrowserRuntime) {
   let dayOffTypes = [];
   let holidayLocations = [];
   let loadedHolidays = [];
-  let activeHolidaySelection = null;
   let projectViewMode = 'edit';
   let consultantViewMode = 'edit';
   let selectedProjectAssignments = [];
@@ -146,6 +145,12 @@ if (!isBrowserRuntime) {
   let selectedProjectTimelineYear = new Date().getFullYear();
 
   const fallbackHolidayCountries = ['AD', 'AT', 'BE', 'CA', 'CH', 'DE', 'DK', 'ES', 'FI', 'FR', 'GB', 'IE', 'IT', 'MX', 'NL', 'NO', 'PL', 'PT', 'SE', 'US'];
+  const fallbackHolidayRegionsByCountry = {
+    DE: ['BW', 'BY', 'BE', 'BB', 'HB', 'HH', 'HE', 'MV', 'NI', 'NW', 'RP', 'SL', 'SN', 'ST', 'SH', 'TH'],
+    ES: ['AN', 'AR', 'AS', 'CB', 'CE', 'CL', 'CM', 'CN', 'CT', 'EX', 'GA', 'IB', 'MC', 'MD', 'ML', 'NC', 'PV', 'RI', 'VC'],
+    CA: ['AB', 'BC', 'MB', 'NB', 'NL', 'NS', 'NT', 'NU', 'ON', 'PE', 'QC', 'SK', 'YT'],
+    US: ['AL', 'AK', 'AZ', 'AR', 'CA', 'CO', 'CT', 'DE', 'FL', 'GA', 'HI', 'IA', 'ID', 'IL', 'IN', 'KS', 'KY', 'LA', 'MA', 'MD', 'ME', 'MI', 'MN', 'MO', 'MS', 'MT', 'NC', 'ND', 'NE', 'NH', 'NJ', 'NM', 'NV', 'NY', 'OH', 'OK', 'OR', 'PA', 'RI', 'SC', 'SD', 'TN', 'TX', 'UT', 'VA', 'VT', 'WA', 'WI', 'WV', 'WY', 'DC']
+  };
 
   const toast = (message, classes = 'blue-grey darken-2') => window.M?.toast && M.toast({ html: message, classes });
   const updateTextFields = () => window.M?.updateTextFields && M.updateTextFields();
@@ -214,10 +219,19 @@ if (!isBrowserRuntime) {
 
   const holidayLocationById = (id) => holidayLocations.find((item) => Number(item.id) === Number(id));
   const holidayKey = (countryCode, regionCode) => `${String(countryCode || '').toUpperCase()}::${String(regionCode || '').toUpperCase()}`;
+
+  const mergeLoadedHolidaysForLocation = ({ countryCode, regionCode, holidays }) => {
+    const key = holidayKey(countryCode, regionCode || '');
+    loadedHolidays = (loadedHolidays || []).filter((item) => holidayKey(item.countryCode, item.regionCode || '') !== key);
+    loadedHolidays.push(...(holidays || []));
+  };
+
   const holidayByDateForConsultant = (consultant, date) => {
-    if (!consultant || !activeHolidaySelection) return null;
+    if (!consultant) return null;
+    const location = holidayLocationById(consultant.holidayLocationId);
+    if (!location) return null;
     const dayIso = formatIsoDate(date);
-    const key = holidayKey(activeHolidaySelection.countryCode, activeHolidaySelection.regionCode || '');
+    const key = holidayKey(location.countryCode, location.regionCode || '');
     const matches = loadedHolidays.filter((item) => holidayKey(item.countryCode, item.regionCode || '') === key && item.date === dayIso);
     if (!matches.length) return null;
     return matches.find((item) => item.scope === 'company_override') || matches[0];
@@ -232,9 +246,21 @@ if (!isBrowserRuntime) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ year, countryCode: normalizedCountry, regionCode: normalizedRegion, consultantId })
     });
-    loadedHolidays = res.holidays || [];
-    activeHolidaySelection = { countryCode: normalizedCountry, regionCode: normalizedRegion };
+    mergeLoadedHolidaysForLocation({ countryCode: normalizedCountry, regionCode: normalizedRegion, holidays: res.holidays || [] });
     return res;
+  };
+
+  const preloadHolidayDataForConsultants = async (year) => {
+    const uniqueLocationIds = [...new Set((consultants || []).map((item) => item.holidayLocationId).filter(Boolean).map(Number))];
+    for (const locationId of uniqueLocationIds) {
+      const location = holidayLocationById(locationId);
+      if (!location) continue;
+      try {
+        await loadHolidaysForLocation({ year, countryCode: location.countryCode, regionCode: location.regionCode || '' });
+      } catch (error) {
+        // Keep rendering resilient when a location fails to fetch
+      }
+    }
   };
 
   const assignmentWindowForProject = (project, assignment) => {
@@ -1082,8 +1108,9 @@ if (!isBrowserRuntime) {
     if (selectedLocation?.countryCode) ui.holidayCountryCode.value = selectedLocation.countryCode;
 
     const selectedCountry = ui.holidayCountryCode.value;
-    const regions = holidayLocations.filter((item) => item.countryCode === selectedCountry && item.regionCode).map((item) => item.regionCode);
-    const uniqueRegions = [...new Set(regions)].sort();
+    const regionsFromLocations = holidayLocations.filter((item) => item.countryCode === selectedCountry && item.regionCode).map((item) => item.regionCode);
+    const regionsFromFallback = fallbackHolidayRegionsByCountry[selectedCountry] || [];
+    const uniqueRegions = [...new Set([...regionsFromLocations, ...regionsFromFallback])].sort();
     ui.holidayRegionCode.innerHTML = '<option value="" selected>No region</option>';
     uniqueRegions.forEach((region) => ui.holidayRegionCode.add(new Option(region, region)));
     if (selectedLocation?.regionCode) ui.holidayRegionCode.value = selectedLocation.regionCode;
@@ -1208,7 +1235,6 @@ if (!isBrowserRuntime) {
     renderConsultantDaysOffList(null);
     renderWeekDetail(null, '');
     renderMonthDetail(null, NaN, NaN);
-    activeHolidaySelection = null;
     showConsultantsPanel();
     updateTextFields();
   };
@@ -1216,21 +1242,11 @@ if (!isBrowserRuntime) {
 
   const refreshTimelines = async () => {
     const centerOnCurrentWeek = Boolean(ui.centerCurrentWeekToggle?.checked);
+    loadedHolidays = [];
+    await preloadHolidayDataForConsultants(selectedTimelineYear);
     drawTimeline(ui.availabilityChart, consultants, { year: selectedTimelineYear, centerOnCurrentWeek, showYearNavigation: true, showAllocationStatus: true, enableMonthClick: true });
     const consultantId = Number(fields.consultantId.value);
     const consultant = consultantId ? findConsultantById(consultantId) : null;
-    if (consultant?.holidayLocationId) {
-      const location = holidayLocationById(consultant.holidayLocationId);
-      if (location) {
-        try {
-          await loadHolidaysForLocation({ year: selectedTimelineYear, countryCode: location.countryCode, regionCode: location.regionCode });
-        } catch (error) {
-          toast(error.message || 'Failed to load holidays', 'orange darken-2');
-        }
-      }
-    } else if (!activeHolidaySelection) {
-      loadedHolidays = [];
-    }
     drawTimeline(ui.consultantAvailabilityChart, consultant ? [consultant] : [], { year: selectedTimelineYear, centerOnCurrentWeek, showAllocationStatus: true, enableMonthClick: true });
   };
 
@@ -1653,8 +1669,9 @@ if (!isBrowserRuntime) {
 
   ui.holidayCountryCode?.addEventListener('change', () => {
     const selectedCountry = ui.holidayCountryCode.value;
-    const regions = holidayLocations.filter((item) => item.countryCode === selectedCountry && item.regionCode).map((item) => item.regionCode);
-    const uniqueRegions = [...new Set(regions)].sort();
+    const regionsFromLocations = holidayLocations.filter((item) => item.countryCode === selectedCountry && item.regionCode).map((item) => item.regionCode);
+    const regionsFromFallback = fallbackHolidayRegionsByCountry[selectedCountry] || [];
+    const uniqueRegions = [...new Set([...regionsFromLocations, ...regionsFromFallback])].sort();
     ui.holidayRegionCode.innerHTML = '<option value="" selected>No region</option>';
     uniqueRegions.forEach((region) => ui.holidayRegionCode.add(new Option(region, region)));
     resetSelect('holidayRegionCode', ui.holidayRegionCode);
