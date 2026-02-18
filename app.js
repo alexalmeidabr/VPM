@@ -1192,6 +1192,7 @@ if (!isBrowserRuntime) {
     ui.consultantModeLabel.textContent = readOnly ? 'Read-only mode' : 'Edit mode';
     ui.consultantSaveBtn.hidden = readOnly;
     ui.openDaysOffModalBtn.disabled = readOnly;
+    if (ui.openHolidaysModalBtn) ui.openHolidaysModalBtn.disabled = readOnly;
     [fields.consultantName, fields.consultantAreaIds, fields.consultantCompanyRoleId, fields.consultantSalary].forEach((el) => {
       el.disabled = readOnly;
     });
