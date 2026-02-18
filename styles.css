@@ -107,4 +107,4 @@ body { min-height: 100vh; }
 .month-click-target { cursor: pointer; text-decoration: underline; text-underline-offset: 2px; }
 .month-click-target:hover { color: #263238; font-weight: 600; }
 
-.month-day-spacer { background: transparent; border-color: transparent; }
+.month-day-spacer { background: transparent; border-color: transparent; pointer-events: none; }

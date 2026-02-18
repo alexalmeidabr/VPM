@@ -722,6 +722,7 @@ if (!isBrowserRuntime) {
     for (let i = 0; i < mondayIndex; i += 1) {
       const spacer = document.createElement('div');
       spacer.className = 'week-day-cell month-day-spacer';
+      spacer.setAttribute('aria-hidden', 'true');
       ui.monthDetailTimeline.appendChild(spacer);
     }
 
