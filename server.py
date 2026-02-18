@@ -5,7 +5,9 @@ from datetime import datetime, timedelta
 from http import HTTPStatus
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
+from urllib.error import URLError
 from urllib.parse import parse_qs, urlparse
+from urllib.request import urlopen
 
 try:
   import holidays as pyholidays
@@ -434,17 +436,51 @@ class VPMHandler(SimpleHTTPRequestHandler):
     return fetched >= datetime.utcnow() - timedelta(days=30)
 
   def _generate_holidays_for_location(self, year, country_code, region_code):
-    if pyholidays is None:
-      raise RuntimeError('Python package "holidays" is required. Install with: pip install holidays')
+    if pyholidays is not None:
+      try:
+        generated = pyholidays.country_holidays(country_code, subdiv=region_code, years=[year])
+      except Exception as error:
+        raise RuntimeError(str(error)) from error
+      rows = []
+      for day, name in generated.items():
+        if int(day.year) != year:
+          continue
+        rows.append({'date': day.isoformat(), 'name': str(name), 'scope': 'regional' if region_code else 'national', 'source': 'library'})
+      return rows
+
+    # Fallback provider: Nager.Date public holidays API (works without Python holidays package)
+    api_url = f'https://date.nager.at/api/v3/PublicHolidays/{year}/{country_code}'
     try:
-      generated = pyholidays.country_holidays(country_code, subdiv=region_code, years=[year])
-    except Exception as error:
-      raise RuntimeError(str(error)) from error
+      with urlopen(api_url, timeout=15) as response:
+        payload = json.loads(response.read().decode('utf-8'))
+    except (URLError, TimeoutError, json.JSONDecodeError) as error:
+      raise RuntimeError(f'Unable to load holidays from fallback API: {error}') from error
+
     rows = []
-    for day, name in generated.items():
-      if int(day.year) != year:
+    for item in payload if isinstance(payload, list) else []:
+      date_value = str(item.get('date', '')).strip()
+      if not date_value:
         continue
-      rows.append({'date': day.isoformat(), 'name': str(name), 'scope': 'regional' if region_code else 'national', 'source': 'library'})
+
+      counties = item.get('counties')
+      is_regional = isinstance(counties, list) and len(counties) > 0
+
+      if region_code:
+        if not is_regional:
+          continue
+        normalized_region = region_code.upper()
+        regional_tokens = {f'{country_code.upper()}-{normalized_region}', normalized_region}
+        if not any(str(code).upper() in regional_tokens for code in counties):
+          continue
+        scope = 'regional'
+      else:
+        if is_regional:
+          continue
+        scope = 'national'
+
+      name_value = str(item.get('localName') or item.get('name') or 'Public Holiday').strip()
+      rows.append({'date': date_value, 'name': name_value, 'scope': scope, 'source': 'api'})
+
     return rows
 
   def _load_holidays(self, conn, year, country_code, region_code):
