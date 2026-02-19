@@ -49,26 +49,26 @@ body { min-height: 100vh; }
 .week-cell.vacation { background: #ffcc80; }
 .week-cell.pto { background: #80cbc4; }
 .week-cell.other { background: #b39ddb; }
-.week-cell.allocated { background: #90a4ae; }
+.week-cell.allocated { background: #b0bec5; }
 .week-cell.available { background: #c8e6c9; }
-.legend .allocated-legend::before { background: #90a4ae; }
+.legend .allocated-legend::before { background: #b0bec5; }
 .legend .available-legend::before { background: #c8e6c9; }
 
 .week-cell.project-range { background: #546e7a; }
-.week-cell.member-range { background: #90a4ae; }
+.week-cell.member-range { background: #b0bec5; }
 .week-cell.member-dayoff-vacation { background: #ffcc80; }
 .week-cell.member-dayoff-pto { background: #80cbc4; }
 .week-cell.member-dayoff-other { background: #b39ddb; }
 .legend .project-legend::before { background: #546e7a; }
-.legend .member-legend::before { background: #90a4ae; }
+.legend .member-legend::before { background: #b0bec5; }
 .legend { display: flex; gap: 1rem; font-size: 0.82rem; color: #455a64; margin-bottom: 0.45rem; flex-wrap: wrap; align-items: center; }
 .legend span::before { content: ''; display: inline-block; width: 12px; height: 12px; margin-right: 6px; border-radius: 2px; vertical-align: middle; }
 .legend .legend-item::before { background: currentColor; opacity: 0.8; }
 /* Keep explicit legend swatch colors after generic legend-item rule */
-.legend .legend-item.allocated-legend::before { background: #90a4ae; }
+.legend .legend-item.allocated-legend::before { background: #b0bec5; }
 .legend .legend-item.available-legend::before { background: #c8e6c9; }
 .legend .legend-item.project-legend::before { background: #546e7a; }
-.legend .legend-item.member-legend::before { background: #90a4ae; }
+.legend .legend-item.member-legend::before { background: #b0bec5; }
 .legend .legend-item.public-holiday-legend::before { background: #ef9a9a; }
 
 
@@ -101,7 +101,7 @@ body { min-height: 100vh; }
 .week-day-cell.vacation { background: #fff3e0; border-color: #ffcc80; }
 .week-day-cell.pto { background: #e0f2f1; border-color: #80cbc4; }
 .week-day-cell.other { background: #ede7f6; border-color: #b39ddb; }
-.week-day-cell.allocated { background: #90a4ae; border-color: #78909c; }
+.week-day-cell.allocated { background: #b0bec5; border-color: #90a4ae; }
 .week-day-cell.allocated .week-day-status { color: #102027; font-weight: 600; }
 .week-day-cell.weekend-default-off { background: #ffebee; border-color: #ef9a9a; }
 .week-day-cell.weekend-default-off .week-day-status { color: #b71c1c; font-weight: 600; }

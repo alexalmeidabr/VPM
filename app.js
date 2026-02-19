@@ -568,6 +568,7 @@ if (!isBrowserRuntime) {
           for (let i = 0; i < 7; i += 1) {
             const day = new Date(weekStart);
             day.setDate(weekStart.getDate() + i);
+            if (isWeekendDate(day)) continue;
             const holiday = holidayByDateForConsultant(consultant, day);
             if (holiday) holidayNames.push(holiday.name);
           }
@@ -1317,7 +1318,7 @@ if (!isBrowserRuntime) {
     modalTempConsultantIds = box.checked ? [...new Set([...modalTempConsultantIds, id])] : modalTempConsultantIds.filter((value) => Number(value) !== id);
   });
 
-  ui.saveConsultantAssignmentsBtn.addEventListener('click', () => {
+  ui.saveConsultantAssignmentsBtn.addEventListener('click', async () => {
     const role = ui.projectRoleModal.value;
     if (!role) { toast('Project Role is required', 'red darken-1'); return; }
     if (!modalTempConsultantIds.length) { toast('Select at least one consultant', 'red darken-1'); return; }
@@ -1327,9 +1328,31 @@ if (!isBrowserRuntime) {
 
     selectedProjectAssignments = selectedProjectAssignments.filter((item) => !modalTempConsultantIds.includes(Number(item.consultantId)));
     modalTempConsultantIds.forEach((consultantId) => selectedProjectAssignments.push({ consultantId, projectRole: role, startDate: start, endDate: end, allocation: 100, comments: '' }));
-    updateAssignedConsultantsSummary();
-    updateProjectMembersPanel();
-    modals.consultantAssignment?.close();
+
+    try {
+      if (fields.projectId.value) {
+        const payload = {
+          projectName: fields.projectName.value.trim(),
+          clientName: fields.clientName.value.trim(),
+          projectType: fields.projectType.value,
+          managerConsultantId: Number(fields.managerId.value),
+          clientContact: fields.clientContact.value.trim(),
+          startDate: fields.startDate.value,
+          endDate: fields.endDate.value,
+          consultantAssignments: selectedProjectAssignments
+        };
+        await request(`/api/projects/${fields.projectId.value}`, {
+          method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload)
+        });
+        await loadAll();
+      }
+      updateAssignedConsultantsSummary();
+      updateProjectMembersPanel();
+      modals.consultantAssignment?.close();
+      toast(fields.projectId.value ? 'Project member saved' : 'Project member added', 'teal darken-1');
+    } catch (error) {
+      toast(error.message || 'Failed to save project member', 'red darken-1');
+    }
   });
 
   ui.projectMembersList.addEventListener('click', (event) => {
