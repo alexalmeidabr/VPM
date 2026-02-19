@@ -64,9 +64,6 @@
                     <div class="input-field col s12 m6"><input id="start-date" type="date" required /><label class="active" for="start-date">Start Date</label></div>
                     <div class="input-field col s12 m6"><input id="end-date" type="date" required /><label class="active" for="end-date">End Date</label></div>
                   </div>
-                  <div class="consultant-assignment-row">
-                    <span class="grey-text" id="assigned-consultants-summary">No consultants assigned yet.</span>
-                  </div>
                 </form>
 
                 <h6>Project Timeline</h6>
@@ -83,7 +80,10 @@
             <div class="card sticky-members-panel" id="project-members-card" hidden>
               <div class="card-content">
                 <div class="section-header">
-                  <span class="card-title">Project Members</span>
+                  <div class="title-with-action">
+                    <span class="card-title">Project Members</span>
+                    <span class="grey-text" id="assigned-consultants-summary">No consultants assigned yet.</span>
+                  </div>
                   <button class="btn waves-effect waves-light" type="button" id="open-consultant-modal-btn">Add Consultant</button>
                 </div>
                 <div id="project-members-list" class="project-members-list"></div>
