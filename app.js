@@ -1116,7 +1116,6 @@ if (!isBrowserRuntime) {
             <div class="member-meta">Project Role: ${member.projectRole || '—'}</div>
             <div class="member-meta">Dates: ${formatDate(member.startDate)} - ${formatDate(member.endDate)}</div>
             <div class="member-meta">Allocation: ${Number(member.allocation ?? 100)}%</div>
-            <div class="member-meta">Comments: ${member.comments || '—'}</div>
           </div>
           <div>
             <button class="btn-flat teal-text" data-action="view-member" data-id="${member.consultantId}"><i class="material-icons tiny">visibility</i></button>
@@ -1281,6 +1280,7 @@ if (!isBrowserRuntime) {
     const readOnly = mode === 'view';
     ui.projectFormTitle.textContent = readOnly ? 'Manage Project (View)' : 'Manage Project';
     ui.projectSaveBtn.hidden = readOnly;
+    ui.projectSaveBtn.style.display = readOnly ? 'none' : '';
     ui.openConsultantModalBtn.disabled = readOnly;
     [fields.projectName, fields.clientName, fields.projectType, fields.clientContact, fields.startDate, fields.endDate].forEach((el) => { el.disabled = readOnly; });
     fields.managerId.disabled = true;
@@ -1295,6 +1295,7 @@ if (!isBrowserRuntime) {
     ui.consultantFormTitle.textContent = readOnly ? 'Manage Consultant (View)' : 'Manage Consultant';
     ui.consultantModeLabel.textContent = readOnly ? 'Read-only mode' : 'Edit mode';
     ui.consultantSaveBtn.hidden = readOnly;
+    ui.consultantSaveBtn.style.display = readOnly ? 'none' : '';
     ui.openDaysOffModalBtn.disabled = readOnly;
     if (ui.openHolidaysModalBtn) ui.openHolidaysModalBtn.disabled = readOnly;
     [fields.consultantName, fields.consultantAreaIds, fields.consultantCompanyRoleId, fields.consultantSalary].forEach((el) => {
