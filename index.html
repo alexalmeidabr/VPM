@@ -66,8 +66,14 @@
                   </div>
                 </form>
 
-                <h6>Project Timeline</h6>
-                <div id="project-timeline-chart" class="availability-chart"></div>
+                <div class="project-timeline-panel" id="project-timeline-panel">
+                  <div class="project-timeline-header">
+                    <h6>Project Timeline</h6>
+                    <span class="grey-text" id="project-timeline-project-name" hidden></span>
+                    <button class="btn-flat" type="button" id="toggle-project-timeline-expand-btn" aria-label="Expand timeline"><i class="material-icons">open_in_full</i></button>
+                  </div>
+                  <div id="project-timeline-chart" class="availability-chart"></div>
+                </div>
                 <div id="project-week-detail-card" class="week-detail-card" hidden>
                   <h6 id="project-week-detail-title">Project Week Detail</h6>
                   <div id="project-week-detail-timeline" class="week-detail-timeline"></div>

@@ -33,7 +33,10 @@ if (!isBrowserRuntime) {
     assignedConsultantsSummary: document.getElementById('assigned-consultants-summary'),
     projectMembersList: document.getElementById('project-members-list'),
     projectMembersCard: document.getElementById('project-members-card'),
+    projectTimelinePanel: document.getElementById('project-timeline-panel'),
     projectTimelineChart: document.getElementById('project-timeline-chart'),
+    projectTimelineProjectName: document.getElementById('project-timeline-project-name'),
+    toggleProjectTimelineExpandBtn: document.getElementById('toggle-project-timeline-expand-btn'),
     projectWeekDetailCard: document.getElementById('project-week-detail-card'),
     projectWeekDetailTitle: document.getElementById('project-week-detail-title'),
     projectWeekDetailTimeline: document.getElementById('project-week-detail-timeline'),
@@ -142,6 +145,7 @@ if (!isBrowserRuntime) {
   let modalTempConsultantIds = [];
   let selectedTimelineYear = new Date().getFullYear();
   let selectedProjectTimelineYear = new Date().getFullYear();
+  let isProjectTimelineExpanded = false;
 
   const fallbackHolidayCountries = ['AD', 'AT', 'BE', 'CA', 'CH', 'DE', 'DK', 'ES', 'FI', 'FR', 'GB', 'IE', 'IT', 'MX', 'NL', 'NO', 'PL', 'PT', 'SE', 'US'];
   const fallbackHolidayRegionsByCountry = {
@@ -1270,7 +1274,25 @@ if (!isBrowserRuntime) {
     });
   };
 
-  const showProjectsPanel = () => { ui.projectsPanelCard.hidden = false; ui.projectFormCard.hidden = true; ui.projectMembersCard.hidden = true; };
+  const updateProjectTimelineExpandUi = () => {
+    if (!ui.toggleProjectTimelineExpandBtn) return;
+    document.body.classList.toggle('project-timeline-expanded', isProjectTimelineExpanded);
+    const icon = ui.toggleProjectTimelineExpandBtn.querySelector('.material-icons');
+    if (icon) icon.textContent = isProjectTimelineExpanded ? 'close_fullscreen' : 'open_in_full';
+    ui.toggleProjectTimelineExpandBtn.setAttribute('aria-label', isProjectTimelineExpanded ? 'Collapse timeline' : 'Expand timeline');
+    if (ui.projectTimelineProjectName) {
+      ui.projectTimelineProjectName.hidden = !isProjectTimelineExpanded;
+      ui.projectTimelineProjectName.textContent = fields.projectName.value ? `Project: ${fields.projectName.value}` : 'Project Timeline';
+    }
+  };
+
+  const collapseProjectTimeline = () => {
+    if (!isProjectTimelineExpanded) return;
+    isProjectTimelineExpanded = false;
+    updateProjectTimelineExpandUi();
+  };
+
+  const showProjectsPanel = () => { collapseProjectTimeline(); ui.projectsPanelCard.hidden = false; ui.projectFormCard.hidden = true; ui.projectMembersCard.hidden = true; };
   const showManageProjectPanel = () => { ui.projectsPanelCard.hidden = true; ui.projectFormCard.hidden = false; ui.projectMembersCard.hidden = false; };
   const showConsultantsPanel = () => { ui.consultantsPanelCard.hidden = false; ui.consultantFormCard.hidden = true; };
   const showManageConsultantsPanel = () => { ui.consultantsPanelCard.hidden = true; ui.consultantFormCard.hidden = false; };
@@ -1282,6 +1304,7 @@ if (!isBrowserRuntime) {
     ui.projectSaveBtn.hidden = readOnly;
     ui.projectSaveBtn.style.display = readOnly ? 'none' : '';
     ui.openConsultantModalBtn.disabled = readOnly;
+    ui.openConsultantModalBtn.hidden = readOnly;
     [fields.projectName, fields.clientName, fields.projectType, fields.clientContact, fields.startDate, fields.endDate].forEach((el) => { el.disabled = readOnly; });
     fields.managerId.disabled = true;
     resetSelect('manager', fields.managerId);
@@ -1327,6 +1350,7 @@ if (!isBrowserRuntime) {
     selectedProjectTimelineYear = new Date().getFullYear();
     refreshProjectTimeline();
     renderProjectWeekDetail('', '', '');
+    collapseProjectTimeline();
     showProjectsPanel();
     updateTextFields();
   };
@@ -1388,6 +1412,11 @@ if (!isBrowserRuntime) {
   ui.backToProjectsBtn.addEventListener('click', showProjectsPanel);
   fields.startDate.addEventListener('change', updateProjectMembersPanel);
   fields.endDate.addEventListener('change', updateProjectMembersPanel);
+  fields.projectName.addEventListener('input', updateProjectTimelineExpandUi);
+  ui.toggleProjectTimelineExpandBtn?.addEventListener('click', () => {
+    isProjectTimelineExpanded = !isProjectTimelineExpanded;
+    updateProjectTimelineExpandUi();
+  });
 
   ui.showConsultantFormBtn.addEventListener('click', () => { resetConsultantForm(); showManageConsultantsPanel(); });
   ui.backToConsultantsBtn.addEventListener('click', showConsultantsPanel);
@@ -1722,6 +1751,8 @@ if (!isBrowserRuntime) {
     rebuildProjectSelects({ managerId: project.managerConsultantId });
     setProjectFormMode(button.dataset.action === 'view-project' ? 'view' : 'edit');
     showManageProjectPanel();
+    collapseProjectTimeline();
+    updateProjectTimelineExpandUi();
     updateProjectMembersPanel();
     renderProjectWeekDetail('', '', '');
     updateTextFields();
@@ -1940,6 +1971,7 @@ if (!isBrowserRuntime) {
   }
 
   setSection('projects');
+  updateProjectTimelineExpandUi();
   resetProjectForm();
   resetConsultantForm();
   loadAll().catch((error) => toast(error.message || 'Unable to load data', 'red darken-1'));
