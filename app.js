@@ -43,6 +43,7 @@ if (!isBrowserRuntime) {
     projectRoleModal: document.getElementById('project-role-modal'),
     memberStartDateModal: document.getElementById('member-start-date-modal'),
     memberEndDateModal: document.getElementById('member-end-date-modal'),
+    memberAllocationModal: document.getElementById('member-allocation-modal'),
     consultantPickerList: document.getElementById('consultant-picker-list'),
     saveConsultantAssignmentsBtn: document.getElementById('save-consultant-assignments-btn'),
 
@@ -1347,6 +1348,7 @@ if (!isBrowserRuntime) {
     ui.projectRoleModal.value = '';
     ui.memberStartDateModal.value = fields.startDate.value;
     ui.memberEndDateModal.value = fields.endDate.value;
+    ui.memberAllocationModal.value = '100';
     rebuildAssignmentModalSelects();
     renderConsultantPickerList();
     modals.consultantAssignment?.open();
@@ -1371,9 +1373,14 @@ if (!isBrowserRuntime) {
     const start = ui.memberStartDateModal.value;
     const end = ui.memberEndDateModal.value;
     if (start && end && start > end) { toast('Start date cannot be after end date', 'red darken-1'); return; }
+    const allocation = Number(ui.memberAllocationModal.value || 100);
+    if (Number.isNaN(allocation) || allocation < 0 || allocation > 100) {
+      toast('Allocation must be between 0 and 100', 'red darken-1');
+      return;
+    }
 
     const selectedConsultantId = Number(modalTempConsultantIds[0]);
-    selectedProjectAssignments.push({ consultantId: selectedConsultantId, projectRole: role, startDate: start, endDate: end, allocation: 100, comments: '' });
+    selectedProjectAssignments.push({ consultantId: selectedConsultantId, projectRole: role, startDate: start, endDate: end, allocation, comments: '' });
 
     try {
       if (fields.projectId.value) {
