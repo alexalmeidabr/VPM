@@ -606,7 +606,7 @@ if (!isBrowserRuntime) {
 
     const legend = document.createElement('div');
     legend.className = 'legend';
-    legend.innerHTML = '<span class="legend-item project-legend">Project Duration</span><span class="legend-item member-legend">Member Assignment</span>';
+    legend.innerHTML = '<span class="legend-item project-legend">Project Duration</span><span class="legend-item member-legend">Member Assignment</span><span class="legend-item public-holiday-legend">Public Holiday</span>';
     container.appendChild(legend);
 
     const columns = `170px repeat(${weeks.length}, 18px)`;
@@ -712,17 +712,40 @@ if (!isBrowserRuntime) {
         if (item.consultantId) cell.dataset.consultantId = String(item.consultantId);
         const inAssignmentRange = item.startDate && item.endDate && item.startDate <= weekEnd && item.endDate >= weekStart;
         if (inAssignmentRange) {
-          cell.classList.add(item.type === 'project' ? 'project-range' : 'member-range');
-          if (item.type === 'member' && item.consultant) {
-            const overlaps = (item.consultant.availability || []).filter((entry) => {
+          if (item.type === 'project') {
+            cell.classList.add('project-range');
+          } else {
+            const overlaps = (item.consultant?.availability || []).filter((entry) => {
               const entryStart = parseIsoDate(entry.startDate);
               const entryEnd = parseIsoDate(entry.endDate);
               return entryStart && entryEnd && entryStart <= weekEnd && entryEnd >= weekStart;
             });
-            if (overlaps.some((entry) => entry.type === 'Vacation')) cell.classList.add('member-dayoff-vacation');
-            else if (overlaps.some((entry) => entry.type === 'PTO')) cell.classList.add('member-dayoff-pto');
-            else if (overlaps.length) cell.classList.add('member-dayoff-other');
-            if (overlaps.length) cell.dataset.status = overlaps.map((entry) => entry.type).join(', ');
+
+            const holidayNames = [];
+            for (let i = 0; i < 7; i += 1) {
+              const day = new Date(weekStart);
+              day.setDate(weekStart.getDate() + i);
+              if (isWeekendDate(day)) continue;
+              const holiday = holidayByDateForConsultant(item.consultant, day);
+              if (holiday) holidayNames.push(holiday.name);
+            }
+            const uniqueHolidayNames = [...new Set(holidayNames)];
+
+            if (overlaps.some((entry) => entry.type === 'Vacation')) {
+              cell.classList.add('member-dayoff-vacation');
+              cell.dataset.status = overlaps.map((entry) => entry.type).join(', ');
+            } else if (overlaps.some((entry) => entry.type === 'PTO')) {
+              cell.classList.add('member-dayoff-pto');
+              cell.dataset.status = overlaps.map((entry) => entry.type).join(', ');
+            } else if (overlaps.length) {
+              cell.classList.add('member-dayoff-other');
+              cell.dataset.status = overlaps.map((entry) => entry.type).join(', ');
+            } else if (uniqueHolidayNames.length) {
+              cell.classList.add('member-holiday');
+              cell.dataset.status = `Holiday: ${uniqueHolidayNames.join(', ')}`;
+            } else {
+              cell.classList.add('member-range');
+            }
           }
         }
         row.appendChild(cell);
@@ -732,8 +755,9 @@ if (!isBrowserRuntime) {
     });
   };
 
-  const refreshProjectTimeline = () => {
+  const refreshProjectTimeline = async () => {
     const centerOnCurrentWeek = Boolean(ui.centerCurrentWeekToggle?.checked);
+    await preloadHolidayDataForConsultants(selectedProjectTimelineYear);
     drawProjectTimeline(ui.projectTimelineChart, { year: selectedProjectTimelineYear, centerOnCurrentWeek });
   };
 
