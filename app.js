@@ -1128,25 +1128,35 @@ if (!isBrowserRuntime) {
     };
 
     const tmAreaName = 'TM (Transport Management)';
+    const managementLabel = 'Management';
     const buckets = {
-      management: { label: 'Management', order: 0, members: [] },
-      tm: { label: tmAreaName, order: 1, members: [] }
+      management: { label: managementLabel, members: [], ids: new Set() },
+      tm: { label: tmAreaName, members: [], ids: new Set() }
     };
     const dynamicBuckets = new Map();
+    const pushUnique = (bucket, member, consultant) => {
+      const id = Number(member.consultantId);
+      if (bucket.ids.has(id)) return;
+      bucket.ids.add(id);
+      bucket.members.push({ member, consultant });
+    };
 
     allMembers.forEach((member) => {
       const consultant = findConsultantById(member.consultantId);
       const areaNames = (consultant?.areaNames || []).length ? consultant.areaNames : (consultant?.areaIds || []).map(areaNameById).filter(Boolean);
+      const lowerAreas = areaNames.map((name) => String(name).trim().toLowerCase());
 
-      if (member.projectRole === 'Project Manager') {
-        buckets.management.members.push({ member, consultant });
+      if (member.projectRole === 'Project Manager' || lowerAreas.includes(managementLabel.toLowerCase())) {
+        pushUnique(buckets.management, member, consultant);
       }
       if (areaNames.includes(tmAreaName)) {
-        buckets.tm.members.push({ member, consultant });
+        pushUnique(buckets.tm, member, consultant);
       }
-      areaNames.filter((name) => name !== tmAreaName).forEach((name) => {
-        if (!dynamicBuckets.has(name)) dynamicBuckets.set(name, { label: name, order: 2, members: [] });
-        dynamicBuckets.get(name).members.push({ member, consultant });
+      areaNames.forEach((name) => {
+        const normalized = String(name).trim().toLowerCase();
+        if (!normalized || normalized === tmAreaName.toLowerCase() || normalized === managementLabel.toLowerCase()) return;
+        if (!dynamicBuckets.has(name)) dynamicBuckets.set(name, { label: name, members: [], ids: new Set() });
+        pushUnique(dynamicBuckets.get(name), member, consultant);
       });
     });
 
