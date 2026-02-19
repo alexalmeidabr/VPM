@@ -722,23 +722,6 @@ if (!isBrowserRuntime) {
         if (inAssignmentRange) {
           if (item.type === 'project') {
             cell.classList.add('project-range');
-            const holidayNames = [];
-            merged.forEach((member) => {
-              const consultant = findConsultantById(member.consultantId);
-              if (!consultant) return;
-              for (let i = 0; i < 7; i += 1) {
-                const day = new Date(weekStart);
-                day.setDate(weekStart.getDate() + i);
-                if (isWeekendDate(day)) continue;
-                const holiday = holidayByDateForConsultant(consultant, day);
-                if (holiday) holidayNames.push(holiday.name);
-              }
-            });
-            const uniqueHolidayNames = [...new Set(holidayNames)];
-            if (uniqueHolidayNames.length) {
-              cell.classList.add('member-holiday');
-              cell.dataset.status = `Holiday: ${uniqueHolidayNames.join(', ')}`;
-            }
           } else {
             const overlaps = (item.consultant?.availability || []).filter((entry) => {
               const entryStart = parseIsoDate(entry.startDate);
@@ -983,10 +966,13 @@ if (!isBrowserRuntime) {
           cell.classList.add('weekend-default-off');
           status.textContent = 'Not Available';
         } else if (!inMemberRange) {
-          cell.classList.add('weekend-default-off');
+          cell.classList.add('not-assigned');
           status.textContent = 'Not Assigned';
+        } else if (!overlaps.length) {
+          cell.classList.add('allocated');
+          status.textContent = 'Assigned';
         } else {
-          status.textContent = overlaps.length ? overlaps.map((entry) => entry.type).join(', ') : 'Assigned';
+          status.textContent = overlaps.map((entry) => entry.type).join(', ');
         }
       } else if (isWeekend) {
         cell.classList.add('weekend-default-off');
