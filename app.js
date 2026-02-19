@@ -1678,6 +1678,8 @@ if (!isBrowserRuntime) {
     if (!project) return;
 
     if (button.dataset.action === 'delete-project') {
+      const confirmed = window.confirm(`Delete project "${project.projectName}"?`);
+      if (!confirmed) return;
       try {
         await request(`/api/projects/${id}`, { method: 'DELETE' });
         await loadAll();
@@ -1733,6 +1735,8 @@ if (!isBrowserRuntime) {
     if (!consultant) return;
 
     if (button.dataset.action === 'delete-consultant') {
+      const confirmed = window.confirm(`Delete consultant "${consultant.name}"?`);
+      if (!confirmed) return;
       try {
         await request(`/api/consultants/${id}`, { method: 'DELETE' });
         await loadAll();
