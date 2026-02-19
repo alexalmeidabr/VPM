@@ -360,6 +360,10 @@ if (!isBrowserRuntime) {
       return { className: 'public-holiday', text: details.join(' • ') };
     }
 
+    if (projectNames.length) {
+      return { className: 'allocated', text: details.join(' • ') };
+    }
+
     return { className: '', text: details.join(' • ') || 'Available' };
   };
 
