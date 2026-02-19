@@ -1076,16 +1076,20 @@ if (!isBrowserRuntime) {
       return;
     }
     const areaId = Number(modalSelectedAreaId);
-    const candidates = consultants.filter((consultant) => (consultant.areaIds || []).map(Number).includes(areaId));
+    const assignedIds = new Set(selectedProjectAssignments.map((item) => Number(item.consultantId)));
+    const candidates = consultants.filter((consultant) => {
+      const matchesArea = (consultant.areaIds || []).map(Number).includes(areaId);
+      return matchesArea && !assignedIds.has(Number(consultant.id));
+    });
     if (!candidates.length) {
-      ui.consultantPickerList.innerHTML = '<p class="grey-text">No consultants available in this area.</p>';
+      ui.consultantPickerList.innerHTML = '<p class="grey-text">No unassigned consultants available in this area.</p>';
       return;
     }
     ui.consultantPickerList.innerHTML = '';
     candidates.forEach((consultant) => {
       const item = document.createElement('p');
       item.className = 'consultant-picker-item';
-      item.innerHTML = `<label><input type="checkbox" data-consultant-id="${consultant.id}" ${modalTempConsultantIds.includes(Number(consultant.id)) ? 'checked' : ''} /><span>${consultant.name}</span></label>`;
+      item.innerHTML = `<label><input type="radio" name="project-consultant-choice" data-consultant-id="${consultant.id}" ${modalTempConsultantIds.includes(Number(consultant.id)) ? 'checked' : ''} /><span>${consultant.name}</span></label>`;
       ui.consultantPickerList.appendChild(item);
     });
   };
@@ -1338,7 +1342,7 @@ if (!isBrowserRuntime) {
   ui.backToConsultantsBtn.addEventListener('click', showConsultantsPanel);
 
   ui.openConsultantModalBtn.addEventListener('click', () => {
-    modalTempConsultantIds = selectedProjectAssignments.map((item) => Number(item.consultantId));
+    modalTempConsultantIds = [];
     modalSelectedAreaId = '';
     ui.projectRoleModal.value = '';
     ui.memberStartDateModal.value = fields.startDate.value;
@@ -1354,22 +1358,22 @@ if (!isBrowserRuntime) {
   });
 
   ui.consultantPickerList.addEventListener('change', (event) => {
-    const box = event.target.closest('input[type="checkbox"][data-consultant-id]');
-    if (!box) return;
-    const id = Number(box.dataset.consultantId);
-    modalTempConsultantIds = box.checked ? [...new Set([...modalTempConsultantIds, id])] : modalTempConsultantIds.filter((value) => Number(value) !== id);
+    const option = event.target.closest('input[type="radio"][data-consultant-id]');
+    if (!option) return;
+    const id = Number(option.dataset.consultantId);
+    modalTempConsultantIds = Number.isNaN(id) ? [] : [id];
   });
 
   ui.saveConsultantAssignmentsBtn.addEventListener('click', async () => {
     const role = ui.projectRoleModal.value;
     if (!role) { toast('Project Role is required', 'red darken-1'); return; }
-    if (!modalTempConsultantIds.length) { toast('Select at least one consultant', 'red darken-1'); return; }
+    if (modalTempConsultantIds.length !== 1) { toast('Select exactly one consultant', 'red darken-1'); return; }
     const start = ui.memberStartDateModal.value;
     const end = ui.memberEndDateModal.value;
     if (start && end && start > end) { toast('Start date cannot be after end date', 'red darken-1'); return; }
 
-    selectedProjectAssignments = selectedProjectAssignments.filter((item) => !modalTempConsultantIds.includes(Number(item.consultantId)));
-    modalTempConsultantIds.forEach((consultantId) => selectedProjectAssignments.push({ consultantId, projectRole: role, startDate: start, endDate: end, allocation: 100, comments: '' }));
+    const selectedConsultantId = Number(modalTempConsultantIds[0]);
+    selectedProjectAssignments.push({ consultantId: selectedConsultantId, projectRole: role, startDate: start, endDate: end, allocation: 100, comments: '' });
 
     try {
       if (fields.projectId.value) {
