@@ -179,6 +179,16 @@ if (!isBrowserRuntime) {
   };
 
   const managerCandidates = () => consultants.filter((consultant) => consultant.companyRole === 'Project Manager');
+  const managerConsultantIdFromAssignments = () => {
+    const managerMember = selectedProjectAssignments.find((item) => item.projectRole === 'Project Manager');
+    return managerMember ? Number(managerMember.consultantId) : 0;
+  };
+  const syncManagerFieldWithAssignments = () => {
+    const managerId = managerConsultantIdFromAssignments();
+    fields.managerId.value = managerId ? String(managerId) : '';
+    resetSelect('manager', fields.managerId);
+    return managerId;
+  };
   const findConsultantById = (id) => consultants.find((consultant) => Number(consultant.id) === Number(id));
   const consultantNameById = (id) => findConsultantById(id)?.name || '—';
   const areaNameById = (id) => areas.find((area) => Number(area.id) === Number(id))?.name || '—';
@@ -672,11 +682,7 @@ if (!isBrowserRuntime) {
     const rows = [];
     rows.push({ label: 'Project', startDate: projectStart, endDate: projectEnd, type: 'project' });
 
-    const managerId = Number(fields.managerId.value);
     const merged = [...selectedProjectAssignments];
-    if (managerId && !merged.some((item) => Number(item.consultantId) == managerId)) {
-      merged.unshift({ consultantId: managerId, projectRole: 'Project Manager', startDate: fields.startDate.value, endDate: fields.endDate.value });
-    }
 
     merged.forEach((member) => {
       const consultant = findConsultantById(member.consultantId);
@@ -710,10 +716,29 @@ if (!isBrowserRuntime) {
         cell.dataset.monday = formatIsoDate(weekStart);
         cell.dataset.rowType = item.type;
         if (item.consultantId) cell.dataset.consultantId = String(item.consultantId);
+        if (item.startDate) cell.dataset.assignmentStart = formatIsoDate(item.startDate);
+        if (item.endDate) cell.dataset.assignmentEnd = formatIsoDate(item.endDate);
         const inAssignmentRange = item.startDate && item.endDate && item.startDate <= weekEnd && item.endDate >= weekStart;
         if (inAssignmentRange) {
           if (item.type === 'project') {
             cell.classList.add('project-range');
+            const holidayNames = [];
+            merged.forEach((member) => {
+              const consultant = findConsultantById(member.consultantId);
+              if (!consultant) return;
+              for (let i = 0; i < 7; i += 1) {
+                const day = new Date(weekStart);
+                day.setDate(weekStart.getDate() + i);
+                if (isWeekendDate(day)) continue;
+                const holiday = holidayByDateForConsultant(consultant, day);
+                if (holiday) holidayNames.push(holiday.name);
+              }
+            });
+            const uniqueHolidayNames = [...new Set(holidayNames)];
+            if (uniqueHolidayNames.length) {
+              cell.classList.add('member-holiday');
+              cell.dataset.status = `Holiday: ${uniqueHolidayNames.join(', ')}`;
+            }
           } else {
             const overlaps = (item.consultant?.availability || []).filter((entry) => {
               const entryStart = parseIsoDate(entry.startDate);
@@ -918,6 +943,9 @@ if (!isBrowserRuntime) {
     ui.projectWeekDetailTimeline.innerHTML = '';
 
     const consultant = consultantId ? findConsultantById(Number(consultantId)) : null;
+    const selectedMember = consultantId ? selectedProjectAssignments.find((item) => Number(item.consultantId) === Number(consultantId)) : null;
+    const assignmentStart = parseIsoDate(selectedMember?.startDate || '');
+    const assignmentEnd = parseIsoDate(selectedMember?.endDate || '');
     const dayNames = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
     dayNames.forEach((dayName, index) => {
       const day = new Date(start);
@@ -939,6 +967,7 @@ if (!isBrowserRuntime) {
 
       const isWeekend = index >= 5;
       if (rowType === 'member' && consultant) {
+        const inMemberRange = assignmentStart && assignmentEnd && day >= assignmentStart && day <= assignmentEnd;
         const overlaps = (consultant.availability || []).filter((entry) => {
           const entryStart = parseIsoDate(entry.startDate);
           const entryEnd = parseIsoDate(entry.endDate);
@@ -953,6 +982,9 @@ if (!isBrowserRuntime) {
         if (isWeekend) {
           cell.classList.add('weekend-default-off');
           status.textContent = 'Not Available';
+        } else if (!inMemberRange) {
+          cell.classList.add('weekend-default-off');
+          status.textContent = 'Not Assigned';
         } else {
           status.textContent = overlaps.length ? overlaps.map((entry) => entry.type).join(', ') : 'Assigned';
         }
@@ -1067,11 +1099,8 @@ if (!isBrowserRuntime) {
 
   const updateProjectMembersPanel = () => {
     ui.projectMembersList.innerHTML = '';
-    const managerId = Number(fields.managerId.value);
+    syncManagerFieldWithAssignments();
     const allMembers = [...selectedProjectAssignments];
-    if (managerId && !allMembers.find((m) => Number(m.consultantId) === managerId)) {
-      allMembers.unshift({ consultantId: managerId, projectRole: 'Project Manager', startDate: fields.startDate.value, endDate: fields.endDate.value, allocation: 100, comments: '', fromManager: true });
-    }
 
     if (!allMembers.length) {
       ui.projectMembersList.innerHTML = '<p class="grey-text">No consultants assigned yet.</p>';
@@ -1081,7 +1110,6 @@ if (!isBrowserRuntime) {
 
     allMembers.forEach((member) => {
       const consultant = findConsultantById(member.consultantId);
-      const readOnlyManager = Boolean(member.fromManager);
       const wrapper = document.createElement('div');
       wrapper.className = 'member-card';
       wrapper.innerHTML = `
@@ -1095,7 +1123,7 @@ if (!isBrowserRuntime) {
           </div>
           <div>
             <button class="btn-flat teal-text" data-action="view-member" data-id="${member.consultantId}"><i class="material-icons tiny">visibility</i></button>
-            ${readOnlyManager ? '' : `<button class="btn-flat blue-text" data-action="edit-member" data-id="${member.consultantId}"><i class="material-icons tiny">edit</i></button><button class="btn-flat red-text" data-action="remove-member" data-id="${member.consultantId}"><i class="material-icons tiny">delete</i></button>`}
+            <button class="btn-flat blue-text" data-action="edit-member" data-id="${member.consultantId}"><i class="material-icons tiny">edit</i></button><button class="btn-flat red-text" data-action="remove-member" data-id="${member.consultantId}"><i class="material-icons tiny">delete</i></button>
           </div>
         </div>
       `;
@@ -1207,7 +1235,8 @@ if (!isBrowserRuntime) {
     ui.projectFormTitle.textContent = readOnly ? 'Manage Project (View)' : 'Manage Project';
     ui.projectSaveBtn.hidden = readOnly;
     ui.openConsultantModalBtn.disabled = readOnly;
-    [fields.projectName, fields.clientName, fields.projectType, fields.managerId, fields.clientContact, fields.startDate, fields.endDate].forEach((el) => { el.disabled = readOnly; });
+    [fields.projectName, fields.clientName, fields.projectType, fields.clientContact, fields.startDate, fields.endDate].forEach((el) => { el.disabled = readOnly; });
+    fields.managerId.disabled = true;
     resetSelect('manager', fields.managerId);
     resetSelect('projectType', fields.projectType);
     ui.projectCancelEditBtn.textContent = readOnly ? 'Close' : 'Cancel';
@@ -1311,7 +1340,6 @@ if (!isBrowserRuntime) {
   ui.showProjectFormBtn.addEventListener('click', () => { resetProjectForm(); showManageProjectPanel(); });
   ui.backToProjectsBtn.addEventListener('click', showProjectsPanel);
   ui.projectCancelEditBtn.addEventListener('click', resetProjectForm);
-  fields.managerId.addEventListener('change', updateProjectMembersPanel);
   fields.startDate.addEventListener('change', updateProjectMembersPanel);
   fields.endDate.addEventListener('change', updateProjectMembersPanel);
 
@@ -1359,7 +1387,7 @@ if (!isBrowserRuntime) {
           projectName: fields.projectName.value.trim(),
           clientName: fields.clientName.value.trim(),
           projectType: fields.projectType.value,
-          managerConsultantId: Number(fields.managerId.value),
+          managerConsultantId: managerConsultantIdFromAssignments(),
           clientContact: fields.clientContact.value.trim(),
           startDate: fields.startDate.value,
           endDate: fields.endDate.value,
@@ -1446,7 +1474,7 @@ if (!isBrowserRuntime) {
           projectName: fields.projectName.value.trim(),
           clientName: fields.clientName.value.trim(),
           projectType: fields.projectType.value,
-          managerConsultantId: Number(fields.managerId.value),
+          managerConsultantId: managerConsultantIdFromAssignments(),
           clientContact: fields.clientContact.value.trim(),
           startDate: fields.startDate.value,
           endDate: fields.endDate.value,
@@ -1473,7 +1501,7 @@ if (!isBrowserRuntime) {
       projectName: fields.projectName.value.trim(),
       clientName: fields.clientName.value.trim(),
       projectType: fields.projectType.value,
-      managerConsultantId: Number(fields.managerId.value),
+      managerConsultantId: managerConsultantIdFromAssignments(),
       clientContact: fields.clientContact.value.trim(),
       startDate: fields.startDate.value,
       endDate: fields.endDate.value,
@@ -1481,6 +1509,7 @@ if (!isBrowserRuntime) {
     };
 
     if (payload.startDate > payload.endDate) { toast('Start date cannot be after end date', 'red darken-1'); return; }
+    if (!payload.managerConsultantId) { toast('Assign a Project Manager from Project Members before saving', 'red darken-1'); return; }
 
     try {
       const editing = Boolean(fields.projectId.value);
@@ -1603,6 +1632,16 @@ if (!isBrowserRuntime) {
       allocation: Number(item.allocation ?? 100),
       comments: item.comments || ''
     }));
+    if (project.managerConsultantId && !selectedProjectAssignments.some((item) => item.projectRole === 'Project Manager')) {
+      selectedProjectAssignments.unshift({
+        consultantId: Number(project.managerConsultantId),
+        projectRole: 'Project Manager',
+        startDate: project.startDate,
+        endDate: project.endDate,
+        allocation: 100,
+        comments: ''
+      });
+    }
 
     selectedProjectTimelineYear = (parseIsoDate(project.startDate)?.getFullYear()) || new Date().getFullYear();
     updateAssignedConsultantsSummary();
