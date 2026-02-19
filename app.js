@@ -28,7 +28,6 @@ if (!isBrowserRuntime) {
     projectForm: document.getElementById('project-form'),
     projectFormTitle: document.getElementById('project-form-title'),
     projectSaveBtn: document.getElementById('project-save-btn'),
-    projectCancelEditBtn: document.getElementById('project-cancel-edit-btn'),
     backToProjectsBtn: document.getElementById('back-to-projects-btn'),
     openConsultantModalBtn: document.getElementById('open-consultant-modal-btn'),
     assignedConsultantsSummary: document.getElementById('assigned-consultants-summary'),
@@ -71,7 +70,6 @@ if (!isBrowserRuntime) {
     consultantFormTitle: document.getElementById('consultant-form-title'),
     consultantModeLabel: document.getElementById('consultant-mode-label'),
     consultantSaveBtn: document.getElementById('consultant-save-btn'),
-    consultantCancelEditBtn: document.getElementById('consultant-cancel-edit-btn'),
     backToConsultantsBtn: document.getElementById('back-to-consultants-btn'),
     openDaysOffModalBtn: document.getElementById('open-days-off-modal-btn'),
     openHolidaysModalBtn: document.getElementById('open-holidays-modal-btn'),
@@ -1225,7 +1223,6 @@ if (!isBrowserRuntime) {
     fields.managerId.disabled = true;
     resetSelect('manager', fields.managerId);
     resetSelect('projectType', fields.projectType);
-    ui.projectCancelEditBtn.textContent = readOnly ? 'Close' : 'Cancel';
     updateProjectMembersPanel();
   };
 
@@ -1325,13 +1322,11 @@ if (!isBrowserRuntime) {
 
   ui.showProjectFormBtn.addEventListener('click', () => { resetProjectForm(); showManageProjectPanel(); });
   ui.backToProjectsBtn.addEventListener('click', showProjectsPanel);
-  ui.projectCancelEditBtn.addEventListener('click', resetProjectForm);
   fields.startDate.addEventListener('change', updateProjectMembersPanel);
   fields.endDate.addEventListener('change', updateProjectMembersPanel);
 
   ui.showConsultantFormBtn.addEventListener('click', () => { resetConsultantForm(); showManageConsultantsPanel(); });
   ui.backToConsultantsBtn.addEventListener('click', showConsultantsPanel);
-  ui.consultantCancelEditBtn.addEventListener('click', resetConsultantForm);
 
   ui.openConsultantModalBtn.addEventListener('click', () => {
     modalTempConsultantIds = selectedProjectAssignments.map((item) => Number(item.consultantId));

@@ -47,7 +47,10 @@
             <div class="card" id="project-form-card" hidden>
               <div class="card-content">
                 <div class="section-header">
-                  <span class="card-title" id="project-form-title">Manage Project</span>
+                  <div class="title-with-action">
+                    <span class="card-title" id="project-form-title">Manage Project</span>
+                    <button class="btn waves-effect waves-light" type="submit" form="project-form" id="project-save-btn">Save Project<i class="material-icons right">save</i></button>
+                  </div>
                   <button class="btn-flat" type="button" id="back-to-projects-btn">Back to Projects</button>
                 </div>
                 <form id="project-form">
@@ -63,10 +66,6 @@
                   </div>
                   <div class="consultant-assignment-row">
                     <span class="grey-text" id="assigned-consultants-summary">No consultants assigned yet.</span>
-                  </div>
-                  <div class="card-action action-row">
-                    <button class="btn waves-effect waves-light" type="submit" id="project-save-btn">Save Project<i class="material-icons right">save</i></button>
-                    <button class="btn-flat" type="button" id="project-cancel-edit-btn">Cancel</button>
                   </div>
                 </form>
 
@@ -127,7 +126,10 @@
         <div class="card" id="consultant-form-card" hidden>
           <div class="card-content">
             <div class="section-header">
-              <span class="card-title" id="consultant-form-title">Manage Consultant</span>
+              <div class="title-with-action">
+                <span class="card-title" id="consultant-form-title">Manage Consultant</span>
+                <button class="btn waves-effect waves-light" type="submit" form="consultant-form" id="consultant-save-btn" aria-label="Save Consultant"><i class="material-icons">save</i></button>
+              </div>
               <button class="btn-flat" type="button" id="back-to-consultants-btn">Back to Consultants</button>
             </div>
             <p class="grey-text" id="consultant-mode-label"></p>
@@ -138,10 +140,6 @@
               <div class="input-field"><select id="consultant-company-role-id" required></select><label for="consultant-company-role-id">Company Role</label></div>
               <div class="input-field"><input id="consultant-salary" type="number" min="0" step="0.01" required /><label for="consultant-salary">Daily Internal Cost <i class="material-icons tiny inline-info-icon" tabindex="0" title="Internal cost includes direct compensation, employer taxes/social charges, and benefits.">info_outline</i></label></div>
               <div class="input-field"><select id="consultant-holiday-location-id"></select><label for="consultant-holiday-location-id">Holiday Location</label></div>
-                            <div class="card-action action-row">
-                <button class="btn waves-effect waves-light" type="submit" id="consultant-save-btn" aria-label="Save Consultant"><i class="material-icons">save</i></button>
-                <button class="btn-flat" type="button" id="consultant-cancel-edit-btn">Cancel</button>
-              </div>
             </form>
 
             <h6>Consultant Availability Timeline (Current Year)</h6>
