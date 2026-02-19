@@ -26,6 +26,8 @@ body { min-height: 100vh; }
 .consultant-picker-list { max-height: 260px; overflow-y: auto; border: 1px solid #cfd8dc; border-radius: 8px; padding: 0.75rem; }
 .consultant-picker-item { margin-bottom: 0.5rem; }
 .project-members-list { display: flex; flex-direction: column; gap: 0.6rem; }
+.member-area-panel { border: 1px solid #d7e1e6; border-radius: 10px; padding: 0.6rem; background: #fafcfd; }
+.member-area-title { margin: 0 0 0.5rem 0; font-size: 0.95rem; color: #455a64; }
 .member-card { border: 1px solid #dfe7ea; border-radius: 8px; padding: 0.65rem; }
 .member-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 0.5rem; }
 .member-meta { font-size: 0.9rem; color: #546e7a; }

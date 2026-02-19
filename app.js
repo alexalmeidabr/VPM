@@ -1106,8 +1106,7 @@ if (!isBrowserRuntime) {
       return;
     }
 
-    allMembers.forEach((member) => {
-      const consultant = findConsultantById(member.consultantId);
+    const createMemberCard = (member, consultant) => {
       const wrapper = document.createElement('div');
       wrapper.className = 'member-card';
       wrapper.innerHTML = `
@@ -1125,8 +1124,48 @@ if (!isBrowserRuntime) {
           </div>
         </div>
       `;
-      ui.projectMembersList.appendChild(wrapper);
+      return wrapper;
+    };
+
+    const tmAreaName = 'TM (Transport Management)';
+    const buckets = {
+      management: { label: 'Management', order: 0, members: [] },
+      tm: { label: tmAreaName, order: 1, members: [] }
+    };
+    const dynamicBuckets = new Map();
+
+    allMembers.forEach((member) => {
+      const consultant = findConsultantById(member.consultantId);
+      const areaNames = (consultant?.areaNames || []).length ? consultant.areaNames : (consultant?.areaIds || []).map(areaNameById).filter(Boolean);
+
+      if (member.projectRole === 'Project Manager') {
+        buckets.management.members.push({ member, consultant });
+      }
+      if (areaNames.includes(tmAreaName)) {
+        buckets.tm.members.push({ member, consultant });
+      }
+      areaNames.filter((name) => name !== tmAreaName).forEach((name) => {
+        if (!dynamicBuckets.has(name)) dynamicBuckets.set(name, { label: name, order: 2, members: [] });
+        dynamicBuckets.get(name).members.push({ member, consultant });
+      });
     });
+
+    const orderedGroups = [buckets.management, buckets.tm, ...Array.from(dynamicBuckets.values()).sort((a, b) => a.label.localeCompare(b.label))]
+      .filter((group) => group.members.length);
+
+    orderedGroups.forEach((group) => {
+      const panel = document.createElement('div');
+      panel.className = 'member-area-panel';
+
+      const title = document.createElement('h6');
+      title.className = 'member-area-title';
+      title.textContent = group.label;
+      panel.appendChild(title);
+
+      group.members.forEach(({ member, consultant }) => panel.appendChild(createMemberCard(member, consultant)));
+      ui.projectMembersList.appendChild(panel);
+    });
+
     refreshProjectTimeline();
   };
 
@@ -1665,7 +1704,7 @@ if (!isBrowserRuntime) {
       });
     }
 
-    selectedProjectTimelineYear = (parseIsoDate(project.startDate)?.getFullYear()) || new Date().getFullYear();
+    selectedProjectTimelineYear = new Date().getFullYear();
     updateAssignedConsultantsSummary();
     rebuildProjectSelects({ managerId: project.managerConsultantId });
     setProjectFormMode(button.dataset.action === 'view-project' ? 'view' : 'edit');
