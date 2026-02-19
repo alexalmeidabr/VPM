@@ -954,24 +954,33 @@ if (!isBrowserRuntime) {
           const entryEnd = parseIsoDate(entry.endDate);
           return entryStart && entryEnd && entryStart <= day && entryEnd >= day;
         });
+        const holiday = !isWeekend ? holidayByDateForConsultant(consultant, day) : null;
         if (!isWeekend) {
           if (overlaps.some((entry) => entry.type === 'Vacation')) cell.classList.add('vacation');
           else if (overlaps.some((entry) => entry.type === 'PTO')) cell.classList.add('pto');
           else if (overlaps.length) cell.classList.add('other');
         }
 
+        const statusParts = [];
         if (isWeekend) {
           cell.classList.add('weekend-default-off');
-          status.textContent = 'Not Available';
+          statusParts.push('Not Available');
         } else if (!inMemberRange) {
           cell.classList.add('not-assigned');
-          status.textContent = 'Not Assigned';
+          statusParts.push('Not Assigned');
         } else if (!overlaps.length) {
           cell.classList.add('allocated');
-          status.textContent = 'Assigned';
+          statusParts.push('Assigned');
         } else {
-          status.textContent = overlaps.map((entry) => entry.type).join(', ');
+          statusParts.push(overlaps.map((entry) => entry.type).join(', '));
         }
+        if (holiday) {
+          if (!overlaps.length && inMemberRange && !isWeekend) {
+            cell.classList.add('public-holiday');
+          }
+          statusParts.push(`Holiday: ${holiday.name}`);
+        }
+        status.textContent = statusParts.join(' • ');
       } else if (isWeekend) {
         cell.classList.add('weekend-default-off');
         status.textContent = 'Not Available';
@@ -1388,7 +1397,7 @@ if (!isBrowserRuntime) {
     }
   });
 
-  ui.projectMembersList.addEventListener('click', (event) => {
+  ui.projectMembersList.addEventListener('click', async (event) => {
     const button = event.target.closest('button[data-action]');
     if (!button) return;
     const consultantId = Number(button.dataset.id);
@@ -1403,8 +1412,29 @@ if (!isBrowserRuntime) {
 
     if (button.dataset.action === 'remove-member') {
       selectedProjectAssignments = selectedProjectAssignments.filter((item) => Number(item.consultantId) !== consultantId);
-      updateAssignedConsultantsSummary();
-      updateProjectMembersPanel();
+      try {
+        if (fields.projectId.value) {
+          const payload = {
+            projectName: fields.projectName.value.trim(),
+            clientName: fields.clientName.value.trim(),
+            projectType: fields.projectType.value,
+            managerConsultantId: managerConsultantIdFromAssignments(),
+            clientContact: fields.clientContact.value.trim(),
+            startDate: fields.startDate.value,
+            endDate: fields.endDate.value,
+            consultantAssignments: selectedProjectAssignments
+          };
+          await request(`/api/projects/${fields.projectId.value}`, {
+            method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload)
+          });
+          await loadAll();
+        }
+        updateAssignedConsultantsSummary();
+        updateProjectMembersPanel();
+        toast('Project member removed', 'orange darken-2');
+      } catch (error) {
+        toast(error.message || 'Failed to remove project member', 'red darken-1');
+      }
       return;
     }
 
