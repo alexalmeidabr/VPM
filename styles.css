@@ -139,9 +139,8 @@ body { min-height: 100vh; }
 .project-timeline-header .btn-flat { margin-left: auto; }
 
 body.project-timeline-expanded #project-form-card { position: fixed; top: 1rem; left: calc(260px + 1rem); right: 1rem; bottom: 1rem; z-index: 40; margin: 0; }
-body.project-timeline-expanded #project-form-card .card-content { height: 100%; display: flex; flex-direction: column; }
+body.project-timeline-expanded #project-form-card .card-content { height: 100%; display: flex; flex-direction: column; overflow-y: auto; }
 body.project-timeline-expanded #project-form { display: none; }
-body.project-timeline-expanded #project-week-detail-card { display: none; }
 body.project-timeline-expanded #project-members-card { display: none !important; }
 body.project-timeline-expanded #project-timeline-panel { flex: 1; display: flex; flex-direction: column; min-height: 0; }
 body.project-timeline-expanded #project-timeline-chart { flex: 1; min-height: 0; }

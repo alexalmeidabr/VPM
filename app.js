@@ -146,6 +146,7 @@ if (!isBrowserRuntime) {
   let selectedTimelineYear = new Date().getFullYear();
   let selectedProjectTimelineYear = new Date().getFullYear();
   let isProjectTimelineExpanded = false;
+  let selectedProjectWeekDetail = null;
 
   const fallbackHolidayCountries = ['AD', 'AT', 'BE', 'CA', 'CH', 'DE', 'DK', 'ES', 'FI', 'FR', 'GB', 'IE', 'IT', 'MX', 'NL', 'NO', 'PL', 'PT', 'SE', 'US'];
   const fallbackHolidayRegionsByCountry = {
@@ -770,6 +771,9 @@ if (!isBrowserRuntime) {
     const centerOnCurrentWeek = Boolean(ui.centerCurrentWeekToggle?.checked);
     await preloadHolidayDataForConsultants(selectedProjectTimelineYear);
     drawProjectTimeline(ui.projectTimelineChart, { year: selectedProjectTimelineYear, centerOnCurrentWeek });
+    if (selectedProjectWeekDetail) {
+      renderProjectWeekDetail(selectedProjectWeekDetail.weekMondayIso, selectedProjectWeekDetail.consultantId, selectedProjectWeekDetail.rowType);
+    }
   };
 
   const bindWeekTooltip = (container) => {
@@ -915,6 +919,7 @@ if (!isBrowserRuntime) {
   const renderProjectWeekDetail = (weekMondayIso, consultantId, rowType) => {
     if (!ui.projectWeekDetailCard || !ui.projectWeekDetailTimeline || !ui.projectWeekDetailTitle) return;
     if (!weekMondayIso) {
+      selectedProjectWeekDetail = null;
       ui.projectWeekDetailCard.hidden = true;
       ui.projectWeekDetailTimeline.innerHTML = '';
       return;
@@ -925,6 +930,7 @@ if (!isBrowserRuntime) {
     const end = new Date(start);
     end.setDate(start.getDate() + 6);
 
+    selectedProjectWeekDetail = { weekMondayIso, consultantId, rowType };
     ui.projectWeekDetailTitle.textContent = `Project Week Detail (${formatDate(start)} - ${formatDate(end)})`;
     ui.projectWeekDetailTimeline.innerHTML = '';
 
@@ -998,6 +1004,9 @@ if (!isBrowserRuntime) {
     });
 
     ui.projectWeekDetailCard.hidden = false;
+    if (isProjectTimelineExpanded) {
+      ui.projectWeekDetailCard.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
   };
 
   const renderConsultantDaysOffList = (consultant) => {
