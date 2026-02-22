@@ -1515,21 +1515,34 @@ if (!isBrowserRuntime) {
   };
 
   const loadAll = async () => {
-    const [projectsRes, consultantsRes, rolesRes, areasRes, dayOffTypesRes, holidayLocationsRes] = await Promise.all([
-      request('/api/projects'),
-      request('/api/consultants'),
-      request('/api/roles'),
-      request('/api/areas'),
-      request('/api/day-off-types'),
-      request('/api/holiday-locations')
-    ]);
+    const endpoints = [
+      { key: 'projects', path: '/api/projects', prop: 'projects', fallback: [] },
+      { key: 'consultants', path: '/api/consultants', prop: 'consultants', fallback: [] },
+      { key: 'roles', path: '/api/roles', prop: 'roles', fallback: [] },
+      { key: 'areas', path: '/api/areas', prop: 'areas', fallback: [] },
+      { key: 'dayOffTypes', path: '/api/day-off-types', prop: 'dayOffTypes', fallback: [] },
+      { key: 'holidayLocations', path: '/api/holiday-locations', prop: 'holidayLocations', fallback: [] }
+    ];
 
-    projects = projectsRes.projects || [];
-    consultants = consultantsRes.consultants || [];
-    roles = rolesRes.roles || [];
-    areas = areasRes.areas || [];
-    dayOffTypes = dayOffTypesRes.dayOffTypes || [];
-    holidayLocations = holidayLocationsRes.holidayLocations || [];
+    const results = await Promise.allSettled(endpoints.map((item) => request(item.path)));
+    const loaded = {};
+    const failed = [];
+
+    results.forEach((result, index) => {
+      const endpoint = endpoints[index];
+      if (result.status === 'fulfilled') loaded[endpoint.key] = result.value?.[endpoint.prop] || endpoint.fallback;
+      else {
+        loaded[endpoint.key] = endpoint.fallback;
+        failed.push(endpoint.path);
+      }
+    });
+
+    projects = loaded.projects;
+    consultants = loaded.consultants;
+    roles = loaded.roles;
+    areas = loaded.areas;
+    dayOffTypes = loaded.dayOffTypes;
+    holidayLocations = loaded.holidayLocations;
 
     renderProjects();
     renderConsultants();
@@ -1540,6 +1553,10 @@ if (!isBrowserRuntime) {
     rebuildHolidayCountryRegionControls({ consultantHolidayLocationId: fields.consultantHolidayLocationId.value });
     rebuildAssignmentModalSelects();
     rebuildDayOffTypeSelect();
+
+    if (failed.length) {
+      toast(`Some data failed to load (${failed.join(', ')})`, 'orange darken-2');
+    }
   };
 
   ui.showProjectFormBtn.addEventListener('click', () => { resetProjectForm(); showManageProjectPanel(); });
