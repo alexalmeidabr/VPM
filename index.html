@@ -76,18 +76,22 @@
                     <div class="planning-row">
                       <h6>Project Phases & Milestones</h6>
                     </div>
-                    <div class="planning-row planning-inputs">
+                    <div class="planning-row">
+                      <button class="btn" type="button" id="show-project-phase-form-btn">Add Project Phase</button>
+                      <button class="btn" type="button" id="show-project-milestone-form-btn">Add Milestone</button>
+                    </div>
+                    <div class="planning-row planning-inputs" id="project-phase-form-row" hidden>
                       <input id="project-phase-name" type="text" placeholder="Phase name" />
                       <input id="project-phase-start-date" type="date" />
                       <input id="project-phase-end-date" type="date" />
-                      <button class="btn" type="button" id="add-project-phase-btn">Add Phase</button>
+                      <button class="btn" type="button" id="add-project-phase-btn">Save Phase</button>
                     </div>
-                    <div class="planning-row planning-inputs">
+                    <div class="planning-row planning-inputs" id="project-milestone-form-row" hidden>
                       <select id="project-milestone-phase-id"><option value="" selected>Project-level</option></select>
                       <input id="project-milestone-name" type="text" placeholder="Milestone name" />
                       <input id="project-milestone-start-date" type="date" />
                       <input id="project-milestone-end-date" type="date" />
-                      <button class="btn" type="button" id="add-project-milestone-btn">Add Milestone</button>
+                      <button class="btn" type="button" id="add-project-milestone-btn">Save Milestone</button>
                     </div>
                   </div>
                   <div id="project-timeline-chart" class="availability-chart"></div>

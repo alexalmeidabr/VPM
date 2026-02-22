@@ -38,6 +38,10 @@ if (!isBrowserRuntime) {
     projectTimelineProjectName: document.getElementById('project-timeline-project-name'),
     toggleProjectTimelineExpandBtn: document.getElementById('toggle-project-timeline-expand-btn'),
     projectExpandedPlanning: document.getElementById('project-expanded-planning'),
+    showProjectPhaseFormBtn: document.getElementById('show-project-phase-form-btn'),
+    showProjectMilestoneFormBtn: document.getElementById('show-project-milestone-form-btn'),
+    projectPhaseFormRow: document.getElementById('project-phase-form-row'),
+    projectMilestoneFormRow: document.getElementById('project-milestone-form-row'),
     projectPhaseName: document.getElementById('project-phase-name'),
     projectPhaseStartDate: document.getElementById('project-phase-start-date'),
     projectPhaseEndDate: document.getElementById('project-phase-end-date'),
@@ -159,6 +163,8 @@ if (!isBrowserRuntime) {
   let selectedProjectWeekDetail = null;
   let selectedProjectPhases = [];
   let selectedProjectMilestones = [];
+  let showProjectPhaseForm = false;
+  let showProjectMilestoneForm = false;
 
   const fallbackHolidayCountries = ['AD', 'AT', 'BE', 'CA', 'CH', 'DE', 'DK', 'ES', 'FI', 'FR', 'GB', 'IE', 'IT', 'MX', 'NL', 'NO', 'PL', 'PT', 'SE', 'US'];
   const fallbackHolidayRegionsByCountry = {
@@ -225,6 +231,16 @@ if (!isBrowserRuntime) {
     projectPhases: selectedProjectPhases,
     projectMilestones: selectedProjectMilestones
   });
+
+  const updateProjectPlanningUi = () => {
+    const isEdit = projectViewMode !== 'view';
+    const showPlanning = Boolean(isProjectTimelineExpanded && isEdit);
+    if (ui.projectExpandedPlanning) ui.projectExpandedPlanning.hidden = !showPlanning;
+    if (ui.showProjectPhaseFormBtn) ui.showProjectPhaseFormBtn.hidden = !showPlanning;
+    if (ui.showProjectMilestoneFormBtn) ui.showProjectMilestoneFormBtn.hidden = !showPlanning;
+    if (ui.projectPhaseFormRow) ui.projectPhaseFormRow.hidden = !showPlanning || !showProjectPhaseForm;
+    if (ui.projectMilestoneFormRow) ui.projectMilestoneFormRow.hidden = !showPlanning || !showProjectMilestoneForm;
+  };
 
   const findConsultantById = (id) => consultants.find((consultant) => Number(consultant.id) === Number(id));
   const consultantNameById = (id) => findConsultantById(id)?.name || '—';
@@ -1411,7 +1427,7 @@ if (!isBrowserRuntime) {
       ui.projectTimelineProjectName.hidden = !isProjectTimelineExpanded;
       ui.projectTimelineProjectName.textContent = fields.projectName.value ? `Project: ${fields.projectName.value}` : 'Project Timeline';
     }
-    if (ui.projectExpandedPlanning) ui.projectExpandedPlanning.hidden = !isProjectTimelineExpanded;
+    updateProjectPlanningUi();
   };
 
   const collapseProjectTimeline = () => {
@@ -1435,6 +1451,13 @@ if (!isBrowserRuntime) {
     ui.openConsultantModalBtn.hidden = readOnly;
     if (ui.addProjectPhaseBtn) ui.addProjectPhaseBtn.disabled = readOnly;
     if (ui.addProjectMilestoneBtn) ui.addProjectMilestoneBtn.disabled = readOnly;
+    if (ui.showProjectPhaseFormBtn) ui.showProjectPhaseFormBtn.disabled = readOnly;
+    if (ui.showProjectMilestoneFormBtn) ui.showProjectMilestoneFormBtn.disabled = readOnly;
+    if (readOnly) {
+      showProjectPhaseForm = false;
+      showProjectMilestoneForm = false;
+    }
+    updateProjectPlanningUi();
     [fields.projectName, fields.clientName, fields.projectType, fields.clientContact, fields.startDate, fields.endDate].forEach((el) => { el.disabled = readOnly; });
     fields.managerId.disabled = true;
     resetSelect('manager', fields.managerId);
@@ -1473,6 +1496,8 @@ if (!isBrowserRuntime) {
     selectedProjectAssignments = [];
     selectedProjectPhases = [];
     selectedProjectMilestones = [];
+    showProjectPhaseForm = false;
+    showProjectMilestoneForm = false;
     modalSelectedAreaId = '';
     modalTempConsultantIds = [];
     updateAssignedConsultantsSummary();
@@ -1570,6 +1595,16 @@ if (!isBrowserRuntime) {
   });
 
 
+  ui.showProjectPhaseFormBtn?.addEventListener('click', () => {
+    showProjectPhaseForm = !showProjectPhaseForm;
+    updateProjectPlanningUi();
+  });
+
+  ui.showProjectMilestoneFormBtn?.addEventListener('click', () => {
+    showProjectMilestoneForm = !showProjectMilestoneForm;
+    updateProjectPlanningUi();
+  });
+
   ui.addProjectPhaseBtn?.addEventListener('click', () => {
     const name = ui.projectPhaseName.value.trim();
     const startDate = ui.projectPhaseStartDate.value;
@@ -1583,6 +1618,8 @@ if (!isBrowserRuntime) {
     ui.projectPhaseStartDate.value = '';
     ui.projectPhaseEndDate.value = '';
     rebuildProjectPlanningSelects();
+    showProjectPhaseForm = false;
+    updateProjectPlanningUi();
     refreshProjectTimeline();
   });
 
@@ -1598,6 +1635,8 @@ if (!isBrowserRuntime) {
     ui.projectMilestoneName.value = '';
     ui.projectMilestoneStartDate.value = '';
     ui.projectMilestoneEndDate.value = '';
+    showProjectMilestoneForm = false;
+    updateProjectPlanningUi();
     refreshProjectTimeline();
   });
 
