@@ -205,6 +205,27 @@ if (!isBrowserRuntime) {
     resetSelect('manager', fields.managerId);
     return managerId;
   };
+
+  const rebuildProjectPlanningSelects = () => {
+    if (!ui.projectMilestonePhaseId) return;
+    ui.projectMilestonePhaseId.innerHTML = '<option value="" selected>Project-level</option>';
+    selectedProjectPhases.forEach((phase) => ui.projectMilestonePhaseId.add(new Option(phase.name, phase.id)));
+    resetSelect('projectMilestonePhase', ui.projectMilestonePhaseId);
+  };
+
+  const buildProjectPayload = () => ({
+    projectName: fields.projectName.value.trim(),
+    clientName: fields.clientName.value.trim(),
+    projectType: fields.projectType.value,
+    managerConsultantId: managerConsultantIdFromAssignments(),
+    clientContact: fields.clientContact.value.trim(),
+    startDate: fields.startDate.value,
+    endDate: fields.endDate.value,
+    consultantAssignments: selectedProjectAssignments,
+    projectPhases: selectedProjectPhases,
+    projectMilestones: selectedProjectMilestones
+  });
+
   const findConsultantById = (id) => consultants.find((consultant) => Number(consultant.id) === Number(id));
   const consultantNameById = (id) => findConsultantById(id)?.name || '—';
   const areaNameById = (id) => areas.find((area) => Number(area.id) === Number(id))?.name || '—';
