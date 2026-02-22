@@ -49,9 +49,8 @@ body { min-height: 100vh; }
 .availability-week-header div, .availability-month-header div { text-align: center; }
 .availability-name { font-size: 0.85rem; font-weight: 600; text-align: left !important; }
 
-.availability-group-row { margin-top: 0.3rem; }
-.availability-group-name { font-size: 0.82rem; text-transform: uppercase; letter-spacing: 0.02em; color: #607d8b; }
-.week-cell-group-spacer { background: transparent; border: 1px dashed #eceff1; cursor: default; }
+.timeline-area-panel { border: 1px solid #d7e1e6; border-radius: 10px; padding: 0.6rem; background: #fafcfd; margin-bottom: 0.6rem; }
+.timeline-area-title { margin: 0 0 0.45rem 0; font-size: 0.9rem; color: #455a64; }
 #project-timeline-panel #project-week-detail-card { margin-bottom: 0; }
 .week-cell { width: 18px; height: 16px; background: #eceff1; border-radius: 2px; cursor: help; }
 .week-cell.vacation { background: #ffcc80; }
