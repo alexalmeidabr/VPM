@@ -637,7 +637,6 @@ if (!isBrowserRuntime) {
           }
         }
 
-        if (milestoneNames.length) { cell.classList.add('milestone-range'); cell.dataset.status = `${cell.dataset.status ? `${cell.dataset.status} • ` : ''}Milestone: ${milestoneNames.join(', ')}`; }
         row.appendChild(cell);
       });
       container.appendChild(row);
