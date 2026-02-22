@@ -166,6 +166,27 @@ def init_db():
         FOREIGN KEY (manager_consultant_id) REFERENCES consultants(id) ON DELETE SET NULL
       );
 
+
+      CREATE TABLE IF NOT EXISTS project_phases (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        project_id INTEGER NOT NULL,
+        name TEXT NOT NULL,
+        start_date TEXT NOT NULL,
+        end_date TEXT NOT NULL,
+        FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE
+      );
+
+      CREATE TABLE IF NOT EXISTS project_milestones (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        project_id INTEGER NOT NULL,
+        phase_id INTEGER,
+        name TEXT NOT NULL,
+        start_date TEXT NOT NULL,
+        end_date TEXT NOT NULL,
+        FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE,
+        FOREIGN KEY (phase_id) REFERENCES project_phases(id) ON DELETE SET NULL
+      );
+
       CREATE TABLE IF NOT EXISTS project_consultants (
         project_id INTEGER NOT NULL,
         consultant_id INTEGER NOT NULL,
@@ -348,6 +369,53 @@ class VPMHandler(SimpleHTTPRequestHandler):
       normalized.append({'consultantId': consultant_id, 'projectRole': role, 'startDate': start, 'endDate': end})
 
     payload['consultantAssignments'] = normalized
+
+    phases = payload.get('projectPhases', [])
+    milestones = payload.get('projectMilestones', [])
+    if not isinstance(phases, list):
+      return 'projectPhases must be a list'
+    if not isinstance(milestones, list):
+      return 'projectMilestones must be a list'
+
+    normalized_phases = []
+    phase_ids = set()
+    for phase in phases:
+      if not isinstance(phase, dict):
+        return 'projectPhases items must be objects'
+      phase_id = str(phase.get('id', '')).strip()
+      name = str(phase.get('name', '')).strip()
+      start = str(phase.get('startDate', '')).strip()
+      end = str(phase.get('endDate', '')).strip()
+      if not name or not start or not end:
+        return 'project phase name, startDate and endDate are required'
+      if not self._valid_iso_date(start) or not self._valid_iso_date(end):
+        return 'project phase dates must be YYYY-MM-DD'
+      if start > end:
+        return 'project phase startDate cannot be after endDate'
+      if phase_id:
+        phase_ids.add(phase_id)
+      normalized_phases.append({'id': phase_id, 'name': name, 'startDate': start, 'endDate': end})
+
+    normalized_milestones = []
+    for milestone in milestones:
+      if not isinstance(milestone, dict):
+        return 'projectMilestones items must be objects'
+      name = str(milestone.get('name', '')).strip()
+      start = str(milestone.get('startDate', '')).strip()
+      end = str(milestone.get('endDate', '')).strip()
+      phase_id = str(milestone.get('phaseId', '')).strip()
+      if not name or not start or not end:
+        return 'project milestone name, startDate and endDate are required'
+      if not self._valid_iso_date(start) or not self._valid_iso_date(end):
+        return 'project milestone dates must be YYYY-MM-DD'
+      if start > end:
+        return 'project milestone startDate cannot be after endDate'
+      if phase_id and phase_id not in phase_ids:
+        return 'project milestone phaseId must reference an existing phase'
+      normalized_milestones.append({'name': name, 'startDate': start, 'endDate': end, 'phaseId': phase_id})
+
+    payload['projectPhases'] = normalized_phases
+    payload['projectMilestones'] = normalized_milestones
     return None
 
   def _consultant_payload_error(self, payload):
@@ -692,6 +760,14 @@ class VPMHandler(SimpleHTTPRequestHandler):
         ''',
         (row['id'],)
       ).fetchall()
+      phases = conn.execute(
+        'SELECT id, name, start_date, end_date FROM project_phases WHERE project_id = ? ORDER BY start_date, id',
+        (row['id'],)
+      ).fetchall()
+      milestones = conn.execute(
+        'SELECT id, phase_id, name, start_date, end_date FROM project_milestones WHERE project_id = ? ORDER BY start_date, id',
+        (row['id'],)
+      ).fetchall()
       projects.append({
         'id': row['id'],
         'projectName': row['project_name'],
@@ -702,6 +778,14 @@ class VPMHandler(SimpleHTTPRequestHandler):
         'projectType': row['project_type'],
         'managerConsultantId': row['manager_consultant_id'],
         'managerName': row['manager_name'],
+        'projectPhases': [
+          {'id': str(p['id']), 'name': p['name'], 'startDate': p['start_date'], 'endDate': p['end_date']}
+          for p in phases
+        ],
+        'projectMilestones': [
+          {'id': str(m['id']), 'phaseId': str(m['phase_id']) if m['phase_id'] is not None else '', 'name': m['name'], 'startDate': m['start_date'], 'endDate': m['end_date']}
+          for m in milestones
+        ],
         'consultantAssignments': [
           {
             'consultantId': m['consultant_id'],
@@ -805,6 +889,18 @@ class VPMHandler(SimpleHTTPRequestHandler):
           conn.execute(
             'INSERT INTO project_consultants (project_id, consultant_id, project_role, start_date, end_date) VALUES (?, ?, ?, ?, ?)',
             (project_id, item['consultantId'], item['projectRole'], item['startDate'], item['endDate'])
+          )
+        phase_id_map = {}
+        for phase in payload['projectPhases']:
+          cursor_phase = conn.execute(
+            'INSERT INTO project_phases (project_id, name, start_date, end_date) VALUES (?, ?, ?, ?)',
+            (project_id, phase['name'], phase['startDate'], phase['endDate'])
+          )
+          phase_id_map[phase['id']] = cursor_phase.lastrowid
+        for milestone in payload['projectMilestones']:
+          conn.execute(
+            'INSERT INTO project_milestones (project_id, phase_id, name, start_date, end_date) VALUES (?, ?, ?, ?, ?)',
+            (project_id, phase_id_map.get(milestone['phaseId']), milestone['name'], milestone['startDate'], milestone['endDate'])
           )
       self._send_json({'id': project_id}, HTTPStatus.CREATED)
       return
@@ -989,10 +1085,24 @@ class VPMHandler(SimpleHTTPRequestHandler):
           self._send_json({'error': 'Project not found'}, HTTPStatus.NOT_FOUND)
           return
         conn.execute('DELETE FROM project_consultants WHERE project_id = ?', (project_id,))
+        conn.execute('DELETE FROM project_milestones WHERE project_id = ?', (project_id,))
+        conn.execute('DELETE FROM project_phases WHERE project_id = ?', (project_id,))
         for item in payload['consultantAssignments']:
           conn.execute(
             'INSERT INTO project_consultants (project_id, consultant_id, project_role, start_date, end_date) VALUES (?, ?, ?, ?, ?)',
             (project_id, item['consultantId'], item['projectRole'], item['startDate'], item['endDate'])
+          )
+        phase_id_map = {}
+        for phase in payload['projectPhases']:
+          cursor_phase = conn.execute(
+            'INSERT INTO project_phases (project_id, name, start_date, end_date) VALUES (?, ?, ?, ?)',
+            (project_id, phase['name'], phase['startDate'], phase['endDate'])
+          )
+          phase_id_map[phase['id']] = cursor_phase.lastrowid
+        for milestone in payload['projectMilestones']:
+          conn.execute(
+            'INSERT INTO project_milestones (project_id, phase_id, name, start_date, end_date) VALUES (?, ?, ?, ?, ?)',
+            (project_id, phase_id_map.get(milestone['phaseId']), milestone['name'], milestone['startDate'], milestone['endDate'])
           )
       self._send_json({'status': 'updated'})
       return

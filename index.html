@@ -72,6 +72,24 @@
                     <span class="grey-text" id="project-timeline-project-name" hidden></span>
                     <button class="btn-flat" type="button" id="toggle-project-timeline-expand-btn" aria-label="Expand timeline"><i class="material-icons">open_in_full</i></button>
                   </div>
+                  <div id="project-expanded-planning" class="project-expanded-planning" hidden>
+                    <div class="planning-row">
+                      <h6>Project Phases & Milestones</h6>
+                    </div>
+                    <div class="planning-row planning-inputs">
+                      <input id="project-phase-name" type="text" placeholder="Phase name" />
+                      <input id="project-phase-start-date" type="date" />
+                      <input id="project-phase-end-date" type="date" />
+                      <button class="btn" type="button" id="add-project-phase-btn">Add Phase</button>
+                    </div>
+                    <div class="planning-row planning-inputs">
+                      <select id="project-milestone-phase-id"><option value="" selected>Project-level</option></select>
+                      <input id="project-milestone-name" type="text" placeholder="Milestone name" />
+                      <input id="project-milestone-start-date" type="date" />
+                      <input id="project-milestone-end-date" type="date" />
+                      <button class="btn" type="button" id="add-project-milestone-btn">Add Milestone</button>
+                    </div>
+                  </div>
                   <div id="project-timeline-chart" class="availability-chart"></div>
                   <div id="project-week-detail-card" class="week-detail-card" hidden>
                     <h6 id="project-week-detail-title">Project Week Detail</h6>

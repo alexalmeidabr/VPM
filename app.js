@@ -37,6 +37,16 @@ if (!isBrowserRuntime) {
     projectTimelineChart: document.getElementById('project-timeline-chart'),
     projectTimelineProjectName: document.getElementById('project-timeline-project-name'),
     toggleProjectTimelineExpandBtn: document.getElementById('toggle-project-timeline-expand-btn'),
+    projectExpandedPlanning: document.getElementById('project-expanded-planning'),
+    projectPhaseName: document.getElementById('project-phase-name'),
+    projectPhaseStartDate: document.getElementById('project-phase-start-date'),
+    projectPhaseEndDate: document.getElementById('project-phase-end-date'),
+    addProjectPhaseBtn: document.getElementById('add-project-phase-btn'),
+    projectMilestonePhaseId: document.getElementById('project-milestone-phase-id'),
+    projectMilestoneName: document.getElementById('project-milestone-name'),
+    projectMilestoneStartDate: document.getElementById('project-milestone-start-date'),
+    projectMilestoneEndDate: document.getElementById('project-milestone-end-date'),
+    addProjectMilestoneBtn: document.getElementById('add-project-milestone-btn'),
     projectWeekDetailCard: document.getElementById('project-week-detail-card'),
     projectWeekDetailTitle: document.getElementById('project-week-detail-title'),
     projectWeekDetailTimeline: document.getElementById('project-week-detail-timeline'),
@@ -147,6 +157,8 @@ if (!isBrowserRuntime) {
   let selectedProjectTimelineYear = new Date().getFullYear();
   let isProjectTimelineExpanded = false;
   let selectedProjectWeekDetail = null;
+  let selectedProjectPhases = [];
+  let selectedProjectMilestones = [];
 
   const fallbackHolidayCountries = ['AD', 'AT', 'BE', 'CA', 'CH', 'DE', 'DK', 'ES', 'FI', 'FR', 'GB', 'IE', 'IT', 'MX', 'NL', 'NO', 'PL', 'PT', 'SE', 'US'];
   const fallbackHolidayRegionsByCountry = {
@@ -604,6 +616,7 @@ if (!isBrowserRuntime) {
           }
         }
 
+        if (milestoneNames.length) { cell.classList.add('milestone-range'); cell.dataset.status = `${cell.dataset.status ? `${cell.dataset.status} • ` : ''}Milestone: ${milestoneNames.join(', ')}`; }
         row.appendChild(cell);
       });
       container.appendChild(row);
@@ -707,9 +720,16 @@ if (!isBrowserRuntime) {
         if (item.startDate) cell.dataset.assignmentStart = formatIsoDate(item.startDate);
         if (item.endDate) cell.dataset.assignmentEnd = formatIsoDate(item.endDate);
         const inAssignmentRange = item.startDate && item.endDate && item.startDate <= weekEnd && item.endDate >= weekStart;
+        const milestoneNames = (item.milestones || []).filter((m) => {
+          const ms = parseIsoDate(m.startDate);
+          const me = parseIsoDate(m.endDate);
+          return ms && me && ms <= weekEnd && me >= weekStart;
+        }).map((m) => m.name);
         if (inAssignmentRange) {
           if (item.type === 'project') {
             cell.classList.add('project-range');
+          } else if (item.type === 'phase') {
+            cell.classList.add('phase-range');
           } else {
             const overlaps = (item.consultant?.availability || []).filter((entry) => {
               const entryStart = parseIsoDate(entry.startDate);
@@ -744,6 +764,7 @@ if (!isBrowserRuntime) {
             }
           }
         }
+        if (milestoneNames.length) { cell.classList.add('milestone-range'); cell.dataset.status = `${cell.dataset.status ? `${cell.dataset.status} • ` : ''}Milestone: ${milestoneNames.join(', ')}`; }
         row.appendChild(cell);
       });
 
@@ -788,10 +809,9 @@ if (!isBrowserRuntime) {
         .filter((group) => group.members.length);
     };
 
-    const projectRow = createTimelineRow({ label: 'Project', startDate: projectStart, endDate: projectEnd, type: 'project' });
-    container.appendChild(projectRow);
-
     if (!isProjectTimelineExpanded) {
+      const projectRow = createTimelineRow({ label: 'Project', startDate: projectStart, endDate: projectEnd, type: 'project' });
+      container.appendChild(projectRow);
       merged.forEach((member) => {
         const consultant = findConsultantById(member.consultantId);
         container.appendChild(createTimelineRow({
@@ -805,6 +825,20 @@ if (!isBrowserRuntime) {
       });
       return;
     }
+
+    const projectPanel = document.createElement('div');
+    projectPanel.className = 'timeline-area-panel';
+    const projectTitle = document.createElement('h6');
+    projectTitle.className = 'timeline-area-title';
+    projectTitle.textContent = 'Project';
+    projectPanel.appendChild(projectTitle);
+    const projectMilestones = selectedProjectMilestones;
+    projectPanel.appendChild(createTimelineRow({ label: fields.projectName.value.trim() || 'Project', startDate: projectStart, endDate: projectEnd, type: 'project', milestones: projectMilestones }));
+    selectedProjectPhases.forEach((phase) => {
+      const phaseMilestones = selectedProjectMilestones.filter((m) => String(m.phaseId || '') === String(phase.id));
+      projectPanel.appendChild(createTimelineRow({ label: `Phase: ${phase.name}`, startDate: parseIsoDate(phase.startDate) || projectStart, endDate: parseIsoDate(phase.endDate) || projectEnd, type: 'phase', milestones: phaseMilestones }));
+    });
+    container.appendChild(projectPanel);
 
     const groups = buildAreaGroups(merged);
     groups.forEach((group) => {
@@ -1357,6 +1391,7 @@ if (!isBrowserRuntime) {
       ui.projectTimelineProjectName.hidden = !isProjectTimelineExpanded;
       ui.projectTimelineProjectName.textContent = fields.projectName.value ? `Project: ${fields.projectName.value}` : 'Project Timeline';
     }
+    if (ui.projectExpandedPlanning) ui.projectExpandedPlanning.hidden = !isProjectTimelineExpanded;
   };
 
   const collapseProjectTimeline = () => {
@@ -1378,6 +1413,8 @@ if (!isBrowserRuntime) {
     ui.projectSaveBtn.style.display = readOnly ? 'none' : '';
     ui.openConsultantModalBtn.disabled = readOnly;
     ui.openConsultantModalBtn.hidden = readOnly;
+    if (ui.addProjectPhaseBtn) ui.addProjectPhaseBtn.disabled = readOnly;
+    if (ui.addProjectMilestoneBtn) ui.addProjectMilestoneBtn.disabled = readOnly;
     [fields.projectName, fields.clientName, fields.projectType, fields.clientContact, fields.startDate, fields.endDate].forEach((el) => { el.disabled = readOnly; });
     fields.managerId.disabled = true;
     resetSelect('manager', fields.managerId);
@@ -1414,10 +1451,13 @@ if (!isBrowserRuntime) {
     ui.projectForm.reset();
     fields.projectId.value = '';
     selectedProjectAssignments = [];
+    selectedProjectPhases = [];
+    selectedProjectMilestones = [];
     modalSelectedAreaId = '';
     modalTempConsultantIds = [];
     updateAssignedConsultantsSummary();
     rebuildProjectSelects();
+    rebuildProjectPlanningSelects();
     setProjectFormMode('edit');
     updateProjectMembersPanel();
     selectedProjectTimelineYear = new Date().getFullYear();
@@ -1492,6 +1532,38 @@ if (!isBrowserRuntime) {
     refreshProjectTimeline();
   });
 
+
+  ui.addProjectPhaseBtn?.addEventListener('click', () => {
+    const name = ui.projectPhaseName.value.trim();
+    const startDate = ui.projectPhaseStartDate.value;
+    const endDate = ui.projectPhaseEndDate.value;
+    if (!name || !startDate || !endDate || startDate > endDate) {
+      toast('Provide valid phase name and dates', 'orange darken-2');
+      return;
+    }
+    selectedProjectPhases.push({ id: `${Date.now()}-${Math.random()}`, name, startDate, endDate });
+    ui.projectPhaseName.value = '';
+    ui.projectPhaseStartDate.value = '';
+    ui.projectPhaseEndDate.value = '';
+    rebuildProjectPlanningSelects();
+    refreshProjectTimeline();
+  });
+
+  ui.addProjectMilestoneBtn?.addEventListener('click', () => {
+    const name = ui.projectMilestoneName.value.trim();
+    const startDate = ui.projectMilestoneStartDate.value;
+    const endDate = ui.projectMilestoneEndDate.value;
+    if (!name || !startDate || !endDate || startDate > endDate) {
+      toast('Provide valid milestone name and dates', 'orange darken-2');
+      return;
+    }
+    selectedProjectMilestones.push({ id: `${Date.now()}-${Math.random()}`, phaseId: ui.projectMilestonePhaseId.value || '', name, startDate, endDate });
+    ui.projectMilestoneName.value = '';
+    ui.projectMilestoneStartDate.value = '';
+    ui.projectMilestoneEndDate.value = '';
+    refreshProjectTimeline();
+  });
+
   ui.showConsultantFormBtn.addEventListener('click', () => { resetConsultantForm(); showManageConsultantsPanel(); });
   ui.backToConsultantsBtn.addEventListener('click', showConsultantsPanel);
 
@@ -1537,16 +1609,7 @@ if (!isBrowserRuntime) {
 
     try {
       if (fields.projectId.value) {
-        const payload = {
-          projectName: fields.projectName.value.trim(),
-          clientName: fields.clientName.value.trim(),
-          projectType: fields.projectType.value,
-          managerConsultantId: managerConsultantIdFromAssignments(),
-          clientContact: fields.clientContact.value.trim(),
-          startDate: fields.startDate.value,
-          endDate: fields.endDate.value,
-          consultantAssignments: selectedProjectAssignments
-        };
+        const payload = buildProjectPayload();
         await request(`/api/projects/${fields.projectId.value}`, {
           method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload)
         });
@@ -1578,16 +1641,7 @@ if (!isBrowserRuntime) {
       selectedProjectAssignments = selectedProjectAssignments.filter((item) => Number(item.consultantId) !== consultantId);
       try {
         if (fields.projectId.value) {
-          const payload = {
-            projectName: fields.projectName.value.trim(),
-            clientName: fields.clientName.value.trim(),
-            projectType: fields.projectType.value,
-            managerConsultantId: managerConsultantIdFromAssignments(),
-            clientContact: fields.clientContact.value.trim(),
-            startDate: fields.startDate.value,
-            endDate: fields.endDate.value,
-            consultantAssignments: selectedProjectAssignments
-          };
+          const payload = buildProjectPayload();
           await request(`/api/projects/${fields.projectId.value}`, {
             method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload)
           });
@@ -1645,16 +1699,7 @@ if (!isBrowserRuntime) {
 
     try {
       if (fields.projectId.value) {
-        const payload = {
-          projectName: fields.projectName.value.trim(),
-          clientName: fields.clientName.value.trim(),
-          projectType: fields.projectType.value,
-          managerConsultantId: managerConsultantIdFromAssignments(),
-          clientContact: fields.clientContact.value.trim(),
-          startDate: fields.startDate.value,
-          endDate: fields.endDate.value,
-          consultantAssignments: selectedProjectAssignments
-        };
+        const payload = buildProjectPayload();
         await request(`/api/projects/${fields.projectId.value}`, {
           method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload)
         });
@@ -1672,16 +1717,7 @@ if (!isBrowserRuntime) {
     event.preventDefault();
     if (projectViewMode === 'view') return;
 
-    const payload = {
-      projectName: fields.projectName.value.trim(),
-      clientName: fields.clientName.value.trim(),
-      projectType: fields.projectType.value,
-      managerConsultantId: managerConsultantIdFromAssignments(),
-      clientContact: fields.clientContact.value.trim(),
-      startDate: fields.startDate.value,
-      endDate: fields.endDate.value,
-      consultantAssignments: selectedProjectAssignments
-    };
+    const payload = buildProjectPayload();
 
     if (payload.startDate > payload.endDate) { toast('Start date cannot be after end date', 'red darken-1'); return; }
     if (!payload.managerConsultantId) { toast('Assign a Project Manager from Project Members before saving', 'red darken-1'); return; }
@@ -1809,6 +1845,10 @@ if (!isBrowserRuntime) {
       allocation: Number(item.allocation ?? 100),
       comments: item.comments || ''
     }));
+    selectedProjectPhases = (project.projectPhases || []).map((item) => ({ id: String(item.id || Date.now() + Math.random()), name: item.name || '', startDate: item.startDate || '', endDate: item.endDate || '' }));
+    selectedProjectMilestones = (project.projectMilestones || []).map((item) => ({ id: String(item.id || Date.now() + Math.random()), phaseId: item.phaseId ? String(item.phaseId) : '', name: item.name || '', startDate: item.startDate || '', endDate: item.endDate || '' }));
+    rebuildProjectPlanningSelects();
+
     if (project.managerConsultantId && !selectedProjectAssignments.some((item) => item.projectRole === 'Project Manager')) {
       selectedProjectAssignments.unshift({
         consultantId: Number(project.managerConsultantId),
