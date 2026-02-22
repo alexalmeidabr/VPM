@@ -1489,6 +1489,7 @@ if (!isBrowserRuntime) {
   ui.toggleProjectTimelineExpandBtn?.addEventListener('click', () => {
     isProjectTimelineExpanded = !isProjectTimelineExpanded;
     updateProjectTimelineExpandUi();
+    refreshProjectTimeline();
   });
 
   ui.showConsultantFormBtn.addEventListener('click', () => { resetConsultantForm(); showManageConsultantsPanel(); });
