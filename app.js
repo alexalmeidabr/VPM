@@ -688,17 +688,72 @@ if (!isBrowserRuntime) {
 
     const merged = [...selectedProjectAssignments];
 
-    merged.forEach((member) => {
-      const consultant = findConsultantById(member.consultantId);
-      rows.push({
-        label: consultant ? `${consultant.name} (${member.projectRole || 'Member'})` : `Consultant ${member.consultantId}`,
-        startDate: parseIsoDate(member.startDate) || projectStart,
-        endDate: parseIsoDate(member.endDate) || projectEnd,
-        consultant,
-        consultantId: member.consultantId,
-        type: 'member'
+    const buildAreaGroups = (members) => {
+      const tmAreaName = 'TM (Transport Management)';
+      const managementLabel = 'Management';
+      const buckets = {
+        management: { label: managementLabel, members: [], ids: new Set() },
+        tm: { label: tmAreaName, members: [], ids: new Set() }
+      };
+      const dynamicBuckets = new Map();
+      const pushUnique = (bucket, member, consultant) => {
+        const id = Number(member.consultantId);
+        if (bucket.ids.has(id)) return;
+        bucket.ids.add(id);
+        bucket.members.push({ member, consultant });
+      };
+
+      members.forEach((member) => {
+        const consultant = findConsultantById(member.consultantId);
+        const areaNames = (consultant?.areaNames || []).length ? consultant.areaNames : (consultant?.areaIds || []).map(areaNameById).filter(Boolean);
+        const lowerAreas = areaNames.map((name) => String(name).trim().toLowerCase());
+
+        if (member.projectRole === 'Project Manager' || lowerAreas.includes(managementLabel.toLowerCase())) {
+          pushUnique(buckets.management, member, consultant);
+        }
+        if (areaNames.includes(tmAreaName)) {
+          pushUnique(buckets.tm, member, consultant);
+        }
+        areaNames.forEach((name) => {
+          const normalized = String(name).trim().toLowerCase();
+          if (!normalized || normalized === tmAreaName.toLowerCase() || normalized === managementLabel.toLowerCase()) return;
+          if (!dynamicBuckets.has(name)) dynamicBuckets.set(name, { label: name, members: [], ids: new Set() });
+          pushUnique(dynamicBuckets.get(name), member, consultant);
+        });
       });
-    });
+
+      return [buckets.management, buckets.tm, ...Array.from(dynamicBuckets.values()).sort((a, b) => a.label.localeCompare(b.label))]
+        .filter((group) => group.members.length);
+    };
+
+    if (isProjectTimelineExpanded) {
+      const groups = buildAreaGroups(merged);
+      groups.forEach((group) => {
+        rows.push({ label: group.label, type: 'group' });
+        group.members.forEach(({ member, consultant }) => {
+          rows.push({
+            label: consultant ? consultant.name : `Consultant ${member.consultantId}`,
+            startDate: parseIsoDate(member.startDate) || projectStart,
+            endDate: parseIsoDate(member.endDate) || projectEnd,
+            consultant,
+            consultantId: member.consultantId,
+            type: 'member'
+          });
+        });
+      });
+    } else {
+      merged.forEach((member) => {
+        const consultant = findConsultantById(member.consultantId);
+        rows.push({
+          label: consultant ? consultant.name : `Consultant ${member.consultantId}`,
+          startDate: parseIsoDate(member.startDate) || projectStart,
+          endDate: parseIsoDate(member.endDate) || projectEnd,
+          consultant,
+          consultantId: member.consultantId,
+          type: 'member'
+        });
+      });
+    }
 
     rows.forEach((item) => {
       const row = document.createElement('div');
@@ -708,7 +763,19 @@ if (!isBrowserRuntime) {
       const name = document.createElement('div');
       name.className = 'availability-name';
       name.textContent = item.label;
+      if (item.type === 'group') name.classList.add('availability-group-name');
       row.appendChild(name);
+
+      if (item.type === 'group') {
+        row.classList.add('availability-group-row');
+        weeks.forEach(() => {
+          const spacer = document.createElement('div');
+          spacer.className = 'week-cell week-cell-group-spacer';
+          row.appendChild(spacer);
+        });
+        container.appendChild(row);
+        return;
+      }
 
       weeks.forEach(({ monday }) => {
         const weekStart = new Date(monday);
