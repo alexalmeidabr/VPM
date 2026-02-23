@@ -1590,6 +1590,8 @@ if (!isBrowserRuntime) {
   fields.projectName.addEventListener('input', updateProjectTimelineExpandUi);
   ui.toggleProjectTimelineExpandBtn?.addEventListener('click', () => {
     isProjectTimelineExpanded = !isProjectTimelineExpanded;
+    showProjectPhaseForm = false;
+    showProjectMilestoneForm = false;
     updateProjectTimelineExpandUi();
     refreshProjectTimeline();
   });
@@ -1940,6 +1942,8 @@ if (!isBrowserRuntime) {
     updateAssignedConsultantsSummary();
     rebuildProjectSelects({ managerId: project.managerConsultantId });
     setProjectFormMode(button.dataset.action === 'view-project' ? 'view' : 'edit');
+    showProjectPhaseForm = false;
+    showProjectMilestoneForm = false;
     showManageProjectPanel();
     collapseProjectTimeline();
     updateProjectTimelineExpandUi();
