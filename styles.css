@@ -54,9 +54,18 @@ body { min-height: 100vh; }
 
 .project-expanded-planning { border: 1px solid #d7e1e6; border-radius: 10px; padding: 0.6rem; background: #fafcfd; margin-bottom: 0.6rem; }
 .planning-row { display: flex; gap: 0.5rem; align-items: center; margin-bottom: 0.45rem; flex-wrap: wrap; }
-.planning-inputs input, .planning-inputs select { min-width: 140px; }
+.planning-inputs input, .planning-inputs select { min-width: 120px; width: 170px; max-width: 170px; flex: 0 0 170px; }
 #project-phase-form-row[hidden], #project-milestone-form-row[hidden] { display: none !important; }
 .week-cell.phase-range { background: #90a4ae; }
+.phase-click-target { cursor: pointer; text-decoration: underline; text-underline-offset: 2px; }
+.phase-click-target:hover { color: #263238; }
+.week-cell.phase-range.phase-color-0 { background: #8e24aa; }
+.week-cell.phase-range.phase-color-1 { background: #1e88e5; }
+.week-cell.phase-range.phase-color-2 { background: #00897b; }
+.week-cell.phase-range.phase-color-3 { background: #f4511e; }
+.week-cell.phase-range.phase-color-4 { background: #6d4c41; }
+.week-cell.phase-range.phase-color-5 { background: #3949ab; }
+
 .week-cell.milestone-range { box-shadow: inset 0 0 0 2px #ef5350; }
 #project-timeline-panel #project-week-detail-card { margin-bottom: 0; }
 .week-cell { width: 18px; height: 16px; background: #eceff1; border-radius: 2px; cursor: help; }

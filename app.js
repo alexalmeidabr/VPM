@@ -165,6 +165,7 @@ if (!isBrowserRuntime) {
   let selectedProjectMilestones = [];
   let showProjectPhaseForm = false;
   let showProjectMilestoneForm = false;
+  let editingProjectPhaseId = null;
 
   const fallbackHolidayCountries = ['AD', 'AT', 'BE', 'CA', 'CH', 'DE', 'DK', 'ES', 'FI', 'FR', 'GB', 'IE', 'IT', 'MX', 'NL', 'NO', 'PL', 'PT', 'SE', 'US'];
   const fallbackHolidayRegionsByCountry = {
@@ -741,6 +742,10 @@ if (!isBrowserRuntime) {
       const name = document.createElement('div');
       name.className = 'availability-name';
       name.textContent = item.label;
+      if (item.phaseId) {
+        name.classList.add('phase-click-target');
+        name.dataset.phaseId = String(item.phaseId);
+      }
       row.appendChild(name);
 
       weeks.forEach(({ monday }) => {
@@ -753,6 +758,7 @@ if (!isBrowserRuntime) {
         cell.dataset.monday = formatIsoDate(weekStart);
         cell.dataset.rowType = item.type;
         if (item.consultantId) cell.dataset.consultantId = String(item.consultantId);
+        if (item.phaseId) cell.dataset.phaseId = String(item.phaseId);
         if (item.startDate) cell.dataset.assignmentStart = formatIsoDate(item.startDate);
         if (item.endDate) cell.dataset.assignmentEnd = formatIsoDate(item.endDate);
         const inAssignmentRange = item.startDate && item.endDate && item.startDate <= weekEnd && item.endDate >= weekStart;
@@ -766,6 +772,7 @@ if (!isBrowserRuntime) {
             cell.classList.add('project-range');
           } else if (item.type === 'phase') {
             cell.classList.add('phase-range');
+            if (item.phaseColorClass) cell.classList.add(item.phaseColorClass);
           } else {
             const overlaps = (item.consultant?.availability || []).filter((entry) => {
               const entryStart = parseIsoDate(entry.startDate);
@@ -870,9 +877,17 @@ if (!isBrowserRuntime) {
     projectPanel.appendChild(projectTitle);
     const projectMilestones = selectedProjectMilestones;
     projectPanel.appendChild(createTimelineRow({ label: fields.projectName.value.trim() || 'Project', startDate: projectStart, endDate: projectEnd, type: 'project', milestones: projectMilestones }));
-    selectedProjectPhases.forEach((phase) => {
+    selectedProjectPhases.forEach((phase, index) => {
       const phaseMilestones = selectedProjectMilestones.filter((m) => String(m.phaseId || '') === String(phase.id));
-      projectPanel.appendChild(createTimelineRow({ label: `Phase: ${phase.name}`, startDate: parseIsoDate(phase.startDate) || projectStart, endDate: parseIsoDate(phase.endDate) || projectEnd, type: 'phase', milestones: phaseMilestones }));
+      projectPanel.appendChild(createTimelineRow({
+        label: `Phase: ${phase.name}`,
+        startDate: parseIsoDate(phase.startDate) || projectStart,
+        endDate: parseIsoDate(phase.endDate) || projectEnd,
+        type: 'phase',
+        phaseId: phase.id,
+        phaseColorClass: `phase-color-${index % 6}`,
+        milestones: phaseMilestones
+      }));
     });
     container.appendChild(projectPanel);
 
@@ -906,7 +921,7 @@ if (!isBrowserRuntime) {
     await preloadHolidayDataForConsultants(selectedProjectTimelineYear);
     drawProjectTimeline(ui.projectTimelineChart, { year: selectedProjectTimelineYear, centerOnCurrentWeek });
     if (selectedProjectWeekDetail) {
-      renderProjectWeekDetail(selectedProjectWeekDetail.weekMondayIso, selectedProjectWeekDetail.consultantId, selectedProjectWeekDetail.rowType);
+      renderProjectWeekDetail(selectedProjectWeekDetail.weekMondayIso, selectedProjectWeekDetail.consultantId, selectedProjectWeekDetail.rowType, selectedProjectWeekDetail.phaseId);
     }
   };
 
@@ -1050,7 +1065,7 @@ if (!isBrowserRuntime) {
     if (ui.weekDetailCard) ui.weekDetailCard.hidden = true;
   };
 
-  const renderProjectWeekDetail = (weekMondayIso, consultantId, rowType) => {
+  const renderProjectWeekDetail = (weekMondayIso, consultantId, rowType, phaseId = '') => {
     if (!ui.projectWeekDetailCard || !ui.projectWeekDetailTimeline || !ui.projectWeekDetailTitle) return;
     if (!weekMondayIso) {
       selectedProjectWeekDetail = null;
@@ -1064,7 +1079,7 @@ if (!isBrowserRuntime) {
     const end = new Date(start);
     end.setDate(start.getDate() + 6);
 
-    selectedProjectWeekDetail = { weekMondayIso, consultantId, rowType };
+    selectedProjectWeekDetail = { weekMondayIso, consultantId, rowType, phaseId };
     ui.projectWeekDetailTitle.textContent = `Project Week Detail (${formatDate(start)} - ${formatDate(end)})`;
     ui.projectWeekDetailTimeline.innerHTML = '';
 
@@ -1072,6 +1087,9 @@ if (!isBrowserRuntime) {
     const selectedMember = consultantId ? selectedProjectAssignments.find((item) => Number(item.consultantId) === Number(consultantId)) : null;
     const assignmentStart = parseIsoDate(selectedMember?.startDate || '');
     const assignmentEnd = parseIsoDate(selectedMember?.endDate || '');
+    const milestonesForRow = rowType === 'phase'
+      ? selectedProjectMilestones.filter((item) => String(item.phaseId || '') === String(phaseId || ''))
+      : selectedProjectMilestones;
     const dayNames = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
     dayNames.forEach((dayName, index) => {
       const day = new Date(start);
@@ -1092,6 +1110,11 @@ if (!isBrowserRuntime) {
       status.className = 'week-day-status';
 
       const isWeekend = index >= 5;
+      const dayMilestones = milestonesForRow.filter((item) => {
+        const startDate = parseIsoDate(item.startDate);
+        const endDate = parseIsoDate(item.endDate);
+        return startDate && endDate && startDate <= day && endDate >= day;
+      });
       if (rowType === 'member' && consultant) {
         const inMemberRange = assignmentStart && assignmentEnd && day >= assignmentStart && day <= assignmentEnd;
         const overlaps = (consultant.availability || []).filter((entry) => {
@@ -1125,12 +1148,20 @@ if (!isBrowserRuntime) {
           }
           statusParts.push(`Holiday: ${holiday.name}`);
         }
+        if (dayMilestones.length) {
+          cell.classList.add('milestone-range');
+          statusParts.push(`Milestone: ${dayMilestones.map((item) => item.name).join(', ')}`);
+        }
         status.textContent = statusParts.join(' • ');
       } else if (isWeekend) {
         cell.classList.add('weekend-default-off');
         status.textContent = 'Not Available';
       } else {
         status.textContent = 'Project Active';
+      }
+      if (rowType !== 'member' && dayMilestones.length) {
+        cell.classList.add('milestone-range');
+        status.textContent = `${status.textContent} • Milestone: ${dayMilestones.map((item) => item.name).join(', ')}`;
       }
 
       cell.append(name, date, status);
@@ -1498,6 +1529,7 @@ if (!isBrowserRuntime) {
     selectedProjectMilestones = [];
     showProjectPhaseForm = false;
     showProjectMilestoneForm = false;
+    editingProjectPhaseId = null;
     modalSelectedAreaId = '';
     modalTempConsultantIds = [];
     updateAssignedConsultantsSummary();
@@ -1598,6 +1630,11 @@ if (!isBrowserRuntime) {
 
 
   ui.showProjectPhaseFormBtn?.addEventListener('click', () => {
+    editingProjectPhaseId = null;
+    ui.projectPhaseName.value = '';
+    ui.projectPhaseStartDate.value = '';
+    ui.projectPhaseEndDate.value = '';
+    if (ui.addProjectPhaseBtn) ui.addProjectPhaseBtn.textContent = 'Save Phase';
     showProjectPhaseForm = !showProjectPhaseForm;
     updateProjectPlanningUi();
   });
@@ -1615,11 +1652,17 @@ if (!isBrowserRuntime) {
       toast('Provide valid phase name and dates', 'orange darken-2');
       return;
     }
-    selectedProjectPhases.push({ id: `${Date.now()}-${Math.random()}`, name, startDate, endDate });
+    if (editingProjectPhaseId) {
+      selectedProjectPhases = selectedProjectPhases.map((item) => (String(item.id) === String(editingProjectPhaseId) ? { ...item, name, startDate, endDate } : item));
+    } else {
+      selectedProjectPhases.push({ id: `${Date.now()}-${Math.random()}`, name, startDate, endDate });
+    }
     ui.projectPhaseName.value = '';
     ui.projectPhaseStartDate.value = '';
     ui.projectPhaseEndDate.value = '';
     rebuildProjectPlanningSelects();
+    editingProjectPhaseId = null;
+    if (ui.addProjectPhaseBtn) ui.addProjectPhaseBtn.textContent = 'Save Phase';
     showProjectPhaseForm = false;
     updateProjectPlanningUi();
     refreshProjectTimeline();
@@ -2146,9 +2189,24 @@ if (!isBrowserRuntime) {
       return;
     }
 
+    const phaseName = event.target.closest('.phase-click-target');
+    if (phaseName && projectViewMode !== 'view') {
+      const phase = selectedProjectPhases.find((item) => String(item.id) === String(phaseName.dataset.phaseId || ''));
+      if (phase) {
+        editingProjectPhaseId = phase.id;
+        ui.projectPhaseName.value = phase.name || '';
+        ui.projectPhaseStartDate.value = phase.startDate || '';
+        ui.projectPhaseEndDate.value = phase.endDate || '';
+        if (ui.addProjectPhaseBtn) ui.addProjectPhaseBtn.textContent = 'Update Phase';
+        showProjectPhaseForm = true;
+        updateProjectPlanningUi();
+      }
+      return;
+    }
+
     const weekCell = event.target.closest('.week-cell');
     if (!weekCell) return;
-    renderProjectWeekDetail(weekCell.dataset.monday, weekCell.dataset.consultantId, weekCell.dataset.rowType);
+    renderProjectWeekDetail(weekCell.dataset.monday, weekCell.dataset.consultantId, weekCell.dataset.rowType, weekCell.dataset.phaseId || '');
   });
 
   ui.navMenu.addEventListener('click', (event) => {
