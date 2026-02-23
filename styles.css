@@ -162,9 +162,17 @@ body.project-timeline-expanded #project-form-card { position: fixed; top: 1rem; 
 body.project-timeline-expanded #project-form-card .card-content { height: 100%; display: flex; flex-direction: column; overflow-y: auto; }
 body.project-timeline-expanded #project-form { display: none; }
 body.project-timeline-expanded #project-members-card { display: none !important; }
+body.project-timeline-expanded #project-timeline-project-name { font-size: 1.05rem; font-weight: 600; color: #37474f; }
 body.project-timeline-expanded #project-timeline-panel { flex: 1; display: flex; flex-direction: column; min-height: 0; }
 body.project-timeline-expanded #project-timeline-chart { flex: 0 0 auto; max-height: 58vh; overflow: auto; margin-bottom: 0.5rem; }
 
 @media (max-width: 992px) {
   body.project-timeline-expanded #project-form-card { left: 1rem; }
 }
+
+.week-day-phase-color-0 { background: #f3e5f5; border-color: #8e24aa; }
+.week-day-phase-color-1 { background: #e3f2fd; border-color: #1e88e5; }
+.week-day-phase-color-2 { background: #e0f2f1; border-color: #00897b; }
+.week-day-phase-color-3 { background: #fbe9e7; border-color: #f4511e; }
+.week-day-phase-color-4 { background: #efebe9; border-color: #6d4c41; }
+.week-day-phase-color-5 { background: #e8eaf6; border-color: #3949ab; }

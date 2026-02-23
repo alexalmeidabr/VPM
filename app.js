@@ -28,6 +28,7 @@ if (!isBrowserRuntime) {
     projectForm: document.getElementById('project-form'),
     projectFormTitle: document.getElementById('project-form-title'),
     projectSaveBtn: document.getElementById('project-save-btn'),
+    projectSwitchEditBtn: document.getElementById('project-switch-edit-btn'),
     backToProjectsBtn: document.getElementById('back-to-projects-btn'),
     openConsultantModalBtn: document.getElementById('open-consultant-modal-btn'),
     assignedConsultantsSummary: document.getElementById('assigned-consultants-summary'),
@@ -88,6 +89,7 @@ if (!isBrowserRuntime) {
     consultantFormTitle: document.getElementById('consultant-form-title'),
     consultantModeLabel: document.getElementById('consultant-mode-label'),
     consultantSaveBtn: document.getElementById('consultant-save-btn'),
+    consultantSwitchEditBtn: document.getElementById('consultant-switch-edit-btn'),
     backToConsultantsBtn: document.getElementById('back-to-consultants-btn'),
     openDaysOffModalBtn: document.getElementById('open-days-off-modal-btn'),
     openHolidaysModalBtn: document.getElementById('open-holidays-modal-btn'),
@@ -273,6 +275,11 @@ if (!isBrowserRuntime) {
     return `${year}-${month}-${day}`;
   };
 
+
+  const phaseColorClassById = (phaseId) => {
+    const index = selectedProjectPhases.findIndex((phase) => String(phase.id) === String(phaseId || ''));
+    return index >= 0 ? `phase-color-${index % 6}` : '';
+  };
 
   const isWeekendDate = (date) => {
     const day = date.getDay();
@@ -895,7 +902,7 @@ if (!isBrowserRuntime) {
         endDate: parseIsoDate(phase.endDate) || projectEnd,
         type: 'phase',
         phaseId: phase.id,
-        phaseColorClass: `phase-color-${index % 6}`,
+        phaseColorClass: phaseColorClassById(phase.id) || `phase-color-${index % 6}`,
         milestones: phaseMilestones
       }));
     });
@@ -1171,6 +1178,8 @@ if (!isBrowserRuntime) {
       }
       if (rowType !== 'member' && dayMilestones.length) {
         cell.classList.add('milestone-range');
+        const milestoneColorClass = phaseColorClassById(dayMilestones[0]?.phaseId || phaseId);
+        if (milestoneColorClass) cell.classList.add(`week-day-${milestoneColorClass}`);
         status.textContent = `${status.textContent} • Milestone: ${dayMilestones.map((item) => item.name).join(', ')}`;
       }
 
@@ -1488,6 +1497,7 @@ if (!isBrowserRuntime) {
     ui.projectFormTitle.textContent = readOnly ? 'Manage Project (View)' : 'Manage Project';
     ui.projectSaveBtn.hidden = readOnly;
     ui.projectSaveBtn.style.display = readOnly ? 'none' : '';
+    if (ui.projectSwitchEditBtn) ui.projectSwitchEditBtn.hidden = !readOnly;
     ui.openConsultantModalBtn.disabled = readOnly;
     ui.openConsultantModalBtn.hidden = readOnly;
     if (ui.addProjectPhaseBtn) ui.addProjectPhaseBtn.disabled = readOnly;
@@ -1513,6 +1523,7 @@ if (!isBrowserRuntime) {
     ui.consultantModeLabel.textContent = readOnly ? 'Read-only mode' : 'Edit mode';
     ui.consultantSaveBtn.hidden = readOnly;
     ui.consultantSaveBtn.style.display = readOnly ? 'none' : '';
+    if (ui.consultantSwitchEditBtn) ui.consultantSwitchEditBtn.hidden = !readOnly;
     ui.openDaysOffModalBtn.disabled = readOnly;
     if (ui.openHolidaysModalBtn) ui.openHolidaysModalBtn.disabled = readOnly;
     [fields.consultantName, fields.consultantAreaIds, fields.consultantCompanyRoleId, fields.consultantSalary].forEach((el) => {
@@ -2237,6 +2248,15 @@ if (!isBrowserRuntime) {
     const weekCell = event.target.closest('.week-cell');
     if (!weekCell) return;
     renderProjectWeekDetail(weekCell.dataset.monday, weekCell.dataset.consultantId, weekCell.dataset.rowType, weekCell.dataset.phaseId || '');
+  });
+
+
+  ui.projectSwitchEditBtn?.addEventListener('click', () => {
+    setProjectFormMode('edit');
+  });
+
+  ui.consultantSwitchEditBtn?.addEventListener('click', () => {
+    setConsultantFormMode('edit');
   });
 
   ui.navMenu.addEventListener('click', (event) => {
