@@ -54,7 +54,7 @@ body { min-height: 100vh; }
 
 .project-expanded-planning { border: 1px solid #d7e1e6; border-radius: 10px; padding: 0.6rem; background: #fafcfd; margin-bottom: 0.6rem; }
 .planning-row { display: flex; gap: 0.5rem; align-items: center; margin-bottom: 0.45rem; flex-wrap: wrap; }
-.planning-inputs input, .planning-inputs select { min-width: 120px; width: 170px; max-width: 170px; flex: 0 0 170px; }
+.planning-inputs input, .planning-inputs select { min-width: 240px; width: 340px; max-width: 340px; flex: 0 0 340px; }
 #project-phase-form-row[hidden], #project-milestone-form-row[hidden] { display: none !important; }
 .week-cell.phase-range { background: #90a4ae; }
 .phase-click-target { cursor: pointer; text-decoration: underline; text-underline-offset: 2px; }
