@@ -1572,7 +1572,7 @@ if (!isBrowserRuntime) {
     rebuildConsultantSelects();
     rebuildHolidayCountryRegionControls();
     setConsultantFormMode('edit');
-    drawTimeline(ui.consultantAvailabilityChart, [], { year: selectedTimelineYear, centerOnCurrentWeek: Boolean(ui.centerCurrentWeekToggle?.checked), showAllocationStatus: true, enableMonthClick: true });
+    drawTimeline(ui.consultantAvailabilityChart, [], { year: selectedTimelineYear, centerOnCurrentWeek: Boolean(ui.centerCurrentWeekToggle?.checked), showYearNavigation: true, showAllocationStatus: true, enableMonthClick: true });
     renderConsultantDaysOffList(null);
     renderWeekDetail(null, '');
     renderMonthDetail(null, NaN, NaN);
@@ -1588,7 +1588,7 @@ if (!isBrowserRuntime) {
     drawTimeline(ui.availabilityChart, consultants, { year: selectedTimelineYear, centerOnCurrentWeek, showYearNavigation: true, showAllocationStatus: true, enableMonthClick: true });
     const consultantId = Number(fields.consultantId.value);
     const consultant = consultantId ? findConsultantById(consultantId) : null;
-    drawTimeline(ui.consultantAvailabilityChart, consultant ? [consultant] : [], { year: selectedTimelineYear, centerOnCurrentWeek, showAllocationStatus: true, enableMonthClick: true });
+    drawTimeline(ui.consultantAvailabilityChart, consultant ? [consultant] : [], { year: selectedTimelineYear, centerOnCurrentWeek, showYearNavigation: true, showAllocationStatus: true, enableMonthClick: true });
   };
 
   const loadAll = async () => {
@@ -2199,7 +2199,16 @@ if (!isBrowserRuntime) {
 
 
 
-  ui.consultantAvailabilityChart.addEventListener('click', (event) => {
+  ui.consultantAvailabilityChart.addEventListener('click', async (event) => {
+    const button = event.target.closest('button[data-action]');
+    if (button) {
+      if (ui.centerCurrentWeekToggle?.checked) return;
+      if (button.dataset.action === 'prev-year') selectedTimelineYear -= 1;
+      if (button.dataset.action === 'next-year') selectedTimelineYear += 1;
+      await refreshTimelines();
+      return;
+    }
+
     const consultantId = Number(fields.consultantId.value);
     const consultant = consultantId ? findConsultantById(consultantId) : null;
     if (!consultant) {
