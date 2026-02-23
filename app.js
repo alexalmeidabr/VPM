@@ -233,6 +233,16 @@ if (!isBrowserRuntime) {
     projectMilestones: selectedProjectMilestones
   });
 
+  const persistProjectPlanningIfEditing = async () => {
+    if (!fields.projectId.value) return;
+    const payload = buildProjectPayload();
+    await request(`/api/projects/${fields.projectId.value}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+  };
+
   const updateProjectPlanningUi = () => {
     const isEdit = projectViewMode !== 'view';
     const showPlanning = Boolean(isProjectTimelineExpanded && isEdit);
@@ -1644,7 +1654,7 @@ if (!isBrowserRuntime) {
     updateProjectPlanningUi();
   });
 
-  ui.addProjectPhaseBtn?.addEventListener('click', () => {
+  ui.addProjectPhaseBtn?.addEventListener('click', async () => {
     const name = ui.projectPhaseName.value.trim();
     const startDate = ui.projectPhaseStartDate.value;
     const endDate = ui.projectPhaseEndDate.value;
@@ -1652,23 +1662,34 @@ if (!isBrowserRuntime) {
       toast('Provide valid phase name and dates', 'orange darken-2');
       return;
     }
+    const previousPhases = [...selectedProjectPhases];
+    const previousEditId = editingProjectPhaseId;
     if (editingProjectPhaseId) {
       selectedProjectPhases = selectedProjectPhases.map((item) => (String(item.id) === String(editingProjectPhaseId) ? { ...item, name, startDate, endDate } : item));
     } else {
       selectedProjectPhases.push({ id: `${Date.now()}-${Math.random()}`, name, startDate, endDate });
     }
-    ui.projectPhaseName.value = '';
-    ui.projectPhaseStartDate.value = '';
-    ui.projectPhaseEndDate.value = '';
-    rebuildProjectPlanningSelects();
-    editingProjectPhaseId = null;
-    if (ui.addProjectPhaseBtn) ui.addProjectPhaseBtn.textContent = 'Save Phase';
-    showProjectPhaseForm = false;
-    updateProjectPlanningUi();
-    refreshProjectTimeline();
+
+    try {
+      await persistProjectPlanningIfEditing();
+      ui.projectPhaseName.value = '';
+      ui.projectPhaseStartDate.value = '';
+      ui.projectPhaseEndDate.value = '';
+      rebuildProjectPlanningSelects();
+      editingProjectPhaseId = null;
+      if (ui.addProjectPhaseBtn) ui.addProjectPhaseBtn.textContent = 'Save Phase';
+      showProjectPhaseForm = false;
+      updateProjectPlanningUi();
+      refreshProjectTimeline();
+      toast(previousEditId ? 'Project phase updated' : 'Project phase added', 'teal darken-1');
+    } catch (error) {
+      selectedProjectPhases = previousPhases;
+      rebuildProjectPlanningSelects();
+      toast(error.message || 'Failed to save project phase', 'red darken-1');
+    }
   });
 
-  ui.addProjectMilestoneBtn?.addEventListener('click', () => {
+  ui.addProjectMilestoneBtn?.addEventListener('click', async () => {
     const name = ui.projectMilestoneName.value.trim();
     const startDate = ui.projectMilestoneStartDate.value;
     const endDate = ui.projectMilestoneEndDate.value;
@@ -1676,13 +1697,22 @@ if (!isBrowserRuntime) {
       toast('Provide valid milestone name and dates', 'orange darken-2');
       return;
     }
+    const previousMilestones = [...selectedProjectMilestones];
     selectedProjectMilestones.push({ id: `${Date.now()}-${Math.random()}`, phaseId: ui.projectMilestonePhaseId.value || '', name, startDate, endDate });
-    ui.projectMilestoneName.value = '';
-    ui.projectMilestoneStartDate.value = '';
-    ui.projectMilestoneEndDate.value = '';
-    showProjectMilestoneForm = false;
-    updateProjectPlanningUi();
-    refreshProjectTimeline();
+
+    try {
+      await persistProjectPlanningIfEditing();
+      ui.projectMilestoneName.value = '';
+      ui.projectMilestoneStartDate.value = '';
+      ui.projectMilestoneEndDate.value = '';
+      showProjectMilestoneForm = false;
+      updateProjectPlanningUi();
+      refreshProjectTimeline();
+      toast('Project milestone added', 'teal darken-1');
+    } catch (error) {
+      selectedProjectMilestones = previousMilestones;
+      toast(error.message || 'Failed to save project milestone', 'red darken-1');
+    }
   });
 
   ui.showConsultantFormBtn.addEventListener('click', () => { resetConsultantForm(); showManageConsultantsPanel(); });
