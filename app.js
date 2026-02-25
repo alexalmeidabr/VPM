@@ -1427,7 +1427,6 @@ if (!isBrowserRuntime) {
         <td>${consultant.name}</td>
         <td>${(consultant.areaNames || []).join(', ') || (consultant.areaIds || []).map(areaNameById).join(', ') || '—'}</td>
         <td>${consultant.companyRole || roleNameById(consultant.companyRoleId) || '—'}</td>
-        <td>${formatSalary(consultant.salary)}</td>
         <td>${holidayLocationById(consultant.holidayLocationId)?.label || '—'}</td>
         <td>
           <button class="btn-flat teal-text" data-action="view-consultant" data-id="${consultant.id}"><i class="material-icons tiny">visibility</i></button>
@@ -1905,7 +1904,7 @@ if (!isBrowserRuntime) {
       name: fields.consultantName.value.trim(),
       areaIds: selectedIds(fields.consultantAreaIds),
       companyRoleId: Number(fields.consultantCompanyRoleId.value),
-      salary: fields.consultantSalary.value,
+      salary: fields.consultantSalary.value || 0,
       holidayLocationId: fields.consultantHolidayLocationId.value ? Number(fields.consultantHolidayLocationId.value) : null
     };
 
