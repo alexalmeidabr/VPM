@@ -176,3 +176,20 @@ body.project-timeline-expanded #project-timeline-chart { flex: 0 0 auto; max-hei
 .week-day-phase-color-3 { background: #fbe9e7; border-color: #f4511e; }
 .week-day-phase-color-4 { background: #efebe9; border-color: #6d4c41; }
 .week-day-phase-color-5 { background: #e8eaf6; border-color: #3949ab; }
+
+.allocation-empty-actions { display: flex; gap: 0.75rem; margin-top: 0.75rem; }
+.allocation-toolbar { display: flex; align-items: center; flex-wrap: wrap; gap: 0.6rem; margin-top: 1rem; margin-bottom: 0.75rem; }
+.allocation-simulation-title { font-weight: 600; margin-right: auto; }
+.allocation-layout { display: flex; gap: 1rem; min-height: 65vh; }
+.allocation-canvas { position: relative; flex: 1; border: 1px dashed #b0bec5; border-radius: 10px; background: #f5f8fa; min-height: 65vh; overflow: auto; }
+.allocation-consultants-panel { width: 280px; border: 1px solid #d7e1e6; border-radius: 10px; background: #fff; padding: 0.75rem; }
+.allocation-consultants-list { min-height: 200px; display: flex; flex-direction: column; gap: 0.5rem; }
+.allocation-consultants-list.drag-over { background: #eceff1; border-radius: 8px; }
+.allocation-consultant-item { border: 1px solid #cfd8dc; border-radius: 8px; padding: 0.45rem 0.6rem; background: #fff; cursor: grab; }
+.allocation-project-panel { position: absolute; width: 300px; border: 1px solid #b0bec5; border-radius: 10px; background: #fff; box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
+.allocation-panel-header { padding: 0.55rem 0.7rem; background: #455a64; color: #fff; border-radius: 10px 10px 0 0; cursor: move; font-weight: 600; }
+.allocation-panel-body { padding: 0.7rem; }
+.allocation-drop-zone { min-height: 40px; border: 1px dashed #cfd8dc; border-radius: 8px; padding: 0.4rem; margin-bottom: 0.5rem; display: flex; flex-direction: column; gap: 0.4rem; }
+.allocation-drop-zone.drag-over { background: #eceff1; }
+.allocation-vacancy-item { border: 1px dashed #90a4ae; background: #fafafa; border-radius: 8px; padding: 0.4rem 0.5rem; cursor: grab; }
+.allocation-simulation-item { display: flex; justify-content: space-between; align-items: center; border: 1px solid #cfd8dc; border-radius: 8px; padding: 0.6rem; margin-top: 0.5rem; }

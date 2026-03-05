@@ -11,6 +11,7 @@ if (!isBrowserRuntime) {
   const sections = {
     projects: document.getElementById('projects-section'),
     consultants: document.getElementById('consultants-section'),
+    'allocation-forecast': document.getElementById('allocation-forecast-section'),
     'mass-update': document.getElementById('mass-update-section'),
     authorization: document.getElementById('authorization-section'),
     administration: document.getElementById('administration-section')
@@ -144,6 +145,21 @@ if (!isBrowserRuntime) {
     dayOffTypeName: document.getElementById('day-off-type-name')
   };
 
+  Object.assign(ui, {
+    createAllocationSimulationBtn: document.getElementById('create-allocation-simulation-btn'),
+    loadAllocationSimulationBtn: document.getElementById('load-allocation-simulation-btn'),
+    allocationForecastEmptyActions: document.getElementById('allocation-forecast-empty-actions'),
+    allocationSimulationList: document.getElementById('allocation-simulation-list'),
+    allocationForecastWorkspace: document.getElementById('allocation-forecast-workspace'),
+    allocationSimulationTitle: document.getElementById('allocation-simulation-title'),
+    allocationLoadProjectsBtn: document.getElementById('allocation-load-projects-btn'),
+    allocationLoadPipelineBtn: document.getElementById('allocation-load-pipeline-btn'),
+    allocationAddProjectBtn: document.getElementById('allocation-add-project-btn'),
+    allocationSaveBtn: document.getElementById('allocation-save-btn'),
+    allocationCanvas: document.getElementById('allocation-canvas'),
+    allocationConsultantsList: document.getElementById('allocation-consultants-list')
+  });
+
   const selectInstances = {};
   const modals = {};
 
@@ -168,6 +184,8 @@ if (!isBrowserRuntime) {
   let showProjectPhaseForm = false;
   let showProjectMilestoneForm = false;
   let editingProjectPhaseId = null;
+  let allocationSimulations = [];
+  let allocationState = null;
 
   const fallbackHolidayCountries = ['AD', 'AT', 'BE', 'CA', 'CH', 'DE', 'DK', 'ES', 'FI', 'FR', 'GB', 'IE', 'IT', 'MX', 'NL', 'NO', 'PL', 'PT', 'SE', 'US'];
   const fallbackHolidayRegionsByCountry = {
@@ -1539,6 +1557,190 @@ if (!isBrowserRuntime) {
     document.querySelectorAll('#nav-menu .collection-item').forEach((item) => item.classList.toggle('active', item.dataset.section === section));
     if (section === 'projects') showProjectsPanel();
     if (section === 'consultants') showConsultantsPanel();
+    if (section === 'allocation-forecast' && !allocationState) {
+      ui.allocationForecastEmptyActions.hidden = false;
+      ui.allocationSimulationList.hidden = true;
+      ui.allocationForecastWorkspace.hidden = true;
+    }
+  };
+
+  const allocationDraggedPayload = (event) => {
+    try { return JSON.parse(event.dataTransfer.getData('application/json')); } catch { return null; }
+  };
+
+  const renderAllocationSimulationList = () => {
+    if (!ui.allocationSimulationList) return;
+    ui.allocationSimulationList.innerHTML = '';
+    if (!allocationSimulations.length) {
+      ui.allocationSimulationList.innerHTML = '<p class="grey-text">No saved simulations yet.</p>';
+      return;
+    }
+    allocationSimulations.forEach((simulation) => {
+      const item = document.createElement('div');
+      item.className = 'allocation-simulation-item';
+      item.innerHTML = `<div><strong>${simulation.name}</strong><div class="grey-text">Created: ${simulation.createdAt || '—'}</div></div><button class="btn" type="button">Load</button>`;
+      item.querySelector('button').addEventListener('click', async () => {
+        const loaded = await request(`/api/allocation-simulations/${simulation.id}`);
+        allocationState = { ...(loaded.state || {}), id: loaded.id, name: loaded.name };
+        ui.allocationSimulationTitle.textContent = loaded.name;
+        ui.allocationForecastWorkspace.hidden = false;
+        ui.allocationSimulationList.hidden = true;
+        ui.allocationForecastEmptyActions.hidden = true;
+        renderAllocationWorkspace();
+      });
+      ui.allocationSimulationList.appendChild(item);
+    });
+  };
+
+  const ensureAllocationStateShape = () => {
+    if (!allocationState) return;
+    allocationState.projects = Array.isArray(allocationState.projects) ? allocationState.projects : [];
+    allocationState.unassignedConsultantIds = Array.isArray(allocationState.unassignedConsultantIds) ? allocationState.unassignedConsultantIds : [];
+  };
+
+  const renderAllocationWorkspace = () => {
+    ensureAllocationStateShape();
+    if (!allocationState) return;
+    ui.allocationCanvas.innerHTML = '';
+    const assigned = new Set();
+    allocationState.projects.forEach((project) => (project.consultantIds || []).forEach((id) => assigned.add(Number(id))));
+    const unassignedIds = allocationState.unassignedConsultantIds.filter((id) => !assigned.has(Number(id)));
+    ui.allocationConsultantsList.innerHTML = '';
+    consultants.filter((c) => unassignedIds.includes(Number(c.id))).forEach((consultant) => {
+      const item = document.createElement('div');
+      item.className = 'allocation-consultant-item';
+      item.draggable = true;
+      item.textContent = consultant.name;
+      item.dataset.consultantId = String(consultant.id);
+      item.addEventListener('dragstart', (event) => {
+        event.dataTransfer.setData('application/json', JSON.stringify({ type: 'consultant', consultantId: Number(consultant.id), source: 'list' }));
+      });
+      ui.allocationConsultantsList.appendChild(item);
+    });
+
+    allocationState.projects.forEach((project) => {
+      const panel = document.createElement('div');
+      panel.className = 'allocation-project-panel';
+      panel.style.left = `${Number(project.x || 20)}px`;
+      panel.style.top = `${Number(project.y || 20)}px`;
+      panel.dataset.projectId = String(project.id);
+      panel.innerHTML = `<div class="allocation-panel-header">${project.name}</div><div class="allocation-panel-body"><strong>Consultants</strong><div class="allocation-drop-zone" data-zone="consultants"></div><strong>Vacancies</strong><div class="allocation-drop-zone" data-zone="vacancies"></div><button class="btn-flat" data-action="add-vacancy" type="button">Add Vacancy</button></div>`;
+      const header = panel.querySelector('.allocation-panel-header');
+      const consultantsZone = panel.querySelector('[data-zone="consultants"]');
+      const vacanciesZone = panel.querySelector('[data-zone="vacancies"]');
+
+      (project.consultantIds || []).forEach((consultantId) => {
+        const consultant = findConsultantById(consultantId);
+        if (!consultant) return;
+        const c = document.createElement('div');
+        c.className = 'allocation-consultant-item';
+        c.draggable = true;
+        c.textContent = consultant.name;
+        c.addEventListener('dragstart', (event) => {
+          event.dataTransfer.setData('application/json', JSON.stringify({ type: 'consultant', consultantId: Number(consultantId), source: 'project', projectId: project.id }));
+        });
+        consultantsZone.appendChild(c);
+      });
+
+      (project.vacancies || []).forEach((vacancy) => {
+        const v = document.createElement('div');
+        v.className = 'allocation-vacancy-item';
+        v.draggable = true;
+        v.textContent = `SAP Area: ${vacancy.sapArea}`;
+        v.addEventListener('dragstart', (event) => {
+          event.dataTransfer.setData('application/json', JSON.stringify({ type: 'vacancy', vacancyId: vacancy.id, projectId: project.id }));
+        });
+        vacanciesZone.appendChild(v);
+      });
+
+      [consultantsZone, vacanciesZone].forEach((zone) => {
+        zone.addEventListener('dragover', (event) => { event.preventDefault(); zone.classList.add('drag-over'); });
+        zone.addEventListener('dragleave', () => zone.classList.remove('drag-over'));
+      });
+      consultantsZone.addEventListener('drop', (event) => {
+        event.preventDefault(); consultantsZone.classList.remove('drag-over');
+        const data = allocationDraggedPayload(event); if (!data) return;
+        if (data.type === 'consultant') {
+          allocationState.projects.forEach((p) => { p.consultantIds = (p.consultantIds || []).filter((id) => Number(id) !== Number(data.consultantId)); });
+          allocationState.unassignedConsultantIds = (allocationState.unassignedConsultantIds || []).filter((id) => Number(id) !== Number(data.consultantId));
+          project.consultantIds = [...new Set([...(project.consultantIds || []), Number(data.consultantId)])];
+        }
+        if (data.type === 'vacancy') {
+          const from = allocationState.projects.find((p) => String(p.id) === String(data.projectId));
+          if (!from) return;
+          const moved = (from.vacancies || []).find((v) => String(v.id) === String(data.vacancyId));
+          from.vacancies = (from.vacancies || []).filter((v) => String(v.id) !== String(data.vacancyId));
+          if (moved) project.vacancies = [...(project.vacancies || []), moved];
+        }
+        renderAllocationWorkspace();
+      });
+      vacanciesZone.addEventListener('drop', (event) => {
+        event.preventDefault(); vacanciesZone.classList.remove('drag-over');
+        const data = allocationDraggedPayload(event); if (!data) return;
+        if (data.type === 'vacancy') {
+          const from = allocationState.projects.find((p) => String(p.id) === String(data.projectId));
+          if (!from) return;
+          const moved = (from.vacancies || []).find((v) => String(v.id) === String(data.vacancyId));
+          from.vacancies = (from.vacancies || []).filter((v) => String(v.id) !== String(data.vacancyId));
+          if (moved) project.vacancies = [...(project.vacancies || []), moved];
+        }
+        if (data.type === 'consultant') {
+          const sapArea = window.prompt('Required SAP Area for vacancy assignment record:', '')?.trim();
+          allocationState.projects.forEach((p) => { p.consultantIds = (p.consultantIds || []).filter((id) => Number(id) !== Number(data.consultantId)); });
+          allocationState.unassignedConsultantIds = (allocationState.unassignedConsultantIds || []).filter((id) => Number(id) !== Number(data.consultantId));
+          project.consultantIds = [...new Set([...(project.consultantIds || []), Number(data.consultantId)])];
+          if (sapArea) {
+            project.vacancies = (project.vacancies || []).slice(1);
+          }
+        }
+        renderAllocationWorkspace();
+      });
+
+      panel.querySelector('[data-action="add-vacancy"]').addEventListener('click', () => {
+        const sapArea = window.prompt('Required SAP Area');
+        if (!sapArea || !sapArea.trim()) return;
+        project.vacancies = [...(project.vacancies || []), { id: `${Date.now()}-${Math.random()}`, sapArea: sapArea.trim() }];
+        renderAllocationWorkspace();
+      });
+
+      let dragging = false;
+      let startX = 0;
+      let startY = 0;
+      let panelX = Number(project.x || 20);
+      let panelY = Number(project.y || 20);
+      header.addEventListener('mousedown', (event) => {
+        dragging = true;
+        startX = event.clientX;
+        startY = event.clientY;
+      });
+      window.addEventListener('mousemove', (event) => {
+        if (!dragging) return;
+        const dx = event.clientX - startX;
+        const dy = event.clientY - startY;
+        project.x = Math.max(0, panelX + dx);
+        project.y = Math.max(0, panelY + dy);
+        panel.style.left = `${project.x}px`;
+        panel.style.top = `${project.y}px`;
+      });
+      window.addEventListener('mouseup', () => {
+        if (!dragging) return;
+        dragging = false;
+        panelX = Number(project.x || 20);
+        panelY = Number(project.y || 20);
+      });
+
+      ui.allocationCanvas.appendChild(panel);
+    });
+
+    ui.allocationConsultantsList.addEventListener('dragover', (event) => { event.preventDefault(); ui.allocationConsultantsList.classList.add('drag-over'); });
+    ui.allocationConsultantsList.addEventListener('dragleave', () => ui.allocationConsultantsList.classList.remove('drag-over'));
+    ui.allocationConsultantsList.addEventListener('drop', (event) => {
+      event.preventDefault(); ui.allocationConsultantsList.classList.remove('drag-over');
+      const data = allocationDraggedPayload(event); if (!data || data.type !== 'consultant') return;
+      allocationState.projects.forEach((p) => { p.consultantIds = (p.consultantIds || []).filter((id) => Number(id) !== Number(data.consultantId)); });
+      allocationState.unassignedConsultantIds = [...new Set([...(allocationState.unassignedConsultantIds || []), Number(data.consultantId)])];
+      renderAllocationWorkspace();
+    });
   };
 
   const resetProjectForm = () => {
@@ -1597,7 +1799,8 @@ if (!isBrowserRuntime) {
       { key: 'roles', path: '/api/roles', prop: 'roles', fallback: [] },
       { key: 'areas', path: '/api/areas', prop: 'areas', fallback: [] },
       { key: 'dayOffTypes', path: '/api/day-off-types', prop: 'dayOffTypes', fallback: [] },
-      { key: 'holidayLocations', path: '/api/holiday-locations', prop: 'holidayLocations', fallback: [] }
+      { key: 'holidayLocations', path: '/api/holiday-locations', prop: 'holidayLocations', fallback: [] },
+      { key: 'allocationSimulations', path: '/api/allocation-simulations', prop: 'simulations', fallback: [] }
     ];
 
     const results = await Promise.allSettled(endpoints.map((item) => request(item.path)));
@@ -1619,6 +1822,7 @@ if (!isBrowserRuntime) {
     areas = loaded.areas;
     dayOffTypes = loaded.dayOffTypes;
     holidayLocations = loaded.holidayLocations;
+    allocationSimulations = loaded.allocationSimulations;
 
     renderProjects();
     renderConsultants();
@@ -1629,6 +1833,7 @@ if (!isBrowserRuntime) {
     rebuildHolidayCountryRegionControls({ consultantHolidayLocationId: fields.consultantHolidayLocationId.value });
     rebuildAssignmentModalSelects();
     rebuildDayOffTypeSelect();
+    renderAllocationSimulationList();
 
     if (failed.length) {
       toast(`Some data failed to load (${failed.join(', ')})`, 'orange darken-2');
@@ -2271,6 +2476,74 @@ if (!isBrowserRuntime) {
     const item = event.target.closest('li[data-section]');
     if (!item) return;
     setSection(item.dataset.section);
+  });
+
+  ui.createAllocationSimulationBtn?.addEventListener('click', async () => {
+    const customName = window.prompt('Simulation name (optional)')?.trim();
+    const created = await request('/api/allocation-simulations', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(customName ? { name: customName } : {})
+    });
+    allocationState = { id: created.id, name: created.name, projects: [], unassignedConsultantIds: consultants.map((c) => Number(c.id)) };
+    ui.allocationSimulationTitle.textContent = created.name;
+    ui.allocationForecastWorkspace.hidden = false;
+    ui.allocationSimulationList.hidden = true;
+    ui.allocationForecastEmptyActions.hidden = true;
+    await loadAll();
+    renderAllocationWorkspace();
+  });
+
+  ui.loadAllocationSimulationBtn?.addEventListener('click', async () => {
+    await loadAll();
+    ui.allocationSimulationList.hidden = false;
+    ui.allocationForecastWorkspace.hidden = true;
+  });
+
+  ui.allocationLoadProjectsBtn?.addEventListener('click', () => {
+    if (!allocationState) return;
+    const existingById = new Set(allocationState.projects.filter((p) => p.sourceProjectId).map((p) => Number(p.sourceProjectId)));
+    projects.forEach((project, index) => {
+      if (existingById.has(Number(project.id))) return;
+      allocationState.projects.push({
+        id: `p-${project.id}`,
+        sourceProjectId: Number(project.id),
+        name: project.projectName,
+        x: 20 + (index % 4) * 320,
+        y: 20 + Math.floor(index / 4) * 240,
+        consultantIds: (project.consultantAssignments || []).map((item) => Number(item.consultantId)),
+        vacancies: []
+      });
+    });
+    const assigned = new Set(allocationState.projects.flatMap((p) => p.consultantIds || []).map(Number));
+    allocationState.unassignedConsultantIds = consultants.map((c) => Number(c.id)).filter((id) => !assigned.has(id));
+    renderAllocationWorkspace();
+  });
+
+  ui.allocationAddProjectBtn?.addEventListener('click', () => {
+    if (!allocationState) return;
+    const name = window.prompt('Project Name');
+    if (!name || !name.trim()) return;
+    allocationState.projects.push({
+      id: `custom-${Date.now()}`,
+      name: name.trim(),
+      x: 30,
+      y: 30,
+      consultantIds: [],
+      vacancies: []
+    });
+    renderAllocationWorkspace();
+  });
+
+  ui.allocationSaveBtn?.addEventListener('click', async () => {
+    if (!allocationState?.id) return;
+    await request(`/api/allocation-simulations/${allocationState.id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: allocationState.name, state: { projects: allocationState.projects, unassignedConsultantIds: allocationState.unassignedConsultantIds } })
+    });
+    toast('Simulation saved', 'teal darken-1');
+    await loadAll();
   });
 
   if (window.M?.Modal) {

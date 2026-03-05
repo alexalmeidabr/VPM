@@ -197,6 +197,14 @@ def init_db():
         FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE,
         FOREIGN KEY (consultant_id) REFERENCES consultants(id) ON DELETE CASCADE
       );
+
+      CREATE TABLE IF NOT EXISTS allocation_simulations (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT NOT NULL,
+        state_json TEXT NOT NULL,
+        created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+        updated_at TEXT DEFAULT CURRENT_TIMESTAMP
+      );
       '''
     )
 
@@ -260,6 +268,12 @@ class VPMHandler(SimpleHTTPRequestHandler):
   def _holiday_location_id(self):
     parts = self._parts()
     if len(parts) == 3 and parts[0:2] == ['api', 'holiday-locations'] and parts[2].isdigit():
+      return int(parts[2])
+    return None
+
+  def _allocation_simulation_id(self):
+    parts = self._parts()
+    if len(parts) == 3 and parts[0:2] == ['api', 'allocation-simulations'] and parts[2].isdigit():
       return int(parts[2])
     return None
 
@@ -799,10 +813,60 @@ class VPMHandler(SimpleHTTPRequestHandler):
       })
     return projects
 
+  def _allocation_simulation_payload_error(self, payload, require_state=False):
+    if 'name' in payload:
+      payload['name'] = str(payload.get('name', '')).strip()
+      if not payload['name']:
+        return 'name cannot be empty'
+    if require_state and 'state' not in payload:
+      return 'state is required'
+    if 'state' in payload and not isinstance(payload.get('state'), dict):
+      return 'state must be an object'
+    return None
+
+  def _fetch_allocation_simulations(self, conn):
+    rows = conn.execute(
+      'SELECT id, name, created_at, updated_at FROM allocation_simulations ORDER BY created_at DESC, id DESC'
+    ).fetchall()
+    return [
+      {'id': row['id'], 'name': row['name'], 'createdAt': row['created_at'], 'updatedAt': row['updated_at']}
+      for row in rows
+    ]
+
+  def _fetch_allocation_simulation(self, conn, simulation_id):
+    row = conn.execute(
+      'SELECT id, name, state_json, created_at, updated_at FROM allocation_simulations WHERE id = ?',
+      (simulation_id,)
+    ).fetchone()
+    if not row:
+      return None
+    try:
+      state = json.loads(row['state_json'])
+    except json.JSONDecodeError:
+      state = {}
+    return {
+      'id': row['id'],
+      'name': row['name'],
+      'state': state,
+      'createdAt': row['created_at'],
+      'updatedAt': row['updated_at']
+    }
+
   def do_GET(self):
     path = self._path()
     query = self._query()
+    allocation_simulation_id = self._allocation_simulation_id()
     with get_connection() as conn:
+      if path == '/api/allocation-simulations':
+        self._send_json({'simulations': self._fetch_allocation_simulations(conn)})
+        return
+      if allocation_simulation_id is not None:
+        simulation = self._fetch_allocation_simulation(conn, allocation_simulation_id)
+        if not simulation:
+          self._send_json({'error': 'Allocation simulation not found'}, HTTPStatus.NOT_FOUND)
+          return
+        self._send_json(simulation)
+        return
       if path == '/api/projects':
         self._send_json({'projects': self._fetch_projects(conn)})
         return
@@ -933,6 +997,22 @@ class VPMHandler(SimpleHTTPRequestHandler):
       self._send_json({'id': consultant_id}, HTTPStatus.CREATED)
       return
 
+    if path == '/api/allocation-simulations':
+      error = self._allocation_simulation_payload_error(payload, require_state=False)
+      if error:
+        self._send_json({'error': error}, HTTPStatus.BAD_REQUEST)
+        return
+      now = datetime.utcnow().strftime('%Y-%m-%d %H:%M')
+      simulation_name = payload.get('name') or f'Simulation {now}'
+      state = payload.get('state') or {'projects': [], 'unassignedConsultantIds': []}
+      with get_connection() as conn:
+        cursor = conn.execute(
+          'INSERT INTO allocation_simulations (name, state_json) VALUES (?, ?)',
+          (simulation_name, json.dumps(state))
+        )
+      self._send_json({'id': cursor.lastrowid, 'name': simulation_name}, HTTPStatus.CREATED)
+      return
+
     if path == '/api/roles':
       error = self._name_payload_error(payload)
       if error:
@@ -1051,6 +1131,7 @@ class VPMHandler(SimpleHTTPRequestHandler):
     project_id = self._resource_id('projects')
     consultant_id = self._resource_id('consultants')
     holiday_location_id = self._holiday_location_id()
+    allocation_simulation_id = self._allocation_simulation_id()
 
     try:
       payload = self._read_json()
@@ -1159,6 +1240,27 @@ class VPMHandler(SimpleHTTPRequestHandler):
       self._send_json({'status': 'updated'})
       return
 
+    if allocation_simulation_id is not None:
+      error = self._allocation_simulation_payload_error(payload, require_state=True)
+      if error:
+        self._send_json({'error': error}, HTTPStatus.BAD_REQUEST)
+        return
+      simulation_name = payload.get('name', '').strip() or f"Simulation {datetime.utcnow().strftime('%Y-%m-%d %H:%M')}"
+      with get_connection() as conn:
+        cursor = conn.execute(
+          '''
+          UPDATE allocation_simulations
+          SET name = ?, state_json = ?, updated_at = CURRENT_TIMESTAMP
+          WHERE id = ?
+          ''',
+          (simulation_name, json.dumps(payload['state']), allocation_simulation_id)
+        )
+      if cursor.rowcount == 0:
+        self._send_json({'error': 'Allocation simulation not found'}, HTTPStatus.NOT_FOUND)
+        return
+      self._send_json({'status': 'updated'})
+      return
+
     self.send_error(HTTPStatus.NOT_FOUND)
 
   def do_DELETE(self):
@@ -1168,6 +1270,7 @@ class VPMHandler(SimpleHTTPRequestHandler):
     area_id = self._resource_id('areas')
     day_off_type_id = self._resource_id('day-off-types')
     availability_consultant_id, availability_id = self._availability_route()
+    allocation_simulation_id = self._allocation_simulation_id()
 
     if availability_consultant_id is not None and availability_id is not None:
       with get_connection() as conn:
@@ -1219,6 +1322,15 @@ class VPMHandler(SimpleHTTPRequestHandler):
         cursor = conn.execute('DELETE FROM day_off_types WHERE id = ?', (day_off_type_id,))
       if cursor.rowcount == 0:
         self._send_json({'error': 'Day off type not found'}, HTTPStatus.NOT_FOUND)
+        return
+      self._send_json({'status': 'deleted'})
+      return
+
+    if allocation_simulation_id is not None:
+      with get_connection() as conn:
+        cursor = conn.execute('DELETE FROM allocation_simulations WHERE id = ?', (allocation_simulation_id,))
+      if cursor.rowcount == 0:
+        self._send_json({'error': 'Allocation simulation not found'}, HTTPStatus.NOT_FOUND)
         return
       self._send_json({'status': 'deleted'})
       return
