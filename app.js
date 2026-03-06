@@ -142,7 +142,11 @@ if (!isBrowserRuntime) {
     consultantSalary: document.getElementById('consultant-salary'),
     consultantHolidayLocationId: document.getElementById('consultant-holiday-location-id'),
 
-    timeTrackingConsultantId: document.getElementById('time-tracking-consultant-id'),
+    timeTrackingConsultantPicker: document.getElementById('time-tracking-consultant-picker'),
+    timeTrackingConsultantField: document.getElementById('time-tracking-consultant-field'),
+    timeTrackingConsultantInput: document.getElementById('time-tracking-consultant-input'),
+    timeTrackingConsultantToggle: document.getElementById('time-tracking-consultant-toggle'),
+    timeTrackingConsultantMenu: document.getElementById('time-tracking-consultant-menu'),
     timesheetMonthCount: document.getElementById('timesheet-month-count'),
     timesheetsEmptyState: document.getElementById('timesheets-empty-state'),
     timesheetMonthList: document.getElementById('timesheet-month-list'),
@@ -438,24 +442,69 @@ if (!isBrowserRuntime) {
     }
   };
 
-  const rebuildTimeTrackingConsultantSelect = () => {
-    if (!ui.timeTrackingConsultantId) return;
-    const current = String(ui.timeTrackingConsultantId.value || '');
-    ui.timeTrackingConsultantId.innerHTML = '<option value="" selected>Select consultant</option>';
-    [...consultants]
-      .sort((a, b) => String(a.name || '').localeCompare(String(b.name || '')))
-      .forEach((consultant) => ui.timeTrackingConsultantId.add(new Option(consultant.name, String(consultant.id))));
+  const closeTimeTrackingConsultantMenu = () => {
+    if (!ui.timeTrackingConsultantMenu) return;
+    ui.timeTrackingConsultantMenu.hidden = true;
+  };
 
-    if (current && consultants.some((item) => String(item.id) === current)) {
-      ui.timeTrackingConsultantId.value = current;
-      activeTimesheetConsultantId = Number(current);
-    } else {
-      ui.timeTrackingConsultantId.value = '';
+  const openTimeTrackingConsultantMenu = () => {
+    if (!ui.timeTrackingConsultantMenu) return;
+    ui.timeTrackingConsultantMenu.hidden = false;
+  };
+
+  const selectTimeTrackingConsultant = async (consultantId) => {
+    const selected = consultants.find((item) => Number(item.id) == Number(consultantId));
+    if (!selected) return;
+    activeTimesheetConsultantId = Number(selected.id);
+    if (ui.timeTrackingConsultantInput) ui.timeTrackingConsultantInput.value = selected.name || '';
+    closeTimeTrackingConsultantMenu();
+    activeTimesheet = null;
+    ui.timeTrackingListCard.hidden = false;
+    ui.timesheetDetailCard.hidden = true;
+    await loadTimesheetMonths(activeTimesheetConsultantId);
+  };
+
+  const renderTimeTrackingConsultantOptions = (filterText = '') => {
+    if (!ui.timeTrackingConsultantMenu) return;
+    const filter = String(filterText || '').trim().toLowerCase();
+    const filtered = [...consultants]
+      .filter((item) => String(item.name || '').toLowerCase().includes(filter))
+      .sort((a, b) => String(a.name || '').localeCompare(String(b.name || '')));
+
+    ui.timeTrackingConsultantMenu.innerHTML = '';
+    if (!filtered.length) {
+      const empty = document.createElement('div');
+      empty.className = 'time-tracking-consultant-empty';
+      empty.textContent = 'No consultants found';
+      ui.timeTrackingConsultantMenu.appendChild(empty);
+      return;
+    }
+
+    filtered.forEach((consultant) => {
+      const option = document.createElement('div');
+      option.className = 'time-tracking-consultant-option';
+      option.textContent = consultant.name;
+      option.addEventListener('mousedown', async (event) => {
+        event.preventDefault();
+        await selectTimeTrackingConsultant(consultant.id);
+      });
+      ui.timeTrackingConsultantMenu.appendChild(option);
+    });
+  };
+
+  const rebuildTimeTrackingConsultantSelect = () => {
+    const current = Number(activeTimesheetConsultantId || 0);
+    const stillExists = consultants.some((item) => Number(item.id) === current);
+    if (!stillExists) {
       activeTimesheetConsultantId = 0;
       timesheetMonths = [];
       activeTimesheet = null;
+      if (ui.timeTrackingConsultantInput) ui.timeTrackingConsultantInput.value = '';
+    } else {
+      const selected = consultants.find((item) => Number(item.id) === current);
+      if (ui.timeTrackingConsultantInput && selected) ui.timeTrackingConsultantInput.value = selected.name || '';
     }
-
+    renderTimeTrackingConsultantOptions(ui.timeTrackingConsultantInput?.value || '');
     renderTimesheetMonths();
   };
 
@@ -2762,12 +2811,47 @@ if (!isBrowserRuntime) {
     setConsultantFormMode('edit');
   });
 
-  ui.timeTrackingConsultantId?.addEventListener('change', async () => {
-    activeTimesheetConsultantId = Number(ui.timeTrackingConsultantId.value);
-    activeTimesheet = null;
-    ui.timeTrackingListCard.hidden = false;
-    ui.timesheetDetailCard.hidden = true;
-    await loadTimesheetMonths(activeTimesheetConsultantId);
+  ui.timeTrackingConsultantInput?.addEventListener('focus', () => {
+    renderTimeTrackingConsultantOptions(ui.timeTrackingConsultantInput.value || '');
+    openTimeTrackingConsultantMenu();
+  });
+
+  ui.timeTrackingConsultantInput?.addEventListener('input', () => {
+    const typed = String(ui.timeTrackingConsultantInput.value || '').trim();
+    const selected = consultants.find((item) => Number(item.id) === Number(activeTimesheetConsultantId));
+    if (!selected || typed !== String(selected.name || '')) {
+      activeTimesheetConsultantId = 0;
+      timesheetMonths = [];
+      activeTimesheet = null;
+      renderTimesheetMonths();
+    }
+    renderTimeTrackingConsultantOptions(typed);
+    openTimeTrackingConsultantMenu();
+  });
+
+  ui.timeTrackingConsultantInput?.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape') {
+      closeTimeTrackingConsultantMenu();
+      return;
+    }
+    if (event.key === 'ArrowDown') {
+      openTimeTrackingConsultantMenu();
+    }
+  });
+
+  ui.timeTrackingConsultantToggle?.addEventListener('click', () => {
+    if (ui.timeTrackingConsultantMenu?.hidden) {
+      renderTimeTrackingConsultantOptions(ui.timeTrackingConsultantInput?.value || '');
+      openTimeTrackingConsultantMenu();
+      ui.timeTrackingConsultantInput?.focus();
+    } else {
+      closeTimeTrackingConsultantMenu();
+    }
+  });
+
+  document.addEventListener('click', (event) => {
+    const within = event.target.closest('#time-tracking-consultant-picker');
+    if (!within) closeTimeTrackingConsultantMenu();
   });
 
   ui.backToTimesheetsBtn?.addEventListener('click', async () => {
