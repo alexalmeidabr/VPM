@@ -432,15 +432,31 @@ if (!isBrowserRuntime) {
     const current = ui.timeTrackingConsultantId.value;
     ui.timeTrackingConsultantId.innerHTML = '<option value="" selected disabled>Select consultant</option>';
     consultants.forEach((consultant) => ui.timeTrackingConsultantId.add(new Option(consultant.name, String(consultant.id))));
-    if (current && consultants.some((item) => String(item.id) === String(current))) ui.timeTrackingConsultantId.value = String(current);
+    if (current && consultants.some((item) => String(item.id) === String(current))) {
+      ui.timeTrackingConsultantId.value = String(current);
+      activeTimesheetConsultantId = Number(current);
+    } else {
+      activeTimesheetConsultantId = 0;
+      timesheetMonths = [];
+      activeTimesheet = null;
+    }
     resetSelect('timeTrackingConsultant', ui.timeTrackingConsultantId);
+    renderTimesheetMonths();
   };
 
   const renderTimesheetMonths = () => {
     if (!ui.timesheetMonthList) return;
     ui.timesheetMonthList.innerHTML = '';
+    const hasConsultantSelected = Boolean(activeTimesheetConsultantId);
+    if (!hasConsultantSelected) {
+      ui.timesheetMonthCount.textContent = '';
+      ui.timesheetsEmptyState.hidden = false;
+      ui.timesheetsEmptyState.textContent = 'Select a consultant to load monthly timesheets.';
+      return;
+    }
     ui.timesheetMonthCount.textContent = timesheetMonths.length ? `${timesheetMonths.length} month(s)` : '';
     ui.timesheetsEmptyState.hidden = Boolean(timesheetMonths.length);
+    ui.timesheetsEmptyState.textContent = 'No monthly timesheets found for the selected consultant.';
     timesheetMonths.forEach((month) => {
       const row = document.createElement('div');
       row.className = 'timesheet-month-row';
@@ -1787,7 +1803,14 @@ if (!isBrowserRuntime) {
     document.querySelectorAll('#nav-menu .collection-item').forEach((item) => item.classList.toggle('active', item.dataset.section === section));
     if (section === 'projects') showProjectsPanel();
     if (section === 'consultants') showConsultantsPanel();
-    if (section === 'time-tracking') { ui.timeTrackingListCard.hidden = false; ui.timesheetDetailCard.hidden = true; }
+    if (section === 'time-tracking') {
+      ui.timeTrackingListCard.hidden = false;
+      ui.timesheetDetailCard.hidden = true;
+      if (!activeTimesheetConsultantId) {
+        timesheetMonths = [];
+      }
+      renderTimesheetMonths();
+    }
     if (section === 'allocation-forecast' && !allocationState) {
       ui.allocationForecastEmptyActions.hidden = false;
       ui.allocationSimulationList.hidden = true;
