@@ -1806,6 +1806,7 @@ if (!isBrowserRuntime) {
     if (section === 'time-tracking') {
       ui.timeTrackingListCard.hidden = false;
       ui.timesheetDetailCard.hidden = true;
+      rebuildTimeTrackingConsultantSelect();
       if (!activeTimesheetConsultantId) {
         timesheetMonths = [];
       }
