@@ -642,6 +642,7 @@ if (!isBrowserRuntime) {
       name.className = 'availability-name';
       name.textContent = consultant.name;
       row.appendChild(name);
+      const consultantStartDate = parseIsoDate(consultant.startDate);
 
       weeks.forEach(({ monday }) => {
         const weekStart = new Date(monday);
@@ -651,6 +652,11 @@ if (!isBrowserRuntime) {
         const cell = document.createElement('div');
         cell.className = 'week-cell';
         cell.dataset.monday = formatIsoDate(weekStart);
+
+        if (consultantStartDate && weekEnd < consultantStartDate) {
+          row.appendChild(cell);
+          return;
+        }
 
         const overlappingDaysOff = (consultant.availability || []).filter((entry) => {
           const entryStart = new Date(entry.startDate);
