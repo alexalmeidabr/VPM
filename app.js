@@ -440,6 +440,7 @@ if (!isBrowserRuntime) {
     } catch (error) {
       // Keep existing consultant cache if this refresh fails
     }
+    return Array.isArray(consultants) ? consultants : [];
   };
 
   const closeTimeTrackingConsultantMenu = () => {
@@ -462,6 +463,12 @@ if (!isBrowserRuntime) {
     ui.timeTrackingListCard.hidden = false;
     ui.timesheetDetailCard.hidden = true;
     await loadTimesheetMonths(activeTimesheetConsultantId);
+  };
+
+  const refreshAndOpenTimeTrackingConsultantMenu = async (filterText = '') => {
+    await fetchTimeTrackingConsultantsFromDb();
+    renderTimeTrackingConsultantOptions(filterText);
+    openTimeTrackingConsultantMenu();
   };
 
   const renderTimeTrackingConsultantOptions = (filterText = '') => {
@@ -2811,12 +2818,11 @@ if (!isBrowserRuntime) {
     setConsultantFormMode('edit');
   });
 
-  ui.timeTrackingConsultantInput?.addEventListener('focus', () => {
-    renderTimeTrackingConsultantOptions(ui.timeTrackingConsultantInput.value || '');
-    openTimeTrackingConsultantMenu();
+  ui.timeTrackingConsultantInput?.addEventListener('focus', async () => {
+    await refreshAndOpenTimeTrackingConsultantMenu(ui.timeTrackingConsultantInput.value || '');
   });
 
-  ui.timeTrackingConsultantInput?.addEventListener('input', () => {
+  ui.timeTrackingConsultantInput?.addEventListener('input', async () => {
     const typed = String(ui.timeTrackingConsultantInput.value || '').trim();
     const selected = consultants.find((item) => Number(item.id) === Number(activeTimesheetConsultantId));
     if (!selected || typed !== String(selected.name || '')) {
@@ -2825,24 +2831,22 @@ if (!isBrowserRuntime) {
       activeTimesheet = null;
       renderTimesheetMonths();
     }
-    renderTimeTrackingConsultantOptions(typed);
-    openTimeTrackingConsultantMenu();
+    await refreshAndOpenTimeTrackingConsultantMenu(typed);
   });
 
-  ui.timeTrackingConsultantInput?.addEventListener('keydown', (event) => {
+  ui.timeTrackingConsultantInput?.addEventListener('keydown', async (event) => {
     if (event.key === 'Escape') {
       closeTimeTrackingConsultantMenu();
       return;
     }
     if (event.key === 'ArrowDown') {
-      openTimeTrackingConsultantMenu();
+      await refreshAndOpenTimeTrackingConsultantMenu(ui.timeTrackingConsultantInput?.value || '');
     }
   });
 
-  ui.timeTrackingConsultantToggle?.addEventListener('click', () => {
+  ui.timeTrackingConsultantToggle?.addEventListener('click', async () => {
     if (ui.timeTrackingConsultantMenu?.hidden) {
-      renderTimeTrackingConsultantOptions(ui.timeTrackingConsultantInput?.value || '');
-      openTimeTrackingConsultantMenu();
+      await refreshAndOpenTimeTrackingConsultantMenu(ui.timeTrackingConsultantInput?.value || '');
       ui.timeTrackingConsultantInput?.focus();
     } else {
       closeTimeTrackingConsultantMenu();
