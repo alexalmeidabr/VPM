@@ -427,6 +427,17 @@ if (!isBrowserRuntime) {
     return { label: 'Working day', className: '' };
   };
 
+  const fetchTimeTrackingConsultantsFromDb = async () => {
+    try {
+      const res = await request('/api/consultants');
+      if (Array.isArray(res?.consultants)) {
+        consultants = res.consultants;
+      }
+    } catch (error) {
+      // Keep existing consultant cache if this refresh fails
+    }
+  };
+
   const rebuildTimeTrackingConsultantSelect = () => {
     if (!ui.timeTrackingConsultantId) return;
     const current = String(ui.timeTrackingConsultantId.value || '');
@@ -1811,6 +1822,9 @@ if (!isBrowserRuntime) {
       ui.timeTrackingListCard.hidden = false;
       ui.timesheetDetailCard.hidden = true;
       rebuildTimeTrackingConsultantSelect();
+      fetchTimeTrackingConsultantsFromDb().then(() => {
+        rebuildTimeTrackingConsultantSelect();
+      });
       if (!activeTimesheetConsultantId) {
         timesheetMonths = [];
       }
