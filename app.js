@@ -520,9 +520,25 @@ if (!isBrowserRuntime) {
   };
 
   const drawTimeline = (container, consultantsToRender, options = {}) => {
-    const year = options.year || new Date().getFullYear();
+    let year = options.year || new Date().getFullYear();
     const centered = Boolean(options.centerOnCurrentWeek);
-    const weeks = buildTimelineWeeks({ year, centered });
+    const consultantStartDates = (consultantsToRender || [])
+      .map((consultant) => parseIsoDate(consultant.startDate))
+      .filter(Boolean)
+      .sort((a, b) => a - b);
+    const earliestConsultantStartDate = consultantStartDates[0] || null;
+    const minimumTimelineYear = earliestConsultantStartDate ? earliestConsultantStartDate.getFullYear() : null;
+    if (!centered && minimumTimelineYear !== null && year < minimumTimelineYear) {
+      year = minimumTimelineYear;
+    }
+    const timelineWeeks = buildTimelineWeeks({ year, centered });
+    const weeks = earliestConsultantStartDate && !centered
+      ? timelineWeeks.filter(({ monday }) => {
+        const weekEnd = new Date(monday);
+        weekEnd.setDate(weekEnd.getDate() + 6);
+        return weekEnd >= earliestConsultantStartDate;
+      })
+      : timelineWeeks;
     container.innerHTML = '';
 
     const legend = document.createElement('div');
@@ -579,7 +595,7 @@ if (!isBrowserRuntime) {
       prevButton.className = 'btn-flat timeline-nav-btn';
       prevButton.type = 'button';
       prevButton.dataset.action = 'prev-year';
-      prevButton.disabled = centered;
+      prevButton.disabled = centered || (minimumTimelineYear !== null && year <= minimumTimelineYear);
       prevButton.setAttribute('aria-label', 'Previous year');
       prevButton.innerHTML = '<i class="material-icons">chevron_left</i>';
       yearControls.appendChild(prevButton);
@@ -2398,12 +2414,23 @@ if (!isBrowserRuntime) {
     }
   });
 
+
+  const minimumConsultantStartYear = (consultantsToInspect) => {
+    const years = (consultantsToInspect || [])
+      .map((consultant) => parseIsoDate(consultant.startDate))
+      .filter(Boolean)
+      .map((date) => date.getFullYear());
+    if (!years.length) return null;
+    return Math.min(...years);
+  };
+
   ui.availabilityChart.addEventListener('click', async (event) => {
     const button = event.target.closest('button[data-action]');
     if (!button) return;
     if (ui.centerCurrentWeekToggle?.checked) return;
 
-    if (button.dataset.action === 'prev-year') selectedTimelineYear -= 1;
+    const minYear = minimumConsultantStartYear(consultants);
+    if (button.dataset.action === 'prev-year' && (minYear === null || selectedTimelineYear > minYear)) selectedTimelineYear -= 1;
     if (button.dataset.action === 'next-year') selectedTimelineYear += 1;
     await refreshTimelines();
   });
@@ -2416,7 +2443,10 @@ if (!isBrowserRuntime) {
     const button = event.target.closest('button[data-action]');
     if (button) {
       if (ui.centerCurrentWeekToggle?.checked) return;
-      if (button.dataset.action === 'prev-year') selectedTimelineYear -= 1;
+      const consultantId = Number(fields.consultantId.value);
+      const consultant = consultantId ? findConsultantById(consultantId) : null;
+      const minYear = minimumConsultantStartYear(consultant ? [consultant] : []);
+      if (button.dataset.action === 'prev-year' && (minYear === null || selectedTimelineYear > minYear)) selectedTimelineYear -= 1;
       if (button.dataset.action === 'next-year') selectedTimelineYear += 1;
       await refreshTimelines();
       return;
