@@ -14,6 +14,7 @@
       <ul class="collection" id="nav-menu">
         <li class="collection-item active" data-section="projects">Projects</li>
         <li class="collection-item" data-section="consultants">Consultants</li>
+        <li class="collection-item" data-section="time-tracking">Time Tracking</li>
         <li class="collection-item" data-section="allocation-forecast">Allocation Forecast</li>
         <li class="collection-item" data-section="mass-update">Mass Update</li>
         <li class="collection-item" data-section="authorization">Authorization</li>
@@ -193,6 +194,39 @@
               <button type="button" class="btn blue-grey" id="open-holidays-modal-btn">Load Holidays</button>
             </div>
             <ul id="consultant-days-off-list" class="collection"></ul>
+          </div>
+        </div>
+      </section>
+
+      <section id="time-tracking-section" hidden>
+        <div class="card" id="time-tracking-list-card">
+          <div class="card-content">
+            <div class="section-header">
+              <span class="card-title">Time Tracking</span>
+            </div>
+            <div class="input-field">
+              <select id="time-tracking-consultant-id"></select>
+              <label for="time-tracking-consultant-id">Consultant</label>
+            </div>
+            <p class="grey-text" id="timesheet-month-count"></p>
+            <div id="timesheets-empty-state" class="center-align grey-text text-darken-1 empty-message">Select a consultant to load monthly timesheets.</div>
+            <div id="timesheet-month-list" class="timesheet-month-list"></div>
+          </div>
+        </div>
+
+        <div class="card" id="timesheet-detail-card" hidden>
+          <div class="card-content">
+            <div class="section-header">
+              <span class="card-title" id="timesheet-detail-title">Monthly Timesheet</span>
+              <button class="btn-flat" type="button" id="back-to-timesheets-btn">Back to months</button>
+            </div>
+            <div class="timesheet-week-toolbar">
+              <button class="btn-flat" type="button" id="timesheet-prev-week-btn"><i class="material-icons">chevron_left</i></button>
+              <span id="timesheet-week-label" class="timesheet-week-label"></span>
+              <button class="btn-flat" type="button" id="timesheet-next-week-btn"><i class="material-icons">chevron_right</i></button>
+              <button class="btn" type="button" id="add-manual-timesheet-line-btn">Add Manual Line</button>
+            </div>
+            <div id="timesheet-table-wrap" class="table-container"></div>
           </div>
         </div>
       </section>

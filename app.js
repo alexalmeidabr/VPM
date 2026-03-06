@@ -11,6 +11,7 @@ if (!isBrowserRuntime) {
   const sections = {
     projects: document.getElementById('projects-section'),
     consultants: document.getElementById('consultants-section'),
+    'time-tracking': document.getElementById('time-tracking-section'),
     'allocation-forecast': document.getElementById('allocation-forecast-section'),
     'mass-update': document.getElementById('mass-update-section'),
     authorization: document.getElementById('authorization-section'),
@@ -141,6 +142,20 @@ if (!isBrowserRuntime) {
     consultantSalary: document.getElementById('consultant-salary'),
     consultantHolidayLocationId: document.getElementById('consultant-holiday-location-id'),
 
+    timeTrackingConsultantId: document.getElementById('time-tracking-consultant-id'),
+    timesheetMonthCount: document.getElementById('timesheet-month-count'),
+    timesheetsEmptyState: document.getElementById('timesheets-empty-state'),
+    timesheetMonthList: document.getElementById('timesheet-month-list'),
+    timesheetDetailCard: document.getElementById('timesheet-detail-card'),
+    timeTrackingListCard: document.getElementById('time-tracking-list-card'),
+    timesheetDetailTitle: document.getElementById('timesheet-detail-title'),
+    backToTimesheetsBtn: document.getElementById('back-to-timesheets-btn'),
+    timesheetPrevWeekBtn: document.getElementById('timesheet-prev-week-btn'),
+    timesheetNextWeekBtn: document.getElementById('timesheet-next-week-btn'),
+    timesheetWeekLabel: document.getElementById('timesheet-week-label'),
+    addManualTimesheetLineBtn: document.getElementById('add-manual-timesheet-line-btn'),
+    timesheetTableWrap: document.getElementById('timesheet-table-wrap'),
+
     roleName: document.getElementById('role-name'),
     areaName: document.getElementById('area-name'),
     dayOffTypeName: document.getElementById('day-off-type-name')
@@ -187,6 +202,10 @@ if (!isBrowserRuntime) {
   let editingProjectPhaseId = null;
   let allocationSimulations = [];
   let allocationState = null;
+  let timesheetMonths = [];
+  let activeTimesheet = null;
+  let activeTimesheetConsultantId = 0;
+  let activeTimesheetWeekIndex = 0;
 
   const fallbackHolidayCountries = ['AD', 'AT', 'BE', 'CA', 'CH', 'DE', 'DK', 'ES', 'FI', 'FR', 'GB', 'IE', 'IT', 'MX', 'NL', 'NO', 'PL', 'PT', 'SE', 'US'];
   const fallbackHolidayRegionsByCountry = {
@@ -360,6 +379,194 @@ if (!isBrowserRuntime) {
       } catch (error) {
         // Keep rendering resilient when a location fails to fetch
       }
+    }
+  };
+
+  const monthLabel = (monthStart) => {
+    const d = parseIsoDate(monthStart);
+    return d ? d.toLocaleDateString(undefined, { month: 'long', year: 'numeric' }) : monthStart;
+  };
+
+  const firstMondayForMonth = (year, monthIndex) => {
+    const first = new Date(year, monthIndex, 1);
+    const day = first.getDay();
+    const shift = day === 0 ? 6 : day - 1;
+    first.setDate(first.getDate() - shift);
+    return first;
+  };
+
+  const buildMonthWeeks = (monthStartIso) => {
+    const start = parseIsoDate(monthStartIso);
+    if (!start) return [];
+    const year = start.getFullYear();
+    const monthIndex = start.getMonth();
+    const end = new Date(year, monthIndex + 1, 0);
+    const monday = firstMondayForMonth(year, monthIndex);
+    const weeks = [];
+    while (monday <= end || monday.getMonth() === monthIndex) {
+      const weekStart = new Date(monday);
+      const days = Array.from({ length: 7 }, (_, i) => {
+        const day = new Date(weekStart);
+        day.setDate(weekStart.getDate() + i);
+        return day;
+      });
+      weeks.push(days);
+      monday.setDate(monday.getDate() + 7);
+      if (weeks.length > 7) break;
+    }
+    return weeks;
+  };
+
+  const dayContextForConsultant = (consultant, day) => {
+    if (isWeekendDate(day)) return { label: 'Weekend', className: 'context-weekend' };
+    const dayIso = formatIsoDate(day);
+    const overlap = (consultant?.availability || []).find((entry) => entry.startDate <= dayIso && entry.endDate >= dayIso);
+    if (overlap) return { label: overlap.type, className: 'context-dayoff' };
+    const holiday = holidayByDateForConsultant(consultant, day);
+    if (holiday) return { label: holiday.name, className: 'context-holiday' };
+    return { label: 'Working day', className: '' };
+  };
+
+  const rebuildTimeTrackingConsultantSelect = () => {
+    if (!ui.timeTrackingConsultantId) return;
+    const current = ui.timeTrackingConsultantId.value;
+    ui.timeTrackingConsultantId.innerHTML = '<option value="" selected disabled>Select consultant</option>';
+    consultants.forEach((consultant) => ui.timeTrackingConsultantId.add(new Option(consultant.name, String(consultant.id))));
+    if (current && consultants.some((item) => String(item.id) === String(current))) ui.timeTrackingConsultantId.value = String(current);
+    resetSelect('timeTrackingConsultant', ui.timeTrackingConsultantId);
+  };
+
+  const renderTimesheetMonths = () => {
+    if (!ui.timesheetMonthList) return;
+    ui.timesheetMonthList.innerHTML = '';
+    ui.timesheetMonthCount.textContent = timesheetMonths.length ? `${timesheetMonths.length} month(s)` : '';
+    ui.timesheetsEmptyState.hidden = Boolean(timesheetMonths.length);
+    timesheetMonths.forEach((month) => {
+      const row = document.createElement('div');
+      row.className = 'timesheet-month-row';
+      row.innerHTML = `<div class="timesheet-month-meta"><div class="timesheet-month-title">${month.label}</div><div class="grey-text">Status: ${month.status || 'Draft'}</div></div><div class="timesheet-actions"><button class="btn" type="button" data-action="open">Open</button><button class="btn-flat red-text" type="button" data-action="delete">Delete</button></div>`;
+      row.querySelector('[data-action="open"]').addEventListener('click', async () => {
+        await openMonthlyTimesheet(month.monthStart);
+      });
+      row.querySelector('[data-action="delete"]').addEventListener('click', async () => {
+        if (!window.confirm(`Delete timesheet ${month.label}? This removes all lines and entries.`)) return;
+        try {
+          await request(`/api/monthly-timesheets?consultantId=${activeTimesheetConsultantId}&month=${month.monthStart.slice(0, 7)}`, { method: 'DELETE' });
+          toast('Timesheet deleted', 'teal darken-1');
+          await loadTimesheetMonths(activeTimesheetConsultantId);
+          if (activeTimesheet && activeTimesheet.monthStart === month.monthStart) {
+            activeTimesheet = null;
+            ui.timesheetDetailCard.hidden = true;
+            ui.timeTrackingListCard.hidden = false;
+          }
+        } catch (error) {
+          toast(error.message || 'Failed to delete timesheet', 'red darken-1');
+        }
+      });
+      ui.timesheetMonthList.appendChild(row);
+    });
+  };
+
+  const loadTimesheetMonths = async (consultantId) => {
+    if (!consultantId) {
+      timesheetMonths = [];
+      renderTimesheetMonths();
+      return;
+    }
+    const res = await request(`/api/monthly-timesheets?consultantId=${consultantId}`);
+    timesheetMonths = res.months || [];
+    renderTimesheetMonths();
+  };
+
+  const renderTimesheetWeek = () => {
+    if (!activeTimesheet || !ui.timesheetTableWrap) return;
+    const consultant = findConsultantById(activeTimesheet.consultantId);
+    const monthWeeks = buildMonthWeeks(activeTimesheet.monthStart);
+    const currentWeek = monthWeeks[activeTimesheetWeekIndex] || [];
+    const weekStart = currentWeek[0];
+    const weekEnd = currentWeek[6];
+    ui.timesheetWeekLabel.textContent = weekStart && weekEnd ? `${formatDate(weekStart)} - ${formatDate(weekEnd)}` : '';
+    ui.timesheetPrevWeekBtn.disabled = activeTimesheetWeekIndex <= 0;
+    ui.timesheetNextWeekBtn.disabled = activeTimesheetWeekIndex >= monthWeeks.length - 1;
+
+    const table = document.createElement('table');
+    table.className = 'striped responsive-table timesheet-entry-table';
+    const thead = document.createElement('thead');
+    const headRow = document.createElement('tr');
+    headRow.innerHTML = '<th>Project / Activity</th>' + currentWeek.map((d) => `<th>${d.toLocaleDateString(undefined, { weekday: 'short' })}<br/>${d.getDate()}</th>`).join('') + '<th>Total</th>';
+    thead.appendChild(headRow);
+    table.appendChild(thead);
+
+    const tbody = document.createElement('tbody');
+    (activeTimesheet.lines || []).forEach((line) => {
+      const tr = document.createElement('tr');
+      const lineLabel = line.projectName || 'Manual';
+      const activityInput = line.isManual ? `<input class="line-activity-input" type="text" value="${(line.activity || '').replace(/"/g, '&quot;')}" disabled/>` : (line.activity || '');
+      tr.innerHTML = `<td><strong>${lineLabel}</strong>${line.isManual ? `<div>${activityInput}</div>` : ''}</td>`;
+      let total = 0;
+      currentWeek.forEach((day) => {
+        const dayIso = formatIsoDate(day);
+        const td = document.createElement('td');
+        const context = dayContextForConsultant(consultant, day);
+        if (context.className) td.classList.add(context.className);
+        const value = Number(line.entries?.[dayIso] || 0);
+        total += value;
+        const inMonth = day.getMonth() === parseIsoDate(activeTimesheet.monthStart).getMonth();
+        td.innerHTML = inMonth
+          ? `<input type="number" min="0" max="24" step="0.5" value="${value || ''}" /><div class="day-context">${context.label}</div>`
+          : '<span class="grey-text">—</span>';
+        const input = td.querySelector('input');
+        if (input) {
+          input.addEventListener('change', async () => {
+            const hours = Number(input.value || 0);
+            if (Number.isNaN(hours) || hours < 0 || hours > 24) {
+              toast('Hours must be between 0 and 24', 'red darken-1');
+              input.value = String(value || '');
+              return;
+            }
+            try {
+              await request('/api/monthly-timesheets/entry', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ lineId: line.id, date: dayIso, hours })
+              });
+              line.entries = { ...(line.entries || {}), [dayIso]: hours };
+            } catch (error) {
+              toast(error.message || 'Failed to save hours', 'red darken-1');
+            }
+          });
+        }
+        tr.appendChild(td);
+      });
+      const totalCell = document.createElement('td');
+      totalCell.textContent = total.toFixed(1);
+      tr.appendChild(totalCell);
+      tbody.appendChild(tr);
+    });
+    table.appendChild(tbody);
+    ui.timesheetTableWrap.innerHTML = '';
+    ui.timesheetTableWrap.appendChild(table);
+  };
+
+  const openMonthlyTimesheet = async (monthStartIso) => {
+    if (!activeTimesheetConsultantId) return;
+    try {
+      const consultant = findConsultantById(activeTimesheetConsultantId);
+      const y = Number(monthStartIso.slice(0, 4));
+      const location = consultant ? holidayLocationById(consultant.holidayLocationId) : null;
+      if (location) {
+        try { await loadHolidaysForLocation({ year: y, countryCode: location.countryCode, regionCode: location.regionCode || '' }); } catch (_) {}
+      }
+      const detail = await request(`/api/monthly-timesheets?consultantId=${activeTimesheetConsultantId}&month=${monthStartIso.slice(0, 7)}`);
+      activeTimesheet = detail;
+      activeTimesheetWeekIndex = 0;
+      ui.timesheetDetailTitle.textContent = `${consultant?.name || 'Consultant'} • ${monthLabel(monthStartIso)}`;
+      ui.timeTrackingListCard.hidden = true;
+      ui.timesheetDetailCard.hidden = false;
+      renderTimesheetWeek();
+      await loadTimesheetMonths(activeTimesheetConsultantId);
+    } catch (error) {
+      toast(error.message || 'Failed to open timesheet', 'red darken-1');
     }
   };
 
@@ -1580,6 +1787,7 @@ if (!isBrowserRuntime) {
     document.querySelectorAll('#nav-menu .collection-item').forEach((item) => item.classList.toggle('active', item.dataset.section === section));
     if (section === 'projects') showProjectsPanel();
     if (section === 'consultants') showConsultantsPanel();
+    if (section === 'time-tracking') { ui.timeTrackingListCard.hidden = false; ui.timesheetDetailCard.hidden = true; }
     if (section === 'allocation-forecast' && !allocationState) {
       ui.allocationForecastEmptyActions.hidden = false;
       ui.allocationSimulationList.hidden = true;
@@ -1856,6 +2064,7 @@ if (!isBrowserRuntime) {
     rebuildHolidayCountryRegionControls({ consultantHolidayLocationId: fields.consultantHolidayLocationId.value });
     rebuildAssignmentModalSelects();
     rebuildDayOffTypeSelect();
+    rebuildTimeTrackingConsultantSelect();
     renderAllocationSimulationList();
 
     if (failed.length) {
@@ -2509,6 +2718,52 @@ if (!isBrowserRuntime) {
 
   ui.consultantSwitchEditBtn?.addEventListener('click', () => {
     setConsultantFormMode('edit');
+  });
+
+  ui.timeTrackingConsultantId?.addEventListener('change', async () => {
+    activeTimesheetConsultantId = Number(ui.timeTrackingConsultantId.value);
+    activeTimesheet = null;
+    ui.timeTrackingListCard.hidden = false;
+    ui.timesheetDetailCard.hidden = true;
+    await loadTimesheetMonths(activeTimesheetConsultantId);
+  });
+
+  ui.backToTimesheetsBtn?.addEventListener('click', async () => {
+    ui.timeTrackingListCard.hidden = false;
+    ui.timesheetDetailCard.hidden = true;
+    await loadTimesheetMonths(activeTimesheetConsultantId);
+  });
+
+  ui.timesheetPrevWeekBtn?.addEventListener('click', () => {
+    if (activeTimesheetWeekIndex <= 0) return;
+    activeTimesheetWeekIndex -= 1;
+    renderTimesheetWeek();
+  });
+
+  ui.timesheetNextWeekBtn?.addEventListener('click', () => {
+    const totalWeeks = buildMonthWeeks(activeTimesheet?.monthStart || '').length;
+    if (activeTimesheetWeekIndex >= totalWeeks - 1) return;
+    activeTimesheetWeekIndex += 1;
+    renderTimesheetWeek();
+  });
+
+  ui.addManualTimesheetLineBtn?.addEventListener('click', async () => {
+    if (!activeTimesheet?.timesheetId) return;
+    const activity = window.prompt('Activity description');
+    if (!activity || !activity.trim()) {
+      toast('Activity is required for manual line', 'orange darken-2');
+      return;
+    }
+    try {
+      await request('/api/monthly-timesheets/manual-line', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ timesheetId: activeTimesheet.timesheetId, activity: activity.trim() })
+      });
+      await openMonthlyTimesheet(activeTimesheet.monthStart);
+    } catch (error) {
+      toast(error.message || 'Failed to add manual line', 'red darken-1');
+    }
   });
 
   ui.navMenu.addEventListener('click', (event) => {

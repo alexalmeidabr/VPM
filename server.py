@@ -153,6 +153,38 @@ def init_db():
         FOREIGN KEY (day_off_type_id) REFERENCES day_off_types(id) ON DELETE SET NULL
       );
 
+      CREATE TABLE IF NOT EXISTS monthly_timesheets (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        consultant_id INTEGER NOT NULL,
+        month_start TEXT NOT NULL,
+        status TEXT,
+        created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE(consultant_id, month_start),
+        FOREIGN KEY (consultant_id) REFERENCES consultants(id) ON DELETE CASCADE
+      );
+
+      CREATE TABLE IF NOT EXISTS monthly_timesheet_lines (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        timesheet_id INTEGER NOT NULL,
+        project_id INTEGER,
+        activity TEXT,
+        is_manual INTEGER NOT NULL DEFAULT 0,
+        created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (timesheet_id) REFERENCES monthly_timesheets(id) ON DELETE CASCADE,
+        FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE SET NULL
+      );
+
+      CREATE TABLE IF NOT EXISTS monthly_timesheet_entries (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        line_id INTEGER NOT NULL,
+        entry_date TEXT NOT NULL,
+        hours REAL NOT NULL DEFAULT 0,
+        created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+        updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE(line_id, entry_date),
+        FOREIGN KEY (line_id) REFERENCES monthly_timesheet_lines(id) ON DELETE CASCADE
+      );
+
       CREATE TABLE IF NOT EXISTS projects (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         project_name TEXT NOT NULL,
@@ -862,6 +894,89 @@ class VPMHandler(SimpleHTTPRequestHandler):
       'updatedAt': row['updated_at']
     }
 
+  def _parse_month_start(self, value):
+    month_raw = str(value or '').strip()
+    try:
+      parsed = datetime.strptime(month_raw, '%Y-%m')
+    except ValueError:
+      return None
+    return parsed.strftime('%Y-%m-01')
+
+  def _month_range(self, month_start):
+    start = datetime.strptime(month_start, '%Y-%m-%d').date()
+    if start.month == 12:
+      next_month = start.replace(year=start.year + 1, month=1, day=1)
+    else:
+      next_month = start.replace(month=start.month + 1, day=1)
+    end = next_month - timedelta(days=1)
+    return start.isoformat(), end.isoformat()
+
+  def _ensure_monthly_timesheet(self, conn, consultant_id, month_start):
+    conn.execute('INSERT INTO monthly_timesheets (consultant_id, month_start) VALUES (?, ?) ON CONFLICT(consultant_id, month_start) DO NOTHING', (consultant_id, month_start))
+    row = conn.execute('SELECT id, consultant_id, month_start, status FROM monthly_timesheets WHERE consultant_id = ? AND month_start = ?', (consultant_id, month_start)).fetchone()
+    if not row:
+      return None
+
+    month_start_iso, month_end_iso = self._month_range(month_start)
+    assigned_projects = conn.execute('SELECT DISTINCT p.id AS project_id, p.project_name FROM projects p JOIN project_consultants pc ON pc.project_id = p.id WHERE pc.consultant_id = ? AND COALESCE(pc.start_date, p.start_date) <= ? AND COALESCE(pc.end_date, p.end_date) >= ? ORDER BY p.project_name', (consultant_id, month_end_iso, month_start_iso)).fetchall()
+
+    existing_project_ids = {int(item['project_id']) for item in conn.execute('SELECT project_id FROM monthly_timesheet_lines WHERE timesheet_id = ? AND project_id IS NOT NULL', (row['id'],)).fetchall()}
+    for project in assigned_projects:
+      project_id = int(project['project_id'])
+      if project_id in existing_project_ids:
+        continue
+      conn.execute('INSERT INTO monthly_timesheet_lines (timesheet_id, project_id, activity, is_manual) VALUES (?, ?, ?, 0)', (row['id'], project_id, None))
+
+    return row
+
+  def _fetch_timesheet_months(self, conn, consultant_id):
+    consultant = conn.execute('SELECT start_date FROM consultants WHERE id = ?', (consultant_id,)).fetchone()
+    if not consultant:
+      return None
+    if not consultant['start_date']:
+      return []
+    try:
+      start = datetime.strptime(consultant['start_date'], '%Y-%m-%d').date().replace(day=1)
+    except ValueError:
+      return []
+    today = datetime.utcnow().date().replace(day=1)
+    months = []
+    cursor = start
+    while cursor <= today:
+      month_start = cursor.isoformat()
+      existing = conn.execute('SELECT id, status FROM monthly_timesheets WHERE consultant_id = ? AND month_start = ?', (consultant_id, month_start)).fetchone()
+      months.append({'monthStart': month_start, 'label': cursor.strftime('%B %Y'), 'timesheetId': existing['id'] if existing else None, 'status': existing['status'] if existing else None})
+      if cursor.month == 12:
+        cursor = cursor.replace(year=cursor.year + 1, month=1)
+      else:
+        cursor = cursor.replace(month=cursor.month + 1)
+    return months
+
+  def _fetch_timesheet_detail(self, conn, consultant_id, month_start):
+    row = self._ensure_monthly_timesheet(conn, consultant_id, month_start)
+    if not row:
+      return None
+    lines = conn.execute('SELECT l.id, l.project_id, l.activity, l.is_manual, p.project_name FROM monthly_timesheet_lines l LEFT JOIN projects p ON p.id = l.project_id WHERE l.timesheet_id = ? ORDER BY l.is_manual, p.project_name, l.id', (row['id'],)).fetchall()
+    line_ids = [line['id'] for line in lines]
+    entry_rows = []
+    if line_ids:
+      placeholders = ','.join('?' for _ in line_ids)
+      entry_rows = conn.execute(f'SELECT line_id, entry_date, hours FROM monthly_timesheet_entries WHERE line_id IN ({placeholders})', tuple(line_ids)).fetchall()
+    entries_by_line = {}
+    for entry in entry_rows:
+      entries_by_line.setdefault(entry['line_id'], {})[entry['entry_date']] = entry['hours']
+
+    return {
+      'timesheetId': row['id'],
+      'consultantId': row['consultant_id'],
+      'monthStart': row['month_start'],
+      'status': row['status'],
+      'lines': [
+        {'id': item['id'], 'projectId': item['project_id'], 'projectName': item['project_name'], 'activity': item['activity'] or '', 'isManual': bool(item['is_manual']), 'entries': entries_by_line.get(item['id'], {})}
+        for item in lines
+      ]
+    }
+
   def do_GET(self):
     path = self._path()
     query = self._query()
@@ -907,6 +1022,32 @@ class VPMHandler(SimpleHTTPRequestHandler):
           return
         rows = self._fetch_holidays(conn, payload['year'], payload['countryCode'], payload['regionCode'])
         self._send_json({'holidays': rows})
+        return
+
+      if path == '/api/monthly-timesheets':
+        consultant_raw = (query.get('consultantId') or [None])[0]
+        month_raw = (query.get('month') or [None])[0]
+        try:
+          consultant_id = int(consultant_raw)
+        except (TypeError, ValueError):
+          self._send_json({'error': 'consultantId is required and must be numeric'}, HTTPStatus.BAD_REQUEST)
+          return
+        if month_raw:
+          month_start = self._parse_month_start(month_raw)
+          if not month_start:
+            self._send_json({'error': 'month must be in YYYY-MM format'}, HTTPStatus.BAD_REQUEST)
+            return
+          detail = self._fetch_timesheet_detail(conn, consultant_id, month_start)
+          if not detail:
+            self._send_json({'error': 'Consultant not found'}, HTTPStatus.NOT_FOUND)
+            return
+          self._send_json(detail)
+          return
+        months = self._fetch_timesheet_months(conn, consultant_id)
+        if months is None:
+          self._send_json({'error': 'Consultant not found'}, HTTPStatus.NOT_FOUND)
+          return
+        self._send_json({'months': months})
         return
 
     super().do_GET()
@@ -1081,6 +1222,70 @@ class VPMHandler(SimpleHTTPRequestHandler):
           return
       self._send_json({'id': cursor.lastrowid}, HTTPStatus.CREATED)
       return
+
+    if path == '/api/monthly-timesheets/open':
+      try:
+        consultant_id = int(payload.get('consultantId'))
+      except (TypeError, ValueError):
+        self._send_json({'error': 'consultantId must be numeric'}, HTTPStatus.BAD_REQUEST)
+        return
+      month_start = self._parse_month_start(payload.get('month'))
+      if not month_start:
+        self._send_json({'error': 'month must be in YYYY-MM format'}, HTTPStatus.BAD_REQUEST)
+        return
+      with get_connection() as conn:
+        detail = self._fetch_timesheet_detail(conn, consultant_id, month_start)
+      if not detail:
+        self._send_json({'error': 'Consultant not found'}, HTTPStatus.NOT_FOUND)
+        return
+      self._send_json(detail, HTTPStatus.CREATED)
+      return
+
+    if path == '/api/monthly-timesheets/manual-line':
+      try:
+        timesheet_id = int(payload.get('timesheetId'))
+      except (TypeError, ValueError):
+        self._send_json({'error': 'timesheetId must be numeric'}, HTTPStatus.BAD_REQUEST)
+        return
+      activity = str(payload.get('activity', '')).strip()
+      if not activity:
+        self._send_json({'error': 'activity is required'}, HTTPStatus.BAD_REQUEST)
+        return
+      with get_connection() as conn:
+        if not conn.execute('SELECT id FROM monthly_timesheets WHERE id = ?', (timesheet_id,)).fetchone():
+          self._send_json({'error': 'Timesheet not found'}, HTTPStatus.NOT_FOUND)
+          return
+        cursor = conn.execute('INSERT INTO monthly_timesheet_lines (timesheet_id, activity, is_manual) VALUES (?, ?, 1)', (timesheet_id, activity))
+      self._send_json({'id': cursor.lastrowid}, HTTPStatus.CREATED)
+      return
+
+    if path == '/api/monthly-timesheets/entry':
+      try:
+        line_id = int(payload.get('lineId'))
+      except (TypeError, ValueError):
+        self._send_json({'error': 'lineId must be numeric'}, HTTPStatus.BAD_REQUEST)
+        return
+      entry_date = str(payload.get('date', '')).strip()
+      if not self._valid_iso_date(entry_date):
+        self._send_json({'error': 'date must be YYYY-MM-DD'}, HTTPStatus.BAD_REQUEST)
+        return
+      try:
+        hours = float(payload.get('hours', 0))
+      except (TypeError, ValueError):
+        self._send_json({'error': 'hours must be numeric'}, HTTPStatus.BAD_REQUEST)
+        return
+      if hours < 0 or hours > 24:
+        self._send_json({'error': 'hours must be between 0 and 24'}, HTTPStatus.BAD_REQUEST)
+        return
+      with get_connection() as conn:
+        row = conn.execute('SELECT id FROM monthly_timesheet_lines WHERE id = ?', (line_id,)).fetchone()
+        if not row:
+          self._send_json({'error': 'Timesheet line not found'}, HTTPStatus.NOT_FOUND)
+          return
+        conn.execute('INSERT INTO monthly_timesheet_entries (line_id, entry_date, hours, updated_at) VALUES (?, ?, ?, CURRENT_TIMESTAMP) ON CONFLICT(line_id, entry_date) DO UPDATE SET hours = excluded.hours, updated_at = CURRENT_TIMESTAMP', (line_id, entry_date, hours))
+      self._send_json({'status': 'updated'})
+      return
+
 
     if path == '/api/holidays/load':
       error = self._holiday_load_payload_error(payload)
@@ -1274,6 +1479,8 @@ class VPMHandler(SimpleHTTPRequestHandler):
     self.send_error(HTTPStatus.NOT_FOUND)
 
   def do_DELETE(self):
+    path = self._path()
+    query = self._query()
     project_id = self._resource_id('projects')
     consultant_id = self._resource_id('consultants')
     role_id = self._resource_id('roles')
@@ -1332,6 +1539,26 @@ class VPMHandler(SimpleHTTPRequestHandler):
         cursor = conn.execute('DELETE FROM day_off_types WHERE id = ?', (day_off_type_id,))
       if cursor.rowcount == 0:
         self._send_json({'error': 'Day off type not found'}, HTTPStatus.NOT_FOUND)
+        return
+      self._send_json({'status': 'deleted'})
+      return
+
+    if path == '/api/monthly-timesheets':
+      consultant_raw = (query.get('consultantId') or [None])[0]
+      month_raw = (query.get('month') or [None])[0]
+      try:
+        consultant_id = int(consultant_raw)
+      except (TypeError, ValueError):
+        self._send_json({'error': 'consultantId is required and must be numeric'}, HTTPStatus.BAD_REQUEST)
+        return
+      month_start = self._parse_month_start(month_raw)
+      if not month_start:
+        self._send_json({'error': 'month must be in YYYY-MM format'}, HTTPStatus.BAD_REQUEST)
+        return
+      with get_connection() as conn:
+        cursor = conn.execute('DELETE FROM monthly_timesheets WHERE consultant_id = ? AND month_start = ?', (consultant_id, month_start))
+      if cursor.rowcount == 0:
+        self._send_json({'error': 'Timesheet not found'}, HTTPStatus.NOT_FOUND)
         return
       self._send_json({'status': 'deleted'})
       return
