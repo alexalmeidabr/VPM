@@ -79,6 +79,7 @@ def init_db():
         position TEXT,
         holiday_location_id INTEGER,
         salary REAL NOT NULL,
+        start_date TEXT,
         created_at TEXT DEFAULT CURRENT_TIMESTAMP,
         FOREIGN KEY (holiday_location_id) REFERENCES holiday_locations(id) ON DELETE SET NULL
       );
@@ -216,6 +217,7 @@ def init_db():
     ensure_column(conn, 'consultant_availability', 'day_off_type_id', 'day_off_type_id INTEGER')
     ensure_column(conn, 'consultant_availability', 'type', 'type TEXT')
     ensure_column(conn, 'consultants', 'holiday_location_id', 'holiday_location_id INTEGER REFERENCES holiday_locations(id) ON DELETE SET NULL')
+    ensure_column(conn, 'consultants', 'start_date', 'start_date TEXT')
     seed_defaults(conn)
 
 
@@ -451,6 +453,13 @@ class VPMHandler(SimpleHTTPRequestHandler):
     except (TypeError, ValueError):
       return 'areaIds and companyRoleId must be numeric IDs'
 
+    start_date = str(payload.get('startDate', '')).strip()
+    if not start_date:
+      return 'startDate is required'
+    if not self._is_iso_date(start_date):
+      return 'startDate must be YYYY-MM-DD'
+    payload['startDate'] = start_date
+
     holiday_location_id = payload.get('holidayLocationId')
     if holiday_location_id in ('', None):
       payload['holidayLocationId'] = None
@@ -681,7 +690,7 @@ class VPMHandler(SimpleHTTPRequestHandler):
     return [{'id': row['id'], 'name': row['name']} for row in rows]
 
   def _fetch_consultants(self, conn):
-    rows = conn.execute('SELECT id, name, salary, holiday_location_id FROM consultants ORDER BY created_at DESC, id DESC').fetchall()
+    rows = conn.execute('SELECT id, name, salary, holiday_location_id, start_date FROM consultants ORDER BY created_at DESC, id DESC').fetchall()
     consultants = []
     for consultant in rows:
       role_row = conn.execute(
@@ -728,6 +737,7 @@ class VPMHandler(SimpleHTTPRequestHandler):
         'id': consultant['id'],
         'name': consultant['name'],
         'salary': consultant['salary'],
+        'startDate': consultant['start_date'],
         'companyRoleId': role_row['id'] if role_row else None,
         'companyRole': role_row['name'] if role_row else None,
         'areaIds': [row['id'] for row in area_rows],
@@ -987,8 +997,8 @@ class VPMHandler(SimpleHTTPRequestHandler):
           self._send_json({'error': 'Selected holiday location does not exist'}, HTTPStatus.BAD_REQUEST)
           return
         cursor = conn.execute(
-          'INSERT INTO consultants (name, area, position, salary, holiday_location_id) VALUES (?, ?, ?, ?, ?)',
-          (payload['name'], first_area['name'] if first_area else None, role_row['name'] if role_row else None, payload['salary'], payload['holidayLocationId'])
+          'INSERT INTO consultants (name, area, position, salary, holiday_location_id, start_date) VALUES (?, ?, ?, ?, ?, ?)',
+          (payload['name'], first_area['name'] if first_area else None, role_row['name'] if role_row else None, payload['salary'], payload['holidayLocationId'], payload['startDate'])
         )
         consultant_id = cursor.lastrowid
         for area_id in sorted(set(payload['areaIds'])):
@@ -1206,8 +1216,8 @@ class VPMHandler(SimpleHTTPRequestHandler):
         first_area = conn.execute('SELECT name FROM areas WHERE id = ? LIMIT 1', (payload['areaIds'][0],)).fetchone()
         role_row = conn.execute('SELECT name FROM roles WHERE id = ? LIMIT 1', (payload['companyRoleId'],)).fetchone()
         cursor = conn.execute(
-          'UPDATE consultants SET name = ?, area = ?, position = ?, salary = ?, holiday_location_id = ? WHERE id = ?',
-          (payload['name'], first_area['name'] if first_area else None, role_row['name'] if role_row else None, payload['salary'], payload['holidayLocationId'], consultant_id)
+          'UPDATE consultants SET name = ?, area = ?, position = ?, salary = ?, holiday_location_id = ?, start_date = ? WHERE id = ?',
+          (payload['name'], first_area['name'] if first_area else None, role_row['name'] if role_row else None, payload['salary'], payload['holidayLocationId'], payload['startDate'], consultant_id)
         )
         if cursor.rowcount == 0:
           self._send_json({'error': 'Consultant not found'}, HTTPStatus.NOT_FOUND)

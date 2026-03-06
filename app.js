@@ -135,6 +135,7 @@ if (!isBrowserRuntime) {
 
     consultantId: document.getElementById('consultant-id'),
     consultantName: document.getElementById('consultant-name'),
+    consultantStartDate: document.getElementById('consultant-start-date'),
     consultantAreaIds: document.getElementById('consultant-area-ids'),
     consultantCompanyRoleId: document.getElementById('consultant-company-role-id'),
     consultantSalary: document.getElementById('consultant-salary'),
@@ -1543,7 +1544,7 @@ if (!isBrowserRuntime) {
     if (ui.consultantSwitchEditBtn) ui.consultantSwitchEditBtn.hidden = !readOnly;
     ui.openDaysOffModalBtn.disabled = readOnly;
     if (ui.openHolidaysModalBtn) ui.openHolidaysModalBtn.disabled = readOnly;
-    [fields.consultantName, fields.consultantAreaIds, fields.consultantCompanyRoleId, fields.consultantSalary].forEach((el) => {
+    [fields.consultantName, fields.consultantStartDate, fields.consultantAreaIds, fields.consultantCompanyRoleId, fields.consultantSalary].forEach((el) => {
       el.disabled = readOnly;
     });
     fields.consultantHolidayLocationId.disabled = true;
@@ -2107,6 +2108,7 @@ if (!isBrowserRuntime) {
 
     const payload = {
       name: fields.consultantName.value.trim(),
+      startDate: fields.consultantStartDate.value,
       areaIds: selectedIds(fields.consultantAreaIds),
       companyRoleId: Number(fields.consultantCompanyRoleId.value),
       salary: fields.consultantSalary.value || 0,
@@ -2263,6 +2265,7 @@ if (!isBrowserRuntime) {
     fields.consultantId.value = consultant.id;
     fields.consultantName.value = consultant.name;
     fields.consultantSalary.value = consultant.salary;
+    fields.consultantStartDate.value = consultant.startDate || '';
     rebuildConsultantSelects({ areaIds: consultant.areaIds || [], companyRoleId: consultant.companyRoleId || '', holidayLocationId: consultant.holidayLocationId || '' });
     rebuildHolidayCountryRegionControls({ consultantHolidayLocationId: consultant.holidayLocationId || '' });
     setConsultantFormMode(button.dataset.action === 'view-consultant' ? 'view' : 'edit');
