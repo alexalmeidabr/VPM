@@ -429,18 +429,22 @@ if (!isBrowserRuntime) {
 
   const rebuildTimeTrackingConsultantSelect = () => {
     if (!ui.timeTrackingConsultantId) return;
-    const current = ui.timeTrackingConsultantId.value;
-    ui.timeTrackingConsultantId.innerHTML = '<option value="" selected disabled>Select consultant</option>';
-    consultants.forEach((consultant) => ui.timeTrackingConsultantId.add(new Option(consultant.name, String(consultant.id))));
-    if (current && consultants.some((item) => String(item.id) === String(current))) {
-      ui.timeTrackingConsultantId.value = String(current);
+    const current = String(ui.timeTrackingConsultantId.value || '');
+    ui.timeTrackingConsultantId.innerHTML = '<option value="" selected>Select consultant</option>';
+    [...consultants]
+      .sort((a, b) => String(a.name || '').localeCompare(String(b.name || '')))
+      .forEach((consultant) => ui.timeTrackingConsultantId.add(new Option(consultant.name, String(consultant.id))));
+
+    if (current && consultants.some((item) => String(item.id) === current)) {
+      ui.timeTrackingConsultantId.value = current;
       activeTimesheetConsultantId = Number(current);
     } else {
+      ui.timeTrackingConsultantId.value = '';
       activeTimesheetConsultantId = 0;
       timesheetMonths = [];
       activeTimesheet = null;
     }
-    resetSelect('timeTrackingConsultant', ui.timeTrackingConsultantId);
+
     renderTimesheetMonths();
   };
 
