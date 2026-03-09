@@ -143,6 +143,7 @@ if (!isBrowserRuntime) {
     consultantHolidayLocationId: document.getElementById('consultant-holiday-location-id'),
 
     timeTrackingConsultantSelect: document.getElementById('time-tracking-consultant-select'),
+    loadTimesheetsBtn: document.getElementById('load-timesheets-btn'),
     timesheetMonthCount: document.getElementById('timesheet-month-count'),
     timesheetsEmptyState: document.getElementById('timesheets-empty-state'),
     timesheetMonthList: document.getElementById('timesheet-month-list'),
@@ -207,6 +208,7 @@ if (!isBrowserRuntime) {
   let activeTimesheetConsultantId = 0;
   let activeTimesheetWeekIndex = 0;
   let timeTrackingConsultants = [];
+  let hasRequestedTimesheetLoad = false;
 
   const fallbackHolidayCountries = ['AD', 'AT', 'BE', 'CA', 'CH', 'DE', 'DK', 'ES', 'FI', 'FR', 'GB', 'IE', 'IT', 'MX', 'NL', 'NO', 'PL', 'PT', 'SE', 'US'];
   const fallbackHolidayRegionsByCountry = {
@@ -473,8 +475,18 @@ if (!isBrowserRuntime) {
       activeTimesheetConsultantId = 0;
       timesheetMonths = [];
       activeTimesheet = null;
+      hasRequestedTimesheetLoad = false;
     }
+    updateTimeTrackingListVisibility();
   }
+
+  const updateTimeTrackingListVisibility = () => {
+    const hasConsultant = Boolean(activeTimesheetConsultantId);
+    const hasLoaded = Boolean(hasRequestedTimesheetLoad);
+    if (ui.loadTimesheetsBtn) ui.loadTimesheetsBtn.hidden = !hasConsultant;
+    if (ui.timesheetMonthCount) ui.timesheetMonthCount.hidden = !(hasConsultant && hasLoaded);
+    if (ui.timesheetMonthList) ui.timesheetMonthList.hidden = !(hasConsultant && hasLoaded);
+  };
 
   const renderTimesheetMonths = () => {
     if (!ui.timesheetMonthList) return;
@@ -482,13 +494,22 @@ if (!isBrowserRuntime) {
     const hasConsultantSelected = Boolean(activeTimesheetConsultantId);
     if (!hasConsultantSelected) {
       ui.timesheetMonthCount.textContent = '';
-      ui.timesheetsEmptyState.hidden = false;
+      ui.timesheetsEmptyState.hidden = true;
       ui.timesheetsEmptyState.textContent = 'Select a consultant to load monthly timesheets.';
+      updateTimeTrackingListVisibility();
+      return;
+    }
+    if (!hasRequestedTimesheetLoad) {
+      ui.timesheetMonthCount.textContent = '';
+      ui.timesheetsEmptyState.hidden = true;
+      ui.timesheetsEmptyState.textContent = '';
+      updateTimeTrackingListVisibility();
       return;
     }
     ui.timesheetMonthCount.textContent = timesheetMonths.length ? `${timesheetMonths.length} month(s)` : '';
     ui.timesheetsEmptyState.hidden = Boolean(timesheetMonths.length);
     ui.timesheetsEmptyState.textContent = 'No monthly timesheets found for the selected consultant.';
+    updateTimeTrackingListVisibility();
     timesheetMonths.forEach((month) => {
       const row = document.createElement('div');
       row.className = 'timesheet-month-row';
@@ -1842,6 +1863,7 @@ if (!isBrowserRuntime) {
       setTimeTrackingView({ showList: true });
       refreshTimeTrackingConsultantSelectFromApi();
       if (!activeTimesheetConsultantId) timesheetMonths = [];
+      hasRequestedTimesheetLoad = false;
       renderTimesheetMonths();
     }
     if (section === 'allocation-forecast' && !allocationState) {
@@ -2777,12 +2799,14 @@ if (!isBrowserRuntime) {
     setConsultantFormMode('edit');
   });
 
-  ui.timeTrackingConsultantSelect?.addEventListener('change', async () => {
+  ui.timeTrackingConsultantSelect?.addEventListener('change', () => {
     const selectedId = Number(ui.timeTrackingConsultantSelect.value || 0);
     activeTimesheetConsultantId = selectedId;
     activeTimesheet = null;
+    hasRequestedTimesheetLoad = false;
+    timesheetMonths = [];
     setTimeTrackingView({ showList: true });
-    await loadTimesheetMonths(activeTimesheetConsultantId);
+    renderTimesheetMonths();
   });
 
   ui.timeTrackingConsultantSelect?.addEventListener('focus', () => {
@@ -2793,9 +2817,15 @@ if (!isBrowserRuntime) {
     refreshTimeTrackingConsultantSelectFromApi();
   });
 
-  ui.backToTimesheetsBtn?.addEventListener('click', async () => {
-    setTimeTrackingView({ showList: true });
+  ui.loadTimesheetsBtn?.addEventListener('click', async () => {
+    if (!activeTimesheetConsultantId) return;
+    hasRequestedTimesheetLoad = true;
     await loadTimesheetMonths(activeTimesheetConsultantId);
+  });
+
+  ui.backToTimesheetsBtn?.addEventListener('click', () => {
+    setTimeTrackingView({ showList: true });
+    renderTimesheetMonths();
   });
 
   ui.timesheetPrevWeekBtn?.addEventListener('click', () => {
