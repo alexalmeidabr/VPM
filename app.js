@@ -492,16 +492,22 @@ if (!isBrowserRuntime) {
       return;
     }
 
-    filtered.forEach((consultant) => {
+    for (const consultant of filtered) {
       const option = document.createElement('div');
       option.className = 'time-tracking-consultant-option';
+      option.dataset.consultantId = String(consultant.id);
       option.textContent = consultant.name || `Consultant ${consultant.id}`;
-      option.addEventListener('mousedown', async (event) => {
-        event.preventDefault();
-        await selectTimeTrackingConsultant(consultant.id);
+      option.addEventListener('click', async () => {
+        activeTimesheetConsultantId = Number(consultant.id);
+        if (ui.timeTrackingConsultantInput) ui.timeTrackingConsultantInput.value = consultant.name || '';
+        closeTimeTrackingConsultantMenu();
+        activeTimesheet = null;
+        ui.timeTrackingListCard.hidden = false;
+        ui.timesheetDetailCard.hidden = true;
+        await loadTimesheetMonths(activeTimesheetConsultantId);
       });
       ui.timeTrackingConsultantMenu.appendChild(option);
-    });
+    }
   };
 
   const rebuildTimeTrackingConsultantSelect = () => {
