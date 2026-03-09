@@ -204,13 +204,11 @@
             <div class="section-header">
               <span class="card-title">Time Tracking</span>
             </div>
-            <div class="time-tracking-consultant-picker" id="time-tracking-consultant-picker">
-              <label for="time-tracking-consultant-input" class="time-tracking-consultant-label">Consultant</label>
-              <div class="time-tracking-combobox" id="time-tracking-consultant-field">
-                <input id="time-tracking-consultant-input" type="text" placeholder="Select consultant..." autocomplete="off" />
-                <button id="time-tracking-consultant-toggle" type="button" aria-label="Toggle consultant list"><i class="material-icons">arrow_drop_down</i></button>
-              </div>
-              <div id="time-tracking-consultant-menu" class="time-tracking-consultant-menu" hidden></div>
+            <div class="time-tracking-consultant-picker">
+              <label for="time-tracking-consultant-select" class="time-tracking-consultant-label">Consultant</label>
+              <select id="time-tracking-consultant-select" class="browser-default time-tracking-consultant-select">
+                <option value="">Select consultant...</option>
+              </select>
             </div>
             <p class="grey-text">Select a consultant to display monthly timesheets.</p>
             <p class="grey-text" id="timesheet-month-count"></p>

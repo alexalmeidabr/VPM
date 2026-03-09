@@ -142,11 +142,7 @@ if (!isBrowserRuntime) {
     consultantSalary: document.getElementById('consultant-salary'),
     consultantHolidayLocationId: document.getElementById('consultant-holiday-location-id'),
 
-    timeTrackingConsultantPicker: document.getElementById('time-tracking-consultant-picker'),
-    timeTrackingConsultantField: document.getElementById('time-tracking-consultant-field'),
-    timeTrackingConsultantInput: document.getElementById('time-tracking-consultant-input'),
-    timeTrackingConsultantToggle: document.getElementById('time-tracking-consultant-toggle'),
-    timeTrackingConsultantMenu: document.getElementById('time-tracking-consultant-menu'),
+    timeTrackingConsultantSelect: document.getElementById('time-tracking-consultant-select'),
     timesheetMonthCount: document.getElementById('timesheet-month-count'),
     timesheetsEmptyState: document.getElementById('timesheets-empty-state'),
     timesheetMonthList: document.getElementById('timesheet-month-list'),
@@ -431,87 +427,27 @@ if (!isBrowserRuntime) {
     return { label: 'Working day', className: '' };
   };
 
-  const timeTrackingSelectorState = {
-    consultants: [],
-    loaded: false,
-    open: false
-  };
+  const rebuildTimeTrackingConsultantSelect = () => {
+    if (!ui.timeTrackingConsultantSelect) return;
+    const current = Number(activeTimesheetConsultantId || 0);
+    ui.timeTrackingConsultantSelect.innerHTML = '<option value="">Select consultant...</option>';
+    [...(consultants || [])]
+      .sort((a, b) => String(a.name || '').localeCompare(String(b.name || '')))
+      .forEach((consultant) => {
+        const option = new Option(consultant.name || `Consultant ${consultant.id}`, String(consultant.id));
+        ui.timeTrackingConsultantSelect.add(option);
+      });
 
-  const hideTimeTrackingConsultantMenu = () => {
-    if (!ui.timeTrackingConsultantMenu) return;
-    ui.timeTrackingConsultantMenu.hidden = true;
-    timeTrackingSelectorState.open = false;
-  };
-
-  const showTimeTrackingConsultantMenu = () => {
-    if (!ui.timeTrackingConsultantMenu) return;
-    ui.timeTrackingConsultantMenu.hidden = false;
-    timeTrackingSelectorState.open = true;
-  };
-
-  const loadTimeTrackingConsultants = async ({ force = false } = {}) => {
-    if (!force && timeTrackingSelectorState.loaded && timeTrackingSelectorState.consultants.length) {
-      return timeTrackingSelectorState.consultants;
-    }
-    const data = await request('/api/consultants');
-    console.log('[TimeTracking] consultant API response:', data);
-    const loadedConsultants = Array.isArray(data?.consultants) ? data.consultants : [];
-    console.log('[TimeTracking] consultants loaded:', loadedConsultants.length);
-    timeTrackingSelectorState.consultants = loadedConsultants;
-    timeTrackingSelectorState.loaded = true;
-    consultants = loadedConsultants;
-    return loadedConsultants;
-  };
-
-  const syncTimeTrackingConsultantInput = () => {
-    const selected = (timeTrackingSelectorState.consultants || []).find((item) => Number(item.id) === Number(activeTimesheetConsultantId));
-    if (ui.timeTrackingConsultantInput) ui.timeTrackingConsultantInput.value = selected ? String(selected.name || '') : '';
-    if (!selected) {
+    const exists = (consultants || []).some((item) => Number(item.id) === current);
+    if (exists) {
+      ui.timeTrackingConsultantSelect.value = String(current);
+      activeTimesheetConsultantId = current;
+    } else {
+      ui.timeTrackingConsultantSelect.value = '';
       activeTimesheetConsultantId = 0;
       timesheetMonths = [];
       activeTimesheet = null;
     }
-  };
-
-  const renderTimeTrackingConsultantOptions = (filterText = '') => {
-    if (!ui.timeTrackingConsultantMenu) return;
-    const filter = String(filterText || '').trim().toLowerCase();
-    const filtered = [...(timeTrackingSelectorState.consultants || [])]
-      .filter((item) => String(item.name || '').toLowerCase().includes(filter))
-      .sort((a, b) => String(a.name || '').localeCompare(String(b.name || '')));
-    console.log('[TimeTracking] consultants rendered after filter:', filtered.length);
-
-    ui.timeTrackingConsultantMenu.innerHTML = '';
-    if (!filtered.length) {
-      const empty = document.createElement('div');
-      empty.className = 'time-tracking-consultant-empty';
-      empty.textContent = 'No consultants found';
-      ui.timeTrackingConsultantMenu.appendChild(empty);
-      return;
-    }
-
-    for (const consultant of filtered) {
-      const option = document.createElement('div');
-      option.className = 'time-tracking-consultant-option';
-      option.dataset.consultantId = String(consultant.id);
-      option.textContent = consultant.name || `Consultant ${consultant.id}`;
-      option.addEventListener('click', async () => {
-        activeTimesheetConsultantId = Number(consultant.id);
-        if (ui.timeTrackingConsultantInput) ui.timeTrackingConsultantInput.value = consultant.name || '';
-        hideTimeTrackingConsultantMenu();
-        activeTimesheet = null;
-        ui.timeTrackingListCard.hidden = false;
-        ui.timesheetDetailCard.hidden = true;
-        await loadTimesheetMonths(activeTimesheetConsultantId);
-      });
-      ui.timeTrackingConsultantMenu.appendChild(option);
-    }
-  };
-
-  const openTimeTrackingConsultantSelector = async () => {
-    await loadTimeTrackingConsultants({ force: false });
-    renderTimeTrackingConsultantOptions(ui.timeTrackingConsultantInput?.value || '');
-    showTimeTrackingConsultantMenu();
   };
 
   const renderTimesheetMonths = () => {
@@ -1876,12 +1812,9 @@ if (!isBrowserRuntime) {
     if (section === 'time-tracking') {
       ui.timeTrackingListCard.hidden = false;
       ui.timesheetDetailCard.hidden = true;
-      syncTimeTrackingConsultantInput();
-      if (!activeTimesheetConsultantId) {
-        timesheetMonths = [];
-      }
+      rebuildTimeTrackingConsultantSelect();
+      if (!activeTimesheetConsultantId) timesheetMonths = [];
       renderTimesheetMonths();
-      hideTimeTrackingConsultantMenu();
     }
     if (section === 'allocation-forecast' && !allocationState) {
       ui.allocationForecastEmptyActions.hidden = false;
@@ -2159,9 +2092,7 @@ if (!isBrowserRuntime) {
     rebuildHolidayCountryRegionControls({ consultantHolidayLocationId: fields.consultantHolidayLocationId.value });
     rebuildAssignmentModalSelects();
     rebuildDayOffTypeSelect();
-    timeTrackingSelectorState.consultants = loaded.consultants;
-    timeTrackingSelectorState.loaded = true;
-    syncTimeTrackingConsultantInput();
+    rebuildTimeTrackingConsultantSelect();
     renderAllocationSimulationList();
 
     if (failed.length) {
@@ -2817,46 +2748,13 @@ if (!isBrowserRuntime) {
     setConsultantFormMode('edit');
   });
 
-  ui.timeTrackingConsultantInput?.addEventListener('focus', async () => {
-    await openTimeTrackingConsultantSelector();
-  });
-
-  ui.timeTrackingConsultantInput?.addEventListener('input', async () => {
-    const typed = String(ui.timeTrackingConsultantInput.value || '').trim();
-    const selected = (timeTrackingSelectorState.consultants || []).find((item) => Number(item.id) === Number(activeTimesheetConsultantId));
-    if (!selected || typed !== String(selected.name || '')) {
-      activeTimesheetConsultantId = 0;
-      timesheetMonths = [];
-      activeTimesheet = null;
-      renderTimesheetMonths();
-    }
-    await loadTimeTrackingConsultants({ force: false });
-    renderTimeTrackingConsultantOptions(typed);
-    showTimeTrackingConsultantMenu();
-  });
-
-  ui.timeTrackingConsultantInput?.addEventListener('keydown', async (event) => {
-    if (event.key === 'Escape') {
-      hideTimeTrackingConsultantMenu();
-      return;
-    }
-    if (event.key === 'ArrowDown') {
-      await openTimeTrackingConsultantSelector();
-    }
-  });
-
-  ui.timeTrackingConsultantToggle?.addEventListener('click', async () => {
-    if (timeTrackingSelectorState.open) {
-      hideTimeTrackingConsultantMenu();
-      return;
-    }
-    await openTimeTrackingConsultantSelector();
-    ui.timeTrackingConsultantInput?.focus();
-  });
-
-  document.addEventListener('click', (event) => {
-    const within = event.target.closest('#time-tracking-consultant-picker');
-    if (!within) hideTimeTrackingConsultantMenu();
+  ui.timeTrackingConsultantSelect?.addEventListener('change', async () => {
+    const selectedId = Number(ui.timeTrackingConsultantSelect.value || 0);
+    activeTimesheetConsultantId = selectedId;
+    activeTimesheet = null;
+    ui.timeTrackingListCard.hidden = false;
+    ui.timesheetDetailCard.hidden = true;
+    await loadTimesheetMonths(activeTimesheetConsultantId);
   });
 
   ui.backToTimesheetsBtn?.addEventListener('click', async () => {
