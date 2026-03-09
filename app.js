@@ -450,6 +450,19 @@ if (!isBrowserRuntime) {
     }
   };
 
+  const refreshTimeTrackingConsultantSelectFromApi = async () => {
+    if (!ui.timeTrackingConsultantSelect) return;
+    try {
+      const data = await request('/api/consultants');
+      const loadedConsultants = Array.isArray(data?.consultants) ? data.consultants : [];
+      consultants = loadedConsultants;
+      rebuildTimeTrackingConsultantSelect();
+    } catch (error) {
+      // Keep selector functional with already-loaded consultant cache
+      rebuildTimeTrackingConsultantSelect();
+    }
+  };
+
   const renderTimesheetMonths = () => {
     if (!ui.timesheetMonthList) return;
     ui.timesheetMonthList.innerHTML = '';
@@ -2755,6 +2768,14 @@ if (!isBrowserRuntime) {
     ui.timeTrackingListCard.hidden = false;
     ui.timesheetDetailCard.hidden = true;
     await loadTimesheetMonths(activeTimesheetConsultantId);
+  });
+
+  ui.timeTrackingConsultantSelect?.addEventListener('focus', () => {
+    refreshTimeTrackingConsultantSelectFromApi();
+  });
+
+  ui.timeTrackingConsultantSelect?.addEventListener('mousedown', () => {
+    refreshTimeTrackingConsultantSelectFromApi();
   });
 
   ui.backToTimesheetsBtn?.addEventListener('click', async () => {
