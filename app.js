@@ -206,6 +206,7 @@ if (!isBrowserRuntime) {
   let activeTimesheet = null;
   let activeTimesheetConsultantId = 0;
   let activeTimesheetWeekIndex = 0;
+  let timeTrackingConsultants = [];
 
   const fallbackHolidayCountries = ['AD', 'AT', 'BE', 'CA', 'CH', 'DE', 'DK', 'ES', 'FI', 'FR', 'GB', 'IE', 'IT', 'MX', 'NL', 'NO', 'PL', 'PT', 'SE', 'US'];
   const fallbackHolidayRegionsByCountry = {
@@ -427,19 +428,43 @@ if (!isBrowserRuntime) {
     return { label: 'Working day', className: '' };
   };
 
-  const rebuildTimeTrackingConsultantSelect = () => {
+  async function refreshTimeTrackingConsultantSelectFromApi() {
     if (!ui.timeTrackingConsultantSelect) return;
-    console.log('[TimeTracking] rebuilding consultant select from consultants cache:', Array.isArray(consultants) ? consultants.length : 0);
+    console.log('Refreshing time tracking consultant select');
+
+    try {
+      const response = await fetch('/api/consultants');
+      const data = await response.json();
+      console.log('Consultant API response:', data);
+
+      timeTrackingConsultants = Array.isArray(data?.consultants) ? data.consultants : [];
+      console.log('Loaded consultants:', timeTrackingConsultants.length);
+
+      rebuildTimeTrackingConsultantSelect();
+    } catch (error) {
+      console.error('Failed loading consultants for time tracking:', error);
+      timeTrackingConsultants = [];
+      rebuildTimeTrackingConsultantSelect();
+    }
+  }
+
+  function rebuildTimeTrackingConsultantSelect() {
+    if (!ui.timeTrackingConsultantSelect) return;
+
     const current = Number(activeTimesheetConsultantId || 0);
     ui.timeTrackingConsultantSelect.innerHTML = '<option value="">Select consultant...</option>';
-    [...(consultants || [])]
+
+    [...timeTrackingConsultants]
       .sort((a, b) => String(a.name || '').localeCompare(String(b.name || '')))
       .forEach((consultant) => {
-        const option = new Option(consultant.name || `Consultant ${consultant.id}`, String(consultant.id));
-        ui.timeTrackingConsultantSelect.add(option);
+        ui.timeTrackingConsultantSelect.add(
+          new Option(consultant.name || `Consultant ${consultant.id}`, String(consultant.id))
+        );
       });
 
-    const exists = (consultants || []).some((item) => Number(item.id) === current);
+    console.log('Select options count:', ui.timeTrackingConsultantSelect.options.length);
+
+    const exists = timeTrackingConsultants.some((item) => Number(item.id) === current);
     if (exists) {
       ui.timeTrackingConsultantSelect.value = String(current);
       activeTimesheetConsultantId = current;
@@ -449,22 +474,7 @@ if (!isBrowserRuntime) {
       timesheetMonths = [];
       activeTimesheet = null;
     }
-  };
-
-  const refreshTimeTrackingConsultantSelectFromApi = async () => {
-    if (!ui.timeTrackingConsultantSelect) return;
-    try {
-      const data = await request('/api/consultants');
-      console.log('[TimeTracking] consultant API response:', data);
-      const loadedConsultants = Array.isArray(data?.consultants) ? data.consultants : [];
-      console.log('[TimeTracking] consultants received from API:', loadedConsultants.length);
-      consultants = loadedConsultants;
-      rebuildTimeTrackingConsultantSelect();
-    } catch (error) {
-      // Keep selector functional with already-loaded consultant cache
-      rebuildTimeTrackingConsultantSelect();
-    }
-  };
+  }
 
   const renderTimesheetMonths = () => {
     if (!ui.timesheetMonthList) return;
@@ -2095,6 +2105,7 @@ if (!isBrowserRuntime) {
 
     projects = loaded.projects;
     consultants = loaded.consultants;
+    timeTrackingConsultants = loaded.consultants;
     roles = loaded.roles;
     areas = loaded.areas;
     dayOffTypes = loaded.dayOffTypes;
