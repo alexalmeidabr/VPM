@@ -434,18 +434,36 @@ if (!isBrowserRuntime) {
     if (!ui.timeTrackingConsultantSelect) return;
     console.log('Refreshing time tracking consultant select');
 
-    try {
-      const response = await fetch('/api/consultants');
-      const data = await response.json();
-      console.log('Consultant API response:', data);
+    const candidateBases = [
+      '',
+      primaryApiBase,
+      fallbackApiBase
+    ].filter((value, index, arr) => arr.indexOf(value) === index);
 
+    try {
+      let data = null;
+      let lastError = null;
+      for (const base of candidateBases) {
+        try {
+          const url = base ? `${base}/api/consultants` : '/api/consultants';
+          const response = await fetch(url);
+          if (!response.ok) throw new Error(`HTTP ${response.status} from ${url}`);
+          data = await response.json();
+          break;
+        } catch (error) {
+          lastError = error;
+        }
+      }
+      if (!data) throw lastError || new Error('Unable to fetch consultants');
+
+      console.log('Consultant API response:', data);
       timeTrackingConsultants = Array.isArray(data?.consultants) ? data.consultants : [];
       console.log('Loaded consultants:', timeTrackingConsultants.length);
-
       rebuildTimeTrackingConsultantSelect();
     } catch (error) {
       console.error('Failed loading consultants for time tracking:', error);
-      timeTrackingConsultants = [];
+      timeTrackingConsultants = Array.isArray(consultants) ? consultants : [];
+      console.log('Loaded consultants (fallback cache):', timeTrackingConsultants.length);
       rebuildTimeTrackingConsultantSelect();
     }
   }
