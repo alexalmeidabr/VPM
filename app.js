@@ -429,6 +429,7 @@ if (!isBrowserRuntime) {
 
   const rebuildTimeTrackingConsultantSelect = () => {
     if (!ui.timeTrackingConsultantSelect) return;
+    console.log('[TimeTracking] rebuilding consultant select from consultants cache:', Array.isArray(consultants) ? consultants.length : 0);
     const current = Number(activeTimesheetConsultantId || 0);
     ui.timeTrackingConsultantSelect.innerHTML = '<option value="">Select consultant...</option>';
     [...(consultants || [])]
@@ -454,7 +455,9 @@ if (!isBrowserRuntime) {
     if (!ui.timeTrackingConsultantSelect) return;
     try {
       const data = await request('/api/consultants');
+      console.log('[TimeTracking] consultant API response:', data);
       const loadedConsultants = Array.isArray(data?.consultants) ? data.consultants : [];
+      console.log('[TimeTracking] consultants received from API:', loadedConsultants.length);
       consultants = loadedConsultants;
       rebuildTimeTrackingConsultantSelect();
     } catch (error) {
@@ -1825,7 +1828,7 @@ if (!isBrowserRuntime) {
     if (section === 'time-tracking') {
       ui.timeTrackingListCard.hidden = false;
       ui.timesheetDetailCard.hidden = true;
-      rebuildTimeTrackingConsultantSelect();
+      refreshTimeTrackingConsultantSelectFromApi();
       if (!activeTimesheetConsultantId) timesheetMonths = [];
       renderTimesheetMonths();
     }
