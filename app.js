@@ -494,8 +494,7 @@ if (!isBrowserRuntime) {
           await loadTimesheetMonths(activeTimesheetConsultantId);
           if (activeTimesheet && activeTimesheet.monthStart === month.monthStart) {
             activeTimesheet = null;
-            ui.timesheetDetailCard.hidden = true;
-            ui.timeTrackingListCard.hidden = false;
+            setTimeTrackingView({ showList: true });
           }
         } catch (error) {
           toast(error.message || 'Failed to delete timesheet', 'red darken-1');
@@ -599,8 +598,7 @@ if (!isBrowserRuntime) {
       activeTimesheet = detail;
       activeTimesheetWeekIndex = 0;
       ui.timesheetDetailTitle.textContent = `${consultant?.name || 'Consultant'} • ${monthLabel(monthStartIso)}`;
-      ui.timeTrackingListCard.hidden = true;
-      ui.timesheetDetailCard.hidden = false;
+      setTimeTrackingView({ showList: false });
       renderTimesheetWeek();
       await loadTimesheetMonths(activeTimesheetConsultantId);
     } catch (error) {
@@ -1776,6 +1774,11 @@ if (!isBrowserRuntime) {
   const showConsultantsPanel = () => { ui.consultantsPanelCard.hidden = false; ui.consultantFormCard.hidden = true; };
   const showManageConsultantsPanel = () => { ui.consultantsPanelCard.hidden = true; ui.consultantFormCard.hidden = false; };
 
+  const setTimeTrackingView = ({ showList }) => {
+    if (ui.timeTrackingListCard) ui.timeTrackingListCard.hidden = !showList;
+    if (ui.timesheetDetailCard) ui.timesheetDetailCard.hidden = showList;
+  };
+
   const setProjectFormMode = (mode) => {
     projectViewMode = mode;
     const readOnly = mode === 'view';
@@ -1826,8 +1829,7 @@ if (!isBrowserRuntime) {
     if (section === 'projects') showProjectsPanel();
     if (section === 'consultants') showConsultantsPanel();
     if (section === 'time-tracking') {
-      ui.timeTrackingListCard.hidden = false;
-      ui.timesheetDetailCard.hidden = true;
+      setTimeTrackingView({ showList: true });
       refreshTimeTrackingConsultantSelectFromApi();
       if (!activeTimesheetConsultantId) timesheetMonths = [];
       renderTimesheetMonths();
@@ -2768,8 +2770,7 @@ if (!isBrowserRuntime) {
     const selectedId = Number(ui.timeTrackingConsultantSelect.value || 0);
     activeTimesheetConsultantId = selectedId;
     activeTimesheet = null;
-    ui.timeTrackingListCard.hidden = false;
-    ui.timesheetDetailCard.hidden = true;
+    setTimeTrackingView({ showList: true });
     await loadTimesheetMonths(activeTimesheetConsultantId);
   });
 
@@ -2782,8 +2783,7 @@ if (!isBrowserRuntime) {
   });
 
   ui.backToTimesheetsBtn?.addEventListener('click', async () => {
-    ui.timeTrackingListCard.hidden = false;
-    ui.timesheetDetailCard.hidden = true;
+    setTimeTrackingView({ showList: true });
     await loadTimesheetMonths(activeTimesheetConsultantId);
   });
 
