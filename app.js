@@ -210,6 +210,7 @@ if (!isBrowserRuntime) {
   let activeTimesheet = null;
   let activeTimesheetConsultantId = 0;
   let activeTimesheetWeekIndex = 0;
+  let timeTrackingConsultants = [];
 
   const fallbackHolidayCountries = ['AD', 'AT', 'BE', 'CA', 'CH', 'DE', 'DK', 'ES', 'FI', 'FR', 'GB', 'IE', 'IT', 'MX', 'NL', 'NO', 'PL', 'PT', 'SE', 'US'];
   const fallbackHolidayRegionsByCountry = {
@@ -436,11 +437,15 @@ if (!isBrowserRuntime) {
       const res = await request('/api/consultants');
       if (Array.isArray(res?.consultants)) {
         consultants = res.consultants;
+        timeTrackingConsultants = res.consultants;
       }
     } catch (error) {
       // Keep existing consultant cache if this refresh fails
     }
-    return Array.isArray(consultants) ? consultants : [];
+    if (!Array.isArray(timeTrackingConsultants) || !timeTrackingConsultants.length) {
+      timeTrackingConsultants = Array.isArray(consultants) ? consultants : [];
+    }
+    return timeTrackingConsultants;
   };
 
   const closeTimeTrackingConsultantMenu = () => {
@@ -454,7 +459,7 @@ if (!isBrowserRuntime) {
   };
 
   const selectTimeTrackingConsultant = async (consultantId) => {
-    const selected = consultants.find((item) => Number(item.id) == Number(consultantId));
+    const selected = timeTrackingConsultants.find((item) => Number(item.id) == Number(consultantId));
     if (!selected) return;
     activeTimesheetConsultantId = Number(selected.id);
     if (ui.timeTrackingConsultantInput) ui.timeTrackingConsultantInput.value = selected.name || '';
@@ -474,7 +479,7 @@ if (!isBrowserRuntime) {
   const renderTimeTrackingConsultantOptions = (filterText = '') => {
     if (!ui.timeTrackingConsultantMenu) return;
     const filter = String(filterText || '').trim().toLowerCase();
-    const filtered = [...consultants]
+    const filtered = [...(timeTrackingConsultants || [])]
       .filter((item) => String(item.name || '').toLowerCase().includes(filter))
       .sort((a, b) => String(a.name || '').localeCompare(String(b.name || '')));
 
@@ -490,7 +495,7 @@ if (!isBrowserRuntime) {
     filtered.forEach((consultant) => {
       const option = document.createElement('div');
       option.className = 'time-tracking-consultant-option';
-      option.textContent = consultant.name;
+      option.textContent = consultant.name || `Consultant ${consultant.id}`;
       option.addEventListener('mousedown', async (event) => {
         event.preventDefault();
         await selectTimeTrackingConsultant(consultant.id);
@@ -501,14 +506,14 @@ if (!isBrowserRuntime) {
 
   const rebuildTimeTrackingConsultantSelect = () => {
     const current = Number(activeTimesheetConsultantId || 0);
-    const stillExists = consultants.some((item) => Number(item.id) === current);
+    const stillExists = (timeTrackingConsultants || []).some((item) => Number(item.id) === current);
     if (!stillExists) {
       activeTimesheetConsultantId = 0;
       timesheetMonths = [];
       activeTimesheet = null;
       if (ui.timeTrackingConsultantInput) ui.timeTrackingConsultantInput.value = '';
     } else {
-      const selected = consultants.find((item) => Number(item.id) === current);
+      const selected = (timeTrackingConsultants || []).find((item) => Number(item.id) === current);
       if (ui.timeTrackingConsultantInput && selected) ui.timeTrackingConsultantInput.value = selected.name || '';
     }
     renderTimeTrackingConsultantOptions(ui.timeTrackingConsultantInput?.value || '');
@@ -2147,6 +2152,7 @@ if (!isBrowserRuntime) {
 
     projects = loaded.projects;
     consultants = loaded.consultants;
+    timeTrackingConsultants = loaded.consultants;
     roles = loaded.roles;
     areas = loaded.areas;
     dayOffTypes = loaded.dayOffTypes;
@@ -2824,7 +2830,7 @@ if (!isBrowserRuntime) {
 
   ui.timeTrackingConsultantInput?.addEventListener('input', async () => {
     const typed = String(ui.timeTrackingConsultantInput.value || '').trim();
-    const selected = consultants.find((item) => Number(item.id) === Number(activeTimesheetConsultantId));
+    const selected = (timeTrackingConsultants || []).find((item) => Number(item.id) === Number(activeTimesheetConsultantId));
     if (!selected || typed !== String(selected.name || '')) {
       activeTimesheetConsultantId = 0;
       timesheetMonths = [];
