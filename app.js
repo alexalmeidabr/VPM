@@ -431,8 +431,10 @@ if (!isBrowserRuntime) {
   };
 
   async function refreshTimeTrackingConsultantSelectFromApi() {
-    if (!ui.timeTrackingConsultantSelect) return;
-    console.log('Refreshing time tracking consultant select');
+    const select = document.getElementById('time-tracking-consultant-select');
+    console.log('refreshTimeTrackingConsultantSelectFromApi called');
+    console.log('time-tracking consultant select found:', Boolean(select));
+    if (!select) return;
 
     const candidateBases = [
       '',
@@ -456,7 +458,6 @@ if (!isBrowserRuntime) {
       }
       if (!data) throw lastError || new Error('Unable to fetch consultants');
 
-      console.log('Consultant API response:', data);
       timeTrackingConsultants = Array.isArray(data?.consultants) ? data.consultants : [];
       console.log('Loaded consultants:', timeTrackingConsultants.length);
       rebuildTimeTrackingConsultantSelect();
@@ -469,32 +470,33 @@ if (!isBrowserRuntime) {
   }
 
   function rebuildTimeTrackingConsultantSelect() {
-    if (!ui.timeTrackingConsultantSelect) return;
+    const select = document.getElementById('time-tracking-consultant-select');
+    if (!select) return;
 
     const current = Number(activeTimesheetConsultantId || 0);
-    ui.timeTrackingConsultantSelect.innerHTML = '<option value="">Select consultant...</option>';
+    select.innerHTML = '<option value="">Select consultant...</option>';
 
     [...timeTrackingConsultants]
       .sort((a, b) => String(a.name || '').localeCompare(String(b.name || '')))
       .forEach((consultant) => {
-        ui.timeTrackingConsultantSelect.add(
+        select.add(
           new Option(consultant.name || `Consultant ${consultant.id}`, String(consultant.id))
         );
       });
 
-    console.log('Select options count:', ui.timeTrackingConsultantSelect.options.length);
-
     const exists = timeTrackingConsultants.some((item) => Number(item.id) === current);
     if (exists) {
-      ui.timeTrackingConsultantSelect.value = String(current);
+      select.value = String(current);
       activeTimesheetConsultantId = current;
     } else {
-      ui.timeTrackingConsultantSelect.value = '';
+      select.value = '';
       activeTimesheetConsultantId = 0;
       timesheetMonths = [];
       activeTimesheet = null;
       hasRequestedTimesheetLoad = false;
     }
+
+    console.log('Select options count:', select.options.length);
     updateTimeTrackingListVisibility();
   }
 
@@ -1879,10 +1881,11 @@ if (!isBrowserRuntime) {
     if (section === 'consultants') showConsultantsPanel();
     if (section === 'time-tracking') {
       setTimeTrackingView({ showList: true });
-      refreshTimeTrackingConsultantSelectFromApi();
-      if (!activeTimesheetConsultantId) timesheetMonths = [];
-      hasRequestedTimesheetLoad = false;
-      renderTimesheetMonths();
+      refreshTimeTrackingConsultantSelectFromApi().finally(() => {
+        if (!activeTimesheetConsultantId) timesheetMonths = [];
+        hasRequestedTimesheetLoad = false;
+        renderTimesheetMonths();
+      });
     }
     if (section === 'allocation-forecast' && !allocationState) {
       ui.allocationForecastEmptyActions.hidden = false;
@@ -2817,8 +2820,9 @@ if (!isBrowserRuntime) {
     setConsultantFormMode('edit');
   });
 
-  ui.timeTrackingConsultantSelect?.addEventListener('change', () => {
-    const selectedId = Number(ui.timeTrackingConsultantSelect.value || 0);
+  const timeTrackingConsultantSelectEl = document.getElementById('time-tracking-consultant-select');
+  timeTrackingConsultantSelectEl?.addEventListener('change', () => {
+    const selectedId = Number(timeTrackingConsultantSelectEl.value || 0);
     activeTimesheetConsultantId = selectedId;
     activeTimesheet = null;
     hasRequestedTimesheetLoad = false;
@@ -2827,11 +2831,11 @@ if (!isBrowserRuntime) {
     renderTimesheetMonths();
   });
 
-  ui.timeTrackingConsultantSelect?.addEventListener('focus', () => {
+  timeTrackingConsultantSelectEl?.addEventListener('focus', () => {
     refreshTimeTrackingConsultantSelectFromApi();
   });
 
-  ui.timeTrackingConsultantSelect?.addEventListener('mousedown', () => {
+  timeTrackingConsultantSelectEl?.addEventListener('mousedown', () => {
     refreshTimeTrackingConsultantSelectFromApi();
   });
 
