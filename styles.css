@@ -194,11 +194,14 @@ body.project-timeline-expanded #project-timeline-chart { flex: 0 0 auto; max-hei
 .allocation-vacancy-item { border: 1px dashed #90a4ae; background: #fafafa; border-radius: 8px; padding: 0.4rem 0.5rem; cursor: grab; }
 .allocation-simulation-item { display: flex; justify-content: space-between; align-items: center; border: 1px solid #cfd8dc; border-radius: 8px; padding: 0.6rem; margin-top: 0.5rem; }
 
-.timesheet-month-list { display: flex; flex-direction: column; gap: 0.6rem; }
+.timesheet-month-panel { width: 100%; max-width: 780px; margin-top: 0.8rem; }
+#timesheet-month-count { margin-top: 0.6rem; margin-bottom: 0; }
+.timesheet-toggle-link { padding-left: 0; margin-top: 0.35rem; margin-bottom: 0.25rem; text-transform: none; color: #1565c0; }
+.timesheet-month-list { display: flex; flex-direction: column; gap: 0.6rem; margin-top: 0.5rem; }
 .timesheet-month-row { display: flex; justify-content: space-between; align-items: center; border: 1px solid #cfd8dc; border-radius: 8px; padding: 0.6rem 0.75rem; background: #fff; }
 .timesheet-month-meta { display: flex; flex-direction: column; gap: 0.15rem; }
 .timesheet-month-title { font-weight: 600; color: #37474f; }
-.timesheet-actions { display: flex; gap: 0.4rem; }
+.timesheet-actions { display: flex; gap: 0.4rem; align-items: center; }
 .timesheet-week-toolbar { display: flex; align-items: center; gap: 0.4rem; flex-wrap: wrap; margin-bottom: 0.65rem; }
 .timesheet-week-label { font-weight: 600; color: #37474f; min-width: 220px; }
 .timesheet-entry-table input[type="number"] { margin: 0; height: 2rem; text-align: center; }

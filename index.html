@@ -211,9 +211,12 @@
               </select>
             </div>
             <button class="btn" id="load-timesheets-btn" type="button" hidden>Load Timesheets</button>
-            <p class="grey-text" id="timesheet-month-count" hidden></p>
-            <div id="timesheets-empty-state" class="center-align grey-text text-darken-1 empty-message" hidden>Select a consultant to load monthly timesheets.</div>
-            <div id="timesheet-month-list" class="timesheet-month-list" hidden></div>
+            <div class="timesheet-month-panel">
+              <p class="grey-text" id="timesheet-month-count" hidden></p>
+              <button class="btn-flat timesheet-toggle-link" id="timesheet-toggle-older-btn" type="button" hidden>See older Timesheets</button>
+              <div id="timesheets-empty-state" class="grey-text text-darken-1 empty-message" hidden>Select a consultant to load monthly timesheets.</div>
+              <div id="timesheet-month-list" class="timesheet-month-list" hidden></div>
+            </div>
           </div>
         </div>
 

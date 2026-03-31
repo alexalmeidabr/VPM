@@ -124,6 +124,7 @@ if (!isBrowserRuntime) {
     timeTrackingConsultantSelect: document.getElementById('time-tracking-consultant-select'),
     loadTimesheetsBtn: document.getElementById('load-timesheets-btn'),
     timesheetMonthCount: document.getElementById('timesheet-month-count'),
+    timesheetToggleOlderBtn: document.getElementById('timesheet-toggle-older-btn'),
     timesheetsEmptyState: document.getElementById('timesheets-empty-state'),
     timesheetMonthList: document.getElementById('timesheet-month-list'),
     timesheetDetailCard: document.getElementById('timesheet-detail-card'),
@@ -208,6 +209,7 @@ if (!isBrowserRuntime) {
   let activeTimesheetWeekIndex = 0;
   let timeTrackingConsultants = [];
   let hasRequestedTimesheetLoad = false;
+  let showOlderTimesheets = false;
 
   const fallbackHolidayCountries = ['AD', 'AT', 'BE', 'CA', 'CH', 'DE', 'DK', 'ES', 'FI', 'FR', 'GB', 'IE', 'IT', 'MX', 'NL', 'NO', 'PL', 'PT', 'SE', 'US'];
   const fallbackHolidayRegionsByCountry = {
@@ -508,6 +510,7 @@ if (!isBrowserRuntime) {
     const hasConsultantSelected = Boolean(activeTimesheetConsultantId);
     if (!hasConsultantSelected) {
       ui.timesheetMonthCount.textContent = '';
+      if (ui.timesheetToggleOlderBtn) ui.timesheetToggleOlderBtn.hidden = true;
       ui.timesheetsEmptyState.hidden = true;
       ui.timesheetsEmptyState.textContent = 'Select a consultant to load monthly timesheets.';
       updateTimeTrackingListVisibility();
@@ -515,16 +518,41 @@ if (!isBrowserRuntime) {
     }
     if (!hasRequestedTimesheetLoad) {
       ui.timesheetMonthCount.textContent = '';
+      if (ui.timesheetToggleOlderBtn) ui.timesheetToggleOlderBtn.hidden = true;
       ui.timesheetsEmptyState.hidden = true;
       ui.timesheetsEmptyState.textContent = '';
       updateTimeTrackingListVisibility();
       return;
     }
     ui.timesheetMonthCount.textContent = timesheetMonths.length ? `${timesheetMonths.length} month(s)` : '';
-    ui.timesheetsEmptyState.hidden = Boolean(timesheetMonths.length);
-    ui.timesheetsEmptyState.textContent = 'No monthly timesheets found for the selected consultant.';
+    const now = new Date();
+    const currentMonthKey = now.getFullYear() * 12 + now.getMonth();
+    const previousMonthKey = currentMonthKey - 1;
+    const monthKey = (monthStart) => {
+      const parsed = parseIsoDate(monthStart);
+      if (!parsed) return Number.NEGATIVE_INFINITY;
+      return parsed.getFullYear() * 12 + parsed.getMonth();
+    };
+    const visibleMonths = showOlderTimesheets
+      ? timesheetMonths
+      : timesheetMonths.filter((month) => {
+          const key = monthKey(month.monthStart);
+          return key === currentMonthKey || key === previousMonthKey;
+        });
+    const hasOlderHiddenMonths = visibleMonths.length < timesheetMonths.length;
+
+    if (ui.timesheetToggleOlderBtn) {
+      ui.timesheetToggleOlderBtn.hidden = !hasOlderHiddenMonths && !showOlderTimesheets;
+      ui.timesheetToggleOlderBtn.textContent = showOlderTimesheets ? 'Hide older Timesheets' : 'See older Timesheets';
+    }
+
+    const emptyMessage = hasOlderHiddenMonths && !showOlderTimesheets
+      ? 'No timesheets for the current or previous month. Click "See older Timesheets" to view earlier months.'
+      : 'No monthly timesheets found for the selected consultant.';
+    ui.timesheetsEmptyState.hidden = Boolean(visibleMonths.length);
+    ui.timesheetsEmptyState.textContent = emptyMessage;
     updateTimeTrackingListVisibility();
-    timesheetMonths.forEach((month) => {
+    visibleMonths.forEach((month) => {
       const row = document.createElement('div');
       row.className = 'timesheet-month-row';
       row.innerHTML = `<div class="timesheet-month-meta"><div class="timesheet-month-title">${month.label}</div><div class="grey-text">Status: ${month.status || 'Draft'}</div></div><div class="timesheet-actions"><button class="btn" type="button" data-action="open">Open</button><button class="btn-flat red-text" type="button" data-action="delete">Delete</button></div>`;
@@ -2820,6 +2848,7 @@ if (!isBrowserRuntime) {
     activeTimesheetConsultantId = selectedId;
     activeTimesheet = null;
     hasRequestedTimesheetLoad = false;
+    showOlderTimesheets = false;
     timesheetMonths = [];
     setTimeTrackingView({ showList: true });
     renderTimesheetMonths();
@@ -2836,7 +2865,13 @@ if (!isBrowserRuntime) {
   ui.loadTimesheetsBtn?.addEventListener('click', async () => {
     if (!activeTimesheetConsultantId) return;
     hasRequestedTimesheetLoad = true;
+    showOlderTimesheets = false;
     await loadTimesheetMonths(activeTimesheetConsultantId);
+  });
+
+  ui.timesheetToggleOlderBtn?.addEventListener('click', () => {
+    showOlderTimesheets = !showOlderTimesheets;
+    renderTimesheetMonths();
   });
 
   ui.backToTimesheetsBtn?.addEventListener('click', () => {
