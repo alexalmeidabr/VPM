@@ -502,6 +502,7 @@ if (!isBrowserRuntime) {
     if (ui.loadTimesheetsBtn) ui.loadTimesheetsBtn.hidden = !hasConsultant;
     if (ui.timesheetMonthCount) ui.timesheetMonthCount.hidden = !(hasConsultant && hasLoaded);
     if (ui.timesheetMonthList) ui.timesheetMonthList.hidden = !(hasConsultant && hasLoaded);
+    if (ui.timesheetToggleOlderBtn && (!hasConsultant || !hasLoaded)) ui.timesheetToggleOlderBtn.hidden = true;
   };
 
   const renderTimesheetMonths = () => {
@@ -542,7 +543,8 @@ if (!isBrowserRuntime) {
     const hasOlderHiddenMonths = visibleMonths.length < timesheetMonths.length;
 
     if (ui.timesheetToggleOlderBtn) {
-      ui.timesheetToggleOlderBtn.hidden = !hasOlderHiddenMonths && !showOlderTimesheets;
+      const canShowToggle = Boolean(activeTimesheetConsultantId) && hasRequestedTimesheetLoad;
+      ui.timesheetToggleOlderBtn.hidden = !canShowToggle || (!hasOlderHiddenMonths && !showOlderTimesheets);
       ui.timesheetToggleOlderBtn.textContent = showOlderTimesheets ? 'Hide older Timesheets' : 'See older Timesheets';
     }
 
