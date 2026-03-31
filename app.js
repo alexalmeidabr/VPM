@@ -109,6 +109,7 @@ if (!isBrowserRuntime) {
 
     daysOffModal: document.getElementById('days-off-modal'),
     holidayLoadModal: document.getElementById('holiday-load-modal'),
+    manualLineModal: document.getElementById('manual-line-modal'),
     availabilityType: document.getElementById('availability-type'),
     availabilityStartDate: document.getElementById('availability-start-date'),
     availabilityEndDate: document.getElementById('availability-end-date'),
@@ -137,6 +138,8 @@ if (!isBrowserRuntime) {
     timesheetSummaryWrap: document.getElementById('timesheet-summary-wrap'),
     timesheetSummaryStatus: document.getElementById('timesheet-summary-status'),
     timesheetPrintBtn: document.getElementById('timesheet-print-btn'),
+    manualLineDayOffTypeSelect: document.getElementById('manual-line-day-off-type-select'),
+    confirmManualLineBtn: document.getElementById('confirm-manual-line-btn'),
     timesheetSaveDraftBtn: document.getElementById('timesheet-save-draft-btn'),
     timesheetSaveCompletedBtn: document.getElementById('timesheet-save-completed-btn'),
     timesheetReopenBtn: document.getElementById('timesheet-reopen-btn'),
@@ -663,6 +666,18 @@ if (!isBrowserRuntime) {
     if (!ui.timesheetSummaryWrap) return;
     const totalCell = ui.timesheetSummaryWrap.querySelector(`tr[data-line-id="${line.id}"] [data-role="month-total"]`);
     if (totalCell) totalCell.textContent = lineMonthTotal(line).toFixed(1);
+  };
+
+  const populateManualLineDayOffTypeSelect = () => {
+    if (!ui.manualLineDayOffTypeSelect) return;
+    const select = ui.manualLineDayOffTypeSelect;
+    select.innerHTML = '<option value="">Select day off type...</option>';
+    [...(dayOffTypes || [])]
+      .sort((a, b) => String(a.name || '').localeCompare(String(b.name || '')))
+      .forEach((type) => {
+        select.add(new Option(type.name, type.name));
+      });
+    select.value = '';
   };
 
   const printActiveTimesheet = () => {
@@ -3051,17 +3066,28 @@ if (!isBrowserRuntime) {
       toast('Completed timesheets cannot be edited', 'orange darken-2');
       return;
     }
-    const activity = window.prompt('Activity description');
-    if (!activity || !activity.trim()) {
-      toast('Activity is required for manual line', 'orange darken-2');
+    if (!dayOffTypes.length) {
+      toast('No day off types available. Add one in Administration first.', 'orange darken-2');
+      return;
+    }
+    populateManualLineDayOffTypeSelect();
+    modals.manualLine?.open();
+  });
+
+  ui.confirmManualLineBtn?.addEventListener('click', async () => {
+    if (!activeTimesheet?.timesheetId) return;
+    const activity = String(ui.manualLineDayOffTypeSelect?.value || '').trim();
+    if (!activity) {
+      toast('Select a day off type to add a manual line', 'orange darken-2');
       return;
     }
     try {
       await request('/api/monthly-timesheets/manual-line', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ timesheetId: activeTimesheet.timesheetId, activity: activity.trim() })
+        body: JSON.stringify({ timesheetId: activeTimesheet.timesheetId, activity })
       });
+      modals.manualLine?.close();
       await openMonthlyTimesheet(activeTimesheet.monthStart);
     } catch (error) {
       toast(error.message || 'Failed to add manual line', 'red darken-1');
@@ -3177,6 +3203,7 @@ if (!isBrowserRuntime) {
     modals.memberDetails = M.Modal.init(ui.memberDetailsModal);
     modals.daysOff = M.Modal.init(ui.daysOffModal);
     modals.holidayLoad = M.Modal.init(ui.holidayLoadModal);
+    modals.manualLine = M.Modal.init(ui.manualLineModal);
   }
 
   setSection('projects');
