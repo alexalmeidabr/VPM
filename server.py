@@ -1382,6 +1382,7 @@ class VPMHandler(SimpleHTTPRequestHandler):
     self.send_error(HTTPStatus.NOT_FOUND)
 
   def do_PUT(self):
+    path = self._path()
     project_id = self._resource_id('projects')
     consultant_id = self._resource_id('consultants')
     holiday_location_id = self._holiday_location_id()
@@ -1391,6 +1392,25 @@ class VPMHandler(SimpleHTTPRequestHandler):
       payload = self._read_json()
     except json.JSONDecodeError:
       self._send_json({'error': 'Invalid JSON'}, HTTPStatus.BAD_REQUEST)
+      return
+
+    if path == '/api/monthly-timesheets/status':
+      try:
+        timesheet_id = int(payload.get('timesheetId'))
+      except (TypeError, ValueError):
+        self._send_json({'error': 'timesheetId must be numeric'}, HTTPStatus.BAD_REQUEST)
+        return
+      status = str(payload.get('status', '')).strip()
+      allowed_statuses = {'In Progress', 'Completed'}
+      if status not in allowed_statuses:
+        self._send_json({'error': 'status must be one of: In Progress, Completed'}, HTTPStatus.BAD_REQUEST)
+        return
+      with get_connection() as conn:
+        cursor = conn.execute('UPDATE monthly_timesheets SET status = ? WHERE id = ?', (status, timesheet_id))
+      if cursor.rowcount == 0:
+        self._send_json({'error': 'Monthly timesheet not found'}, HTTPStatus.NOT_FOUND)
+        return
+      self._send_json({'status': status})
       return
 
     if project_id is not None:

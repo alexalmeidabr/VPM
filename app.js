@@ -134,6 +134,8 @@ if (!isBrowserRuntime) {
     timesheetNextWeekBtn: document.getElementById('timesheet-next-week-btn'),
     timesheetWeekLabel: document.getElementById('timesheet-week-label'),
     addManualTimesheetLineBtn: document.getElementById('add-manual-timesheet-line-btn'),
+    timesheetSaveDraftBtn: document.getElementById('timesheet-save-draft-btn'),
+    timesheetSaveCompletedBtn: document.getElementById('timesheet-save-completed-btn'),
     timesheetTableWrap: document.getElementById('timesheet-table-wrap'),
 
     weekTooltip: document.getElementById('week-tooltip')
@@ -597,6 +599,22 @@ if (!isBrowserRuntime) {
     renderTimesheetMonths();
   };
 
+  const saveActiveTimesheetStatus = async (status) => {
+    if (!activeTimesheet?.timesheetId) return;
+    await request('/api/monthly-timesheets/status', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ timesheetId: activeTimesheet.timesheetId, status })
+    });
+    activeTimesheet.status = status;
+    timesheetMonths = timesheetMonths.map((month) => (
+      Number(month.timesheetId) === Number(activeTimesheet.timesheetId)
+        ? { ...month, status }
+        : month
+    ));
+    toast(`Timesheet saved as ${status}`, 'teal darken-1');
+  };
+
   const renderTimesheetWeek = () => {
     if (!activeTimesheet || !ui.timesheetTableWrap) return;
     const consultant = findConsultantById(activeTimesheet.consultantId);
@@ -625,7 +643,8 @@ if (!isBrowserRuntime) {
     const tbody = document.createElement('tbody');
     (activeTimesheet.lines || []).forEach((line) => {
       const tr = document.createElement('tr');
-      const lineLabel = line.projectName || 'Manual';
+      const lineLabel = line.projectName
+        || (!line.isManual ? (line.activity || 'Time Off') : (line.activity || 'Manual'));
       const activityInput = line.isManual ? `<input class="line-activity-input" type="text" value="${(line.activity || '').replace(/"/g, '&quot;')}" disabled/>` : (line.activity || '');
       tr.innerHTML = `<td><strong>${lineLabel}</strong>${line.isManual ? `<div>${activityInput}</div>` : ''}</td>`;
       let total = 0;
@@ -641,8 +660,8 @@ if (!isBrowserRuntime) {
         const value = Number(line.entries?.[dayIso] || 0);
         total += value;
         td.innerHTML = inMonth
-          ? `<input type="number" min="0" max="24" step="0.5" value="${value || ''}" /><div class="day-context">${context.label}</div>`
-          : '<span class="grey-text">—</span><div class="day-context">Outside month</div>';
+          ? `<input type="number" min="0" max="24" step="0.5" value="${value || ''}" />`
+          : '<span class="grey-text">—</span>';
         const input = td.querySelector('input');
         if (input) {
           input.addEventListener('change', async () => {
@@ -659,6 +678,7 @@ if (!isBrowserRuntime) {
                 body: JSON.stringify({ lineId: line.id, date: dayIso, hours })
               });
               line.entries = { ...(line.entries || {}), [dayIso]: hours };
+              renderTimesheetWeek();
             } catch (error) {
               toast(error.message || 'Failed to save hours', 'red darken-1');
             }
@@ -2925,6 +2945,22 @@ if (!isBrowserRuntime) {
       await openMonthlyTimesheet(activeTimesheet.monthStart);
     } catch (error) {
       toast(error.message || 'Failed to add manual line', 'red darken-1');
+    }
+  });
+
+  ui.timesheetSaveDraftBtn?.addEventListener('click', async () => {
+    try {
+      await saveActiveTimesheetStatus('In Progress');
+    } catch (error) {
+      toast(error.message || 'Failed to save timesheet status', 'red darken-1');
+    }
+  });
+
+  ui.timesheetSaveCompletedBtn?.addEventListener('click', async () => {
+    try {
+      await saveActiveTimesheetStatus('Completed');
+    } catch (error) {
+      toast(error.message || 'Failed to save timesheet status', 'red darken-1');
     }
   });
 

@@ -203,6 +203,7 @@ body.project-timeline-expanded #project-timeline-chart { flex: 0 0 auto; max-hei
 .timesheet-month-title { font-weight: 600; color: #37474f; }
 .timesheet-actions { display: flex; gap: 0.4rem; align-items: center; }
 .timesheet-week-toolbar { display: flex; align-items: center; gap: 0.4rem; flex-wrap: wrap; margin-bottom: 0.65rem; }
+.timesheet-status-btn { text-transform: none; }
 .timesheet-week-label { font-weight: 600; color: #37474f; min-width: 220px; }
 .timesheet-entry-table input[type="number"] { margin: 0; height: 2rem; text-align: center; }
 .timesheet-entry-table td, .timesheet-entry-table th { vertical-align: middle; }
