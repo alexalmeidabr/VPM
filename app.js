@@ -543,22 +543,9 @@ if (!isBrowserRuntime) {
       updateTimeTrackingListVisibility();
       return;
     }
-    const now = new Date();
-    const currentMonthKey = now.getFullYear() * 12 + now.getMonth();
-    const previousMonthKey = currentMonthKey - 1;
-    const monthKey = (monthStart) => {
-      const parsed = parseIsoDate(monthStart);
-      if (!parsed) return Number.NEGATIVE_INFINITY;
-      return parsed.getFullYear() * 12 + parsed.getMonth();
-    };
-    const recentMonths = timesheetMonths.filter((month) => {
-      const key = monthKey(month.monthStart);
-      return key === currentMonthKey || key === previousMonthKey;
-    });
-    const olderMonths = timesheetMonths.filter((month) => {
-      const key = monthKey(month.monthStart);
-      return key < previousMonthKey;
-    });
+    const sortedMonths = [...timesheetMonths].sort((a, b) => String(b.monthStart || '').localeCompare(String(a.monthStart || '')));
+    const recentMonths = sortedMonths.slice(0, 2);
+    const olderMonths = sortedMonths.slice(2);
     const visibleOlderMonths = olderMonths.slice(0, visibleOlderTimesheetCount);
     const visibleMonths = [...recentMonths, ...visibleOlderMonths];
     const hasMoreOlderMonths = olderMonths.length > visibleOlderMonths.length;
