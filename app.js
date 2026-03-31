@@ -134,6 +134,8 @@ if (!isBrowserRuntime) {
     timesheetNextWeekBtn: document.getElementById('timesheet-next-week-btn'),
     timesheetWeekLabel: document.getElementById('timesheet-week-label'),
     addManualTimesheetLineBtn: document.getElementById('add-manual-timesheet-line-btn'),
+    timesheetSummaryWrap: document.getElementById('timesheet-summary-wrap'),
+    timesheetPrintBtn: document.getElementById('timesheet-print-btn'),
     timesheetSaveDraftBtn: document.getElementById('timesheet-save-draft-btn'),
     timesheetSaveCompletedBtn: document.getElementById('timesheet-save-completed-btn'),
     timesheetTableWrap: document.getElementById('timesheet-table-wrap'),
@@ -615,6 +617,96 @@ if (!isBrowserRuntime) {
     toast(`Timesheet saved as ${status}`, 'teal darken-1');
   };
 
+  const timesheetLineDescription = (line) => {
+    if (line.projectName) return line.projectName;
+    if (!line.isManual) return line.activity || 'Time Off';
+    return line.activity || 'Manual';
+  };
+
+  const lineTotalForDates = (line, dates) => dates.reduce((sum, dateIso) => sum + Number(line.entries?.[dateIso] || 0), 0);
+  const lineMonthTotal = (line) => lineTotalForDates(line, Object.keys(line.entries || {}));
+
+  const renderTimesheetSummary = () => {
+    if (!ui.timesheetSummaryWrap || !activeTimesheet) return;
+    const lines = activeTimesheet.lines || [];
+    const table = document.createElement('table');
+    table.className = 'striped responsive-table timesheet-summary-table';
+    table.innerHTML = '<thead><tr><th>Description</th><th class="right-align">Total Hours</th></tr></thead>';
+    const tbody = document.createElement('tbody');
+    lines.forEach((line) => {
+      const tr = document.createElement('tr');
+      tr.dataset.lineId = String(line.id);
+      tr.innerHTML = `<td>${timesheetLineDescription(line)}</td><td class="right-align" data-role="month-total">${lineMonthTotal(line).toFixed(1)}</td>`;
+      tbody.appendChild(tr);
+    });
+    table.appendChild(tbody);
+    ui.timesheetSummaryWrap.innerHTML = '';
+    ui.timesheetSummaryWrap.appendChild(table);
+  };
+
+  const updateTimesheetSummaryRowTotal = (line) => {
+    if (!ui.timesheetSummaryWrap) return;
+    const totalCell = ui.timesheetSummaryWrap.querySelector(`tr[data-line-id="${line.id}"] [data-role="month-total"]`);
+    if (totalCell) totalCell.textContent = lineMonthTotal(line).toFixed(1);
+  };
+
+  const printActiveTimesheet = () => {
+    if (!activeTimesheet) return;
+    const consultantName = findConsultantById(activeTimesheet.consultantId)?.name || 'Consultant';
+    const title = `${consultantName} • ${monthLabel(activeTimesheet.monthStart)}`;
+    const status = activeTimesheet.status || 'Draft';
+    const monthWeeks = buildMonthWeeks(activeTimesheet.monthStart);
+    const dayNames = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+    const lines = activeTimesheet.lines || [];
+    const summaryRows = lines
+      .map((line) => `<tr><td>${timesheetLineDescription(line)}</td><td>${lineMonthTotal(line).toFixed(1)}</td></tr>`)
+      .join('');
+    const weekSections = monthWeeks.map((weekDays, weekIndex) => {
+      const weekStart = weekDays[0];
+      const weekEnd = weekDays[6];
+      const dayKeys = weekDays.map((day) => formatIsoDate(day));
+      const headers = weekDays.map((day, idx) => `<th>${dayNames[idx]}<br>${day.getDate()}</th>`).join('');
+      const rows = lines.map((line) => {
+        const cells = dayKeys.map((key) => `<td>${Number(line.entries?.[key] || 0) ? Number(line.entries?.[key] || 0).toFixed(1) : ''}</td>`).join('');
+        return `<tr><td>${timesheetLineDescription(line)}</td>${cells}<td>${lineTotalForDates(line, dayKeys).toFixed(1)}</td></tr>`;
+      }).join('');
+      return `
+        <h3>Week ${weekIndex + 1}: ${formatDate(weekStart)} - ${formatDate(weekEnd)}</h3>
+        <table>
+          <thead><tr><th>Description</th>${headers}<th>Total</th></tr></thead>
+          <tbody>${rows}</tbody>
+        </table>
+      `;
+    }).join('');
+    const printWindow = window.open('', '_blank', 'width=1100,height=800');
+    if (!printWindow) {
+      toast('Please allow pop-ups to print the timesheet', 'orange darken-2');
+      return;
+    }
+    printWindow.document.write(`
+      <html><head><title>${title}</title>
+      <style>
+        body { font-family: Arial, sans-serif; margin: 24px; color: #263238; }
+        h1, h2, h3 { margin: 0 0 10px; }
+        .meta { margin-bottom: 16px; color: #455a64; }
+        table { width: 100%; border-collapse: collapse; margin-bottom: 18px; }
+        th, td { border: 1px solid #cfd8dc; padding: 6px 8px; text-align: left; font-size: 12px; }
+        thead th { background: #eceff1; }
+      </style></head>
+      <body>
+        <h1>${title}</h1>
+        <div class="meta">Status: ${status}</div>
+        <h2>Month Summary</h2>
+        <table><thead><tr><th>Description</th><th>Total Hours</th></tr></thead><tbody>${summaryRows}</tbody></table>
+        <h2>Week Details</h2>
+        ${weekSections}
+      </body></html>
+    `);
+    printWindow.document.close();
+    printWindow.focus();
+    printWindow.print();
+  };
+
   const renderTimesheetWeek = () => {
     if (!activeTimesheet || !ui.timesheetTableWrap) return;
     const consultant = findConsultantById(activeTimesheet.consultantId);
@@ -643,8 +735,8 @@ if (!isBrowserRuntime) {
     const tbody = document.createElement('tbody');
     (activeTimesheet.lines || []).forEach((line) => {
       const tr = document.createElement('tr');
-      const lineLabel = line.projectName
-        || (!line.isManual ? (line.activity || 'Time Off') : (line.activity || 'Manual'));
+      tr.dataset.lineId = String(line.id);
+      const lineLabel = timesheetLineDescription(line);
       const activityInput = line.isManual ? `<input class="line-activity-input" type="text" value="${(line.activity || '').replace(/"/g, '&quot;')}" disabled/>` : (line.activity || '');
       tr.innerHTML = `<td><strong>${lineLabel}</strong>${line.isManual ? `<div>${activityInput}</div>` : ''}</td>`;
       let total = 0;
@@ -664,6 +756,8 @@ if (!isBrowserRuntime) {
           : '<span class="grey-text">—</span>';
         const input = td.querySelector('input');
         if (input) {
+          input.dataset.lineId = String(line.id);
+          input.dataset.dayIso = dayIso;
           input.addEventListener('change', async () => {
             const hours = Number(input.value || 0);
             if (Number.isNaN(hours) || hours < 0 || hours > 24) {
@@ -678,7 +772,10 @@ if (!isBrowserRuntime) {
                 body: JSON.stringify({ lineId: line.id, date: dayIso, hours })
               });
               line.entries = { ...(line.entries || {}), [dayIso]: hours };
-              renderTimesheetWeek();
+              const updatedTotal = currentWeek.reduce((sum, weekDay) => sum + Number(line.entries?.[formatIsoDate(weekDay)] || 0), 0);
+              const rowTotalCell = tr.querySelector('[data-role="week-total"]');
+              if (rowTotalCell) rowTotalCell.textContent = updatedTotal.toFixed(1);
+              updateTimesheetSummaryRowTotal(line);
             } catch (error) {
               toast(error.message || 'Failed to save hours', 'red darken-1');
             }
@@ -687,6 +784,7 @@ if (!isBrowserRuntime) {
         tr.appendChild(td);
       });
       const totalCell = document.createElement('td');
+      totalCell.dataset.role = 'week-total';
       totalCell.textContent = total.toFixed(1);
       tr.appendChild(totalCell);
       tbody.appendChild(tr);
@@ -694,6 +792,7 @@ if (!isBrowserRuntime) {
     table.appendChild(tbody);
     ui.timesheetTableWrap.innerHTML = '';
     ui.timesheetTableWrap.appendChild(table);
+    renderTimesheetSummary();
   };
 
   const openMonthlyTimesheet = async (monthStartIso) => {
@@ -2962,6 +3061,10 @@ if (!isBrowserRuntime) {
     } catch (error) {
       toast(error.message || 'Failed to save timesheet status', 'red darken-1');
     }
+  });
+
+  ui.timesheetPrintBtn?.addEventListener('click', () => {
+    printActiveTimesheet();
   });
 
   ui.navMenu.addEventListener('click', (event) => {

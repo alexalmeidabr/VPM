@@ -204,13 +204,17 @@ body.project-timeline-expanded #project-timeline-chart { flex: 0 0 auto; max-hei
 .timesheet-actions { display: flex; gap: 0.4rem; align-items: center; }
 .timesheet-week-toolbar { display: flex; align-items: center; gap: 0.4rem; flex-wrap: wrap; margin-bottom: 0.65rem; }
 .timesheet-status-btn { text-transform: none; }
+.timesheet-summary-panel { margin-top: 1rem; border-top: 1px solid #d7e1e6; padding-top: 0.9rem; }
+.timesheet-summary-title { font-size: 1.2rem; }
+.timesheet-summary-table { margin-top: 0.4rem; }
+.timesheet-summary-actions { display: flex; gap: 0.6rem; flex-wrap: wrap; margin-top: 0.8rem; }
 .timesheet-week-label { font-weight: 600; color: #37474f; min-width: 220px; }
 .timesheet-entry-table input[type="number"] { margin: 0; height: 2rem; text-align: center; }
 .timesheet-entry-table td, .timesheet-entry-table th { vertical-align: middle; }
 .timesheet-entry-table .day-context { font-size: 0.74rem; color: #607d8b; margin-top: 0.1rem; }
 .timesheet-entry-table .timesheet-out-of-month { background: #eceff1; color: #90a4ae; }
 .timesheet-entry-table .timesheet-out-of-month .day-context { color: #90a4ae; }
-.timesheet-entry-table .timesheet-weekend { background: #f3f5f7; }
+.timesheet-entry-table .timesheet-weekend { background: #d2d8de; }
 .timesheet-entry-table .timesheet-weekend input[type="number"] { background: #fff; }
 .timesheet-entry-table .context-weekend { background: #ffebee; }
 .timesheet-entry-table .context-holiday { background: #ffebee; }
