@@ -135,9 +135,11 @@ if (!isBrowserRuntime) {
     timesheetWeekLabel: document.getElementById('timesheet-week-label'),
     addManualTimesheetLineBtn: document.getElementById('add-manual-timesheet-line-btn'),
     timesheetSummaryWrap: document.getElementById('timesheet-summary-wrap'),
+    timesheetSummaryStatus: document.getElementById('timesheet-summary-status'),
     timesheetPrintBtn: document.getElementById('timesheet-print-btn'),
     timesheetSaveDraftBtn: document.getElementById('timesheet-save-draft-btn'),
     timesheetSaveCompletedBtn: document.getElementById('timesheet-save-completed-btn'),
+    timesheetReopenBtn: document.getElementById('timesheet-reopen-btn'),
     timesheetTableWrap: document.getElementById('timesheet-table-wrap'),
 
     weekTooltip: document.getElementById('week-tooltip')
@@ -598,7 +600,26 @@ if (!isBrowserRuntime) {
         ? { ...month, status }
         : month
     ));
+    refreshTimesheetDetailControls();
     toast(`Timesheet saved as ${status}`, 'teal darken-1');
+  };
+
+  const getTimesheetDisplayStatus = (status) => {
+    const raw = String(status || '').trim().toLowerCase();
+    if (raw === 'completed') return 'Completed';
+    if (raw === 'in progress') return 'In Progress';
+    return 'Draft';
+  };
+
+  const isTimesheetLocked = (status) => getTimesheetDisplayStatus(status) === 'Completed';
+
+  const refreshTimesheetDetailControls = () => {
+    const locked = isTimesheetLocked(activeTimesheet?.status);
+    if (ui.timesheetSummaryStatus) ui.timesheetSummaryStatus.textContent = `Status: ${getTimesheetDisplayStatus(activeTimesheet?.status)}`;
+    if (ui.timesheetSaveDraftBtn) ui.timesheetSaveDraftBtn.hidden = locked;
+    if (ui.timesheetSaveCompletedBtn) ui.timesheetSaveCompletedBtn.hidden = locked;
+    if (ui.timesheetReopenBtn) ui.timesheetReopenBtn.hidden = !locked;
+    if (ui.addManualTimesheetLineBtn) ui.addManualTimesheetLineBtn.disabled = locked;
   };
 
   const timesheetLineDescription = (line) => {
@@ -626,6 +647,7 @@ if (!isBrowserRuntime) {
     table.appendChild(tbody);
     ui.timesheetSummaryWrap.innerHTML = '';
     ui.timesheetSummaryWrap.appendChild(table);
+    refreshTimesheetDetailControls();
   };
 
   const updateTimesheetSummaryRowTotal = (line) => {
@@ -694,6 +716,7 @@ if (!isBrowserRuntime) {
   const renderTimesheetWeek = () => {
     if (!activeTimesheet || !ui.timesheetTableWrap) return;
     const consultant = findConsultantById(activeTimesheet.consultantId);
+    const locked = isTimesheetLocked(activeTimesheet.status);
     const monthWeeks = buildMonthWeeks(activeTimesheet.monthStart);
     const monthStartDate = parseIsoDate(activeTimesheet.monthStart);
     const currentWeek = monthWeeks[activeTimesheetWeekIndex] || [];
@@ -736,8 +759,9 @@ if (!isBrowserRuntime) {
         const value = Number(line.entries?.[dayIso] || 0);
         total += value;
         td.innerHTML = inMonth
-          ? `<input type="number" min="0" max="24" step="0.5" value="${value || ''}" />`
+          ? `<input class="timesheet-entry-input ${locked ? 'timesheet-entry-input--locked' : ''}" type="number" min="0" max="24" step="0.5" value="${value || ''}" ${locked ? 'disabled' : ''} />`
           : '<span class="grey-text">—</span>';
+        if (locked && inMonth) td.classList.add('timesheet-locked-cell');
         const input = td.querySelector('input');
         if (input) {
           input.dataset.lineId = String(line.id);
@@ -3014,6 +3038,10 @@ if (!isBrowserRuntime) {
 
   ui.addManualTimesheetLineBtn?.addEventListener('click', async () => {
     if (!activeTimesheet?.timesheetId) return;
+    if (isTimesheetLocked(activeTimesheet.status)) {
+      toast('Completed timesheets cannot be edited', 'orange darken-2');
+      return;
+    }
     const activity = window.prompt('Activity description');
     if (!activity || !activity.trim()) {
       toast('Activity is required for manual line', 'orange darken-2');
@@ -3042,8 +3070,18 @@ if (!isBrowserRuntime) {
   ui.timesheetSaveCompletedBtn?.addEventListener('click', async () => {
     try {
       await saveActiveTimesheetStatus('Completed');
+      renderTimesheetWeek();
     } catch (error) {
       toast(error.message || 'Failed to save timesheet status', 'red darken-1');
+    }
+  });
+
+  ui.timesheetReopenBtn?.addEventListener('click', async () => {
+    try {
+      await saveActiveTimesheetStatus('In Progress');
+      renderTimesheetWeek();
+    } catch (error) {
+      toast(error.message || 'Failed to reopen timesheet', 'red darken-1');
     }
   });
 

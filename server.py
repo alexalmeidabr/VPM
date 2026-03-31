@@ -1291,8 +1291,12 @@ class VPMHandler(SimpleHTTPRequestHandler):
         self._send_json({'error': 'activity is required'}, HTTPStatus.BAD_REQUEST)
         return
       with get_connection() as conn:
-        if not conn.execute('SELECT id FROM monthly_timesheets WHERE id = ?', (timesheet_id,)).fetchone():
+        timesheet_row = conn.execute('SELECT id, status FROM monthly_timesheets WHERE id = ?', (timesheet_id,)).fetchone()
+        if not timesheet_row:
           self._send_json({'error': 'Timesheet not found'}, HTTPStatus.NOT_FOUND)
+          return
+        if str(timesheet_row['status'] or '').strip().lower() == 'completed':
+          self._send_json({'error': 'Completed timesheets cannot be edited'}, HTTPStatus.BAD_REQUEST)
           return
         cursor = conn.execute('INSERT INTO monthly_timesheet_lines (timesheet_id, activity, is_manual) VALUES (?, ?, 1)', (timesheet_id, activity))
       self._send_json({'id': cursor.lastrowid}, HTTPStatus.CREATED)
@@ -1317,9 +1321,20 @@ class VPMHandler(SimpleHTTPRequestHandler):
         self._send_json({'error': 'hours must be between 0 and 24'}, HTTPStatus.BAD_REQUEST)
         return
       with get_connection() as conn:
-        row = conn.execute('SELECT id FROM monthly_timesheet_lines WHERE id = ?', (line_id,)).fetchone()
+        row = conn.execute(
+          '''
+          SELECT l.id, t.status
+          FROM monthly_timesheet_lines l
+          JOIN monthly_timesheets t ON t.id = l.timesheet_id
+          WHERE l.id = ?
+          ''',
+          (line_id,)
+        ).fetchone()
         if not row:
           self._send_json({'error': 'Timesheet line not found'}, HTTPStatus.NOT_FOUND)
+          return
+        if str(row['status'] or '').strip().lower() == 'completed':
+          self._send_json({'error': 'Completed timesheets cannot be edited'}, HTTPStatus.BAD_REQUEST)
           return
         conn.execute('INSERT INTO monthly_timesheet_entries (line_id, entry_date, hours, updated_at) VALUES (?, ?, ?, CURRENT_TIMESTAMP) ON CONFLICT(line_id, entry_date) DO UPDATE SET hours = excluded.hours, updated_at = CURRENT_TIMESTAMP', (line_id, entry_date, hours))
       self._send_json({'status': 'updated'})
