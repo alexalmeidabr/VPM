@@ -199,6 +199,9 @@ body.project-timeline-expanded #project-timeline-chart { flex: 0 0 auto; max-hei
 .timesheet-toggle-link { padding-left: 0; margin-top: 0.35rem; margin-bottom: 0.25rem; text-transform: none; color: #1565c0; }
 .timesheet-month-list { display: flex; flex-direction: column; gap: 0.6rem; margin-top: 0.5rem; }
 .timesheet-month-row { display: flex; justify-content: space-between; align-items: center; border: 1px solid #cfd8dc; border-radius: 8px; padding: 0.6rem 0.75rem; background: #fff; }
+.timesheet-month-row.timesheet-status-draft { background: #f7f9fb; border-color: #d9e1e7; }
+.timesheet-month-row.timesheet-status-in-progress { background: #fff7e8; border-color: #ecd6a8; }
+.timesheet-month-row.timesheet-status-completed { background: #edf8ef; border-color: #bfdcc4; }
 .timesheet-month-meta { display: flex; flex-direction: column; gap: 0.15rem; }
 .timesheet-month-title { font-weight: 600; color: #37474f; }
 .timesheet-actions { display: flex; gap: 0.4rem; align-items: center; }

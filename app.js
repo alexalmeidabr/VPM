@@ -213,7 +213,7 @@ if (!isBrowserRuntime) {
   let activeTimesheetWeekIndex = 0;
   let timeTrackingConsultants = [];
   let hasRequestedTimesheetLoad = false;
-  let showOlderTimesheets = false;
+  let visibleOlderTimesheetCount = 0;
 
   const fallbackHolidayCountries = ['AD', 'AT', 'BE', 'CA', 'CH', 'DE', 'DK', 'ES', 'FI', 'FR', 'GB', 'IE', 'IT', 'MX', 'NL', 'NO', 'PL', 'PT', 'SE', 'US'];
   const fallbackHolidayRegionsByCountry = {
@@ -511,9 +511,16 @@ if (!isBrowserRuntime) {
     const hasConsultant = Boolean(activeTimesheetConsultantId);
     const hasLoaded = Boolean(hasRequestedTimesheetLoad);
     if (ui.loadTimesheetsBtn) ui.loadTimesheetsBtn.hidden = !hasConsultant;
-    if (ui.timesheetMonthCount) ui.timesheetMonthCount.hidden = !(hasConsultant && hasLoaded);
+    if (ui.timesheetMonthCount) ui.timesheetMonthCount.hidden = true;
     if (ui.timesheetMonthList) ui.timesheetMonthList.hidden = !(hasConsultant && hasLoaded);
     if (ui.timesheetToggleOlderBtn && (!hasConsultant || !hasLoaded)) ui.timesheetToggleOlderBtn.hidden = true;
+  };
+
+  const normalizedTimesheetStatus = (status) => {
+    const raw = String(status || '').trim().toLowerCase();
+    if (raw === 'in progress') return { label: 'In Progress', className: 'timesheet-status-in-progress' };
+    if (raw === 'completed') return { label: 'Completed', className: 'timesheet-status-completed' };
+    return { label: 'Draft', className: 'timesheet-status-draft' };
   };
 
   const renderTimesheetMonths = () => {
@@ -521,7 +528,7 @@ if (!isBrowserRuntime) {
     ui.timesheetMonthList.innerHTML = '';
     const hasConsultantSelected = Boolean(activeTimesheetConsultantId);
     if (!hasConsultantSelected) {
-      ui.timesheetMonthCount.textContent = '';
+      if (ui.timesheetMonthCount) ui.timesheetMonthCount.hidden = true;
       if (ui.timesheetToggleOlderBtn) ui.timesheetToggleOlderBtn.hidden = true;
       ui.timesheetsEmptyState.hidden = true;
       ui.timesheetsEmptyState.textContent = 'Select a consultant to load monthly timesheets.';
@@ -529,14 +536,13 @@ if (!isBrowserRuntime) {
       return;
     }
     if (!hasRequestedTimesheetLoad) {
-      ui.timesheetMonthCount.textContent = '';
+      if (ui.timesheetMonthCount) ui.timesheetMonthCount.hidden = true;
       if (ui.timesheetToggleOlderBtn) ui.timesheetToggleOlderBtn.hidden = true;
       ui.timesheetsEmptyState.hidden = true;
       ui.timesheetsEmptyState.textContent = '';
       updateTimeTrackingListVisibility();
       return;
     }
-    ui.timesheetMonthCount.textContent = timesheetMonths.length ? `${timesheetMonths.length} month(s)` : '';
     const now = new Date();
     const currentMonthKey = now.getFullYear() * 12 + now.getMonth();
     const previousMonthKey = currentMonthKey - 1;
@@ -545,46 +551,37 @@ if (!isBrowserRuntime) {
       if (!parsed) return Number.NEGATIVE_INFINITY;
       return parsed.getFullYear() * 12 + parsed.getMonth();
     };
-    const visibleMonths = showOlderTimesheets
-      ? timesheetMonths
-      : timesheetMonths.filter((month) => {
-          const key = monthKey(month.monthStart);
-          return key === currentMonthKey || key === previousMonthKey;
-        });
-    const hasOlderHiddenMonths = visibleMonths.length < timesheetMonths.length;
+    const recentMonths = timesheetMonths.filter((month) => {
+      const key = monthKey(month.monthStart);
+      return key === currentMonthKey || key === previousMonthKey;
+    });
+    const olderMonths = timesheetMonths.filter((month) => {
+      const key = monthKey(month.monthStart);
+      return key < previousMonthKey;
+    });
+    const visibleOlderMonths = olderMonths.slice(0, visibleOlderTimesheetCount);
+    const visibleMonths = [...recentMonths, ...visibleOlderMonths];
+    const hasMoreOlderMonths = olderMonths.length > visibleOlderMonths.length;
 
     if (ui.timesheetToggleOlderBtn) {
       const canShowToggle = Boolean(activeTimesheetConsultantId) && hasRequestedTimesheetLoad;
-      ui.timesheetToggleOlderBtn.hidden = !canShowToggle || (!hasOlderHiddenMonths && !showOlderTimesheets);
-      ui.timesheetToggleOlderBtn.textContent = showOlderTimesheets ? 'Hide older Timesheets' : 'See older Timesheets';
+      ui.timesheetToggleOlderBtn.hidden = !canShowToggle || !hasMoreOlderMonths;
+      ui.timesheetToggleOlderBtn.textContent = 'See older Timesheets';
     }
 
-    const emptyMessage = hasOlderHiddenMonths && !showOlderTimesheets
+    const emptyMessage = hasMoreOlderMonths
       ? 'No timesheets for the current or previous month. Click "See older Timesheets" to view earlier months.'
       : 'No monthly timesheets found for the selected consultant.';
     ui.timesheetsEmptyState.hidden = Boolean(visibleMonths.length);
     ui.timesheetsEmptyState.textContent = emptyMessage;
     updateTimeTrackingListVisibility();
     visibleMonths.forEach((month) => {
+      const status = normalizedTimesheetStatus(month.status);
       const row = document.createElement('div');
-      row.className = 'timesheet-month-row';
-      row.innerHTML = `<div class="timesheet-month-meta"><div class="timesheet-month-title">${month.label}</div><div class="grey-text">Status: ${month.status || 'Draft'}</div></div><div class="timesheet-actions"><button class="btn" type="button" data-action="open">Open</button><button class="btn-flat red-text" type="button" data-action="delete">Delete</button></div>`;
+      row.className = `timesheet-month-row ${status.className}`;
+      row.innerHTML = `<div class="timesheet-month-meta"><div class="timesheet-month-title">${month.label}</div><div class="grey-text">Status: ${status.label}</div></div><div class="timesheet-actions"><button class="btn" type="button" data-action="open">Open</button></div>`;
       row.querySelector('[data-action="open"]').addEventListener('click', async () => {
         await openMonthlyTimesheet(month.monthStart);
-      });
-      row.querySelector('[data-action="delete"]').addEventListener('click', async () => {
-        if (!window.confirm(`Delete timesheet ${month.label}? This removes all lines and entries.`)) return;
-        try {
-          await request(`/api/monthly-timesheets?consultantId=${activeTimesheetConsultantId}&month=${month.monthStart.slice(0, 7)}`, { method: 'DELETE' });
-          toast('Timesheet deleted', 'teal darken-1');
-          await loadTimesheetMonths(activeTimesheetConsultantId);
-          if (activeTimesheet && activeTimesheet.monthStart === month.monthStart) {
-            activeTimesheet = null;
-            setTimeTrackingView({ showList: true });
-          }
-        } catch (error) {
-          toast(error.message || 'Failed to delete timesheet', 'red darken-1');
-        }
       });
       ui.timesheetMonthList.appendChild(row);
     });
@@ -2984,7 +2981,7 @@ if (!isBrowserRuntime) {
     activeTimesheetConsultantId = selectedId;
     activeTimesheet = null;
     hasRequestedTimesheetLoad = false;
-    showOlderTimesheets = false;
+    visibleOlderTimesheetCount = 0;
     timesheetMonths = [];
     setTimeTrackingView({ showList: true });
     renderTimesheetMonths();
@@ -3001,12 +2998,12 @@ if (!isBrowserRuntime) {
   ui.loadTimesheetsBtn?.addEventListener('click', async () => {
     if (!activeTimesheetConsultantId) return;
     hasRequestedTimesheetLoad = true;
-    showOlderTimesheets = false;
+    visibleOlderTimesheetCount = 0;
     await loadTimesheetMonths(activeTimesheetConsultantId);
   });
 
   ui.timesheetToggleOlderBtn?.addEventListener('click', () => {
-    showOlderTimesheets = !showOlderTimesheets;
+    visibleOlderTimesheetCount += 3;
     renderTimesheetMonths();
   });
 
