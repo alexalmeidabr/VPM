@@ -927,6 +927,45 @@ class VPMHandler(SimpleHTTPRequestHandler):
         continue
       conn.execute('INSERT INTO monthly_timesheet_lines (timesheet_id, project_id, activity, is_manual) VALUES (?, ?, ?, 0)', (row['id'], project_id, None))
 
+    existing_time_off_labels = {
+      str(item['activity']).strip().lower()
+      for item in conn.execute(
+        '''
+        SELECT activity
+        FROM monthly_timesheet_lines
+        WHERE timesheet_id = ?
+          AND project_id IS NULL
+          AND is_manual = 0
+          AND activity IS NOT NULL
+          AND TRIM(activity) <> ''
+        ''',
+        (row['id'],)
+      ).fetchall()
+    }
+    availability_types = conn.execute(
+      '''
+      SELECT DISTINCT COALESCE(NULLIF(TRIM(dot.name), ''), NULLIF(TRIM(ca.type), ''), 'Time Off') AS type_name
+      FROM consultant_availability ca
+      LEFT JOIN day_off_types dot ON dot.id = ca.day_off_type_id
+      WHERE ca.consultant_id = ?
+        AND ca.start_date <= ?
+        AND ca.end_date >= ?
+      ORDER BY type_name
+      ''',
+      (consultant_id, month_end_iso, month_start_iso)
+    ).fetchall()
+    for availability in availability_types:
+      type_name = str(availability['type_name'] or '').strip()
+      if not type_name:
+        continue
+      if type_name.lower() in existing_time_off_labels:
+        continue
+      conn.execute(
+        'INSERT INTO monthly_timesheet_lines (timesheet_id, project_id, activity, is_manual) VALUES (?, NULL, ?, 0)',
+        (row['id'], type_name)
+      )
+      existing_time_off_labels.add(type_name.lower())
+
     return row
 
   def _fetch_timesheet_months(self, conn, consultant_id):

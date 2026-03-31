@@ -391,6 +391,13 @@ if (!isBrowserRuntime) {
     return d ? d.toLocaleDateString(undefined, { month: 'long', year: 'numeric' }) : monthStart;
   };
 
+  const weekOfMonthLabel = (monthStart, weekIndex) => {
+    const monthWeeks = buildMonthWeeks(monthStart);
+    if (!monthWeeks.length) return '';
+    const safeIndex = Math.max(0, Math.min(weekIndex, monthWeeks.length - 1));
+    return `Week ${safeIndex + 1}`;
+  };
+
   const firstMondayForMonth = (year, monthIndex) => {
     const first = new Date(year, monthIndex, 1);
     const day = first.getDay();
@@ -594,9 +601,15 @@ if (!isBrowserRuntime) {
     if (!activeTimesheet || !ui.timesheetTableWrap) return;
     const consultant = findConsultantById(activeTimesheet.consultantId);
     const monthWeeks = buildMonthWeeks(activeTimesheet.monthStart);
+    const monthStartDate = parseIsoDate(activeTimesheet.monthStart);
     const currentWeek = monthWeeks[activeTimesheetWeekIndex] || [];
     const weekStart = currentWeek[0];
     const weekEnd = currentWeek[6];
+    const detailMonthLabel = monthLabel(activeTimesheet.monthStart);
+    const detailWeekLabel = weekOfMonthLabel(activeTimesheet.monthStart, activeTimesheetWeekIndex);
+    if (ui.timesheetDetailTitle) {
+      ui.timesheetDetailTitle.textContent = `${consultant?.name || 'Consultant'} • ${detailMonthLabel}${detailWeekLabel ? ` - ${detailWeekLabel}` : ''}`;
+    }
     ui.timesheetWeekLabel.textContent = weekStart && weekEnd ? `${formatDate(weekStart)} - ${formatDate(weekEnd)}` : '';
     ui.timesheetPrevWeekBtn.disabled = activeTimesheetWeekIndex <= 0;
     ui.timesheetNextWeekBtn.disabled = activeTimesheetWeekIndex >= monthWeeks.length - 1;
@@ -620,13 +633,16 @@ if (!isBrowserRuntime) {
         const dayIso = formatIsoDate(day);
         const td = document.createElement('td');
         const context = dayContextForConsultant(consultant, day);
-        if (context.className) td.classList.add(context.className);
+        const inMonth = monthStartDate ? (day.getMonth() === monthStartDate.getMonth() && day.getFullYear() === monthStartDate.getFullYear()) : false;
+        const isWeekend = day.getDay() === 0 || day.getDay() === 6;
+        if (inMonth && isWeekend) td.classList.add('timesheet-weekend');
+        if (!inMonth) td.classList.add('timesheet-out-of-month');
+        if (context.className && context.className !== 'context-weekend') td.classList.add(context.className);
         const value = Number(line.entries?.[dayIso] || 0);
         total += value;
-        const inMonth = day.getMonth() === parseIsoDate(activeTimesheet.monthStart).getMonth();
         td.innerHTML = inMonth
           ? `<input type="number" min="0" max="24" step="0.5" value="${value || ''}" /><div class="day-context">${context.label}</div>`
-          : '<span class="grey-text">—</span>';
+          : '<span class="grey-text">—</span><div class="day-context">Outside month</div>';
         const input = td.querySelector('input');
         if (input) {
           input.addEventListener('change', async () => {
@@ -672,7 +688,6 @@ if (!isBrowserRuntime) {
       const detail = await request(`/api/monthly-timesheets?consultantId=${activeTimesheetConsultantId}&month=${monthStartIso.slice(0, 7)}`);
       activeTimesheet = detail;
       activeTimesheetWeekIndex = 0;
-      ui.timesheetDetailTitle.textContent = `${consultant?.name || 'Consultant'} • ${monthLabel(monthStartIso)}`;
       setTimeTrackingView({ showList: false });
       renderTimesheetWeek();
       await loadTimesheetMonths(activeTimesheetConsultantId);

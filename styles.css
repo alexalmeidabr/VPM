@@ -207,6 +207,10 @@ body.project-timeline-expanded #project-timeline-chart { flex: 0 0 auto; max-hei
 .timesheet-entry-table input[type="number"] { margin: 0; height: 2rem; text-align: center; }
 .timesheet-entry-table td, .timesheet-entry-table th { vertical-align: middle; }
 .timesheet-entry-table .day-context { font-size: 0.74rem; color: #607d8b; margin-top: 0.1rem; }
+.timesheet-entry-table .timesheet-out-of-month { background: #eceff1; color: #90a4ae; }
+.timesheet-entry-table .timesheet-out-of-month .day-context { color: #90a4ae; }
+.timesheet-entry-table .timesheet-weekend { background: #f3f5f7; }
+.timesheet-entry-table .timesheet-weekend input[type="number"] { background: #fff; }
 .timesheet-entry-table .context-weekend { background: #ffebee; }
 .timesheet-entry-table .context-holiday { background: #ffebee; }
 .timesheet-entry-table .context-dayoff { background: #fff3e0; }
