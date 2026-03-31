@@ -615,10 +615,19 @@ if (!isBrowserRuntime) {
 
   const refreshTimesheetDetailControls = () => {
     const locked = isTimesheetLocked(activeTimesheet?.status);
-    if (ui.timesheetSummaryStatus) ui.timesheetSummaryStatus.textContent = `Status: ${getTimesheetDisplayStatus(activeTimesheet?.status)}`;
-    if (ui.timesheetSaveDraftBtn) ui.timesheetSaveDraftBtn.hidden = locked;
-    if (ui.timesheetSaveCompletedBtn) ui.timesheetSaveCompletedBtn.hidden = locked;
-    if (ui.timesheetReopenBtn) ui.timesheetReopenBtn.hidden = !locked;
+    if (ui.timesheetSummaryStatus) ui.timesheetSummaryStatus.textContent = `• Status: ${getTimesheetDisplayStatus(activeTimesheet?.status)}`;
+    if (ui.timesheetSaveDraftBtn) {
+      ui.timesheetSaveDraftBtn.hidden = locked;
+      ui.timesheetSaveDraftBtn.classList.toggle('timesheet-hidden', locked);
+    }
+    if (ui.timesheetSaveCompletedBtn) {
+      ui.timesheetSaveCompletedBtn.hidden = locked;
+      ui.timesheetSaveCompletedBtn.classList.toggle('timesheet-hidden', locked);
+    }
+    if (ui.timesheetReopenBtn) {
+      ui.timesheetReopenBtn.hidden = !locked;
+      ui.timesheetReopenBtn.classList.toggle('timesheet-hidden', !locked);
+    }
     if (ui.addManualTimesheetLineBtn) ui.addManualTimesheetLineBtn.disabled = locked;
   };
 

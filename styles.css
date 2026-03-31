@@ -208,10 +208,12 @@ body.project-timeline-expanded #project-timeline-chart { flex: 0 0 auto; max-hei
 .timesheet-week-toolbar { display: flex; align-items: center; gap: 0.4rem; flex-wrap: wrap; margin-bottom: 0.65rem; }
 .timesheet-status-btn { text-transform: none; }
 .timesheet-summary-panel { margin-top: 1rem; border-top: 1px solid #d7e1e6; padding-top: 0.9rem; }
+.timesheet-summary-header { justify-content: flex-start; gap: 0.25rem; }
 .timesheet-summary-title { font-size: 1.2rem; }
-.timesheet-summary-status { margin-left: 0.35rem; color: #546e7a; font-size: 0.95rem; }
+.timesheet-summary-status { color: #546e7a; font-size: 0.95rem; }
 .timesheet-summary-table { margin-top: 0.4rem; }
 .timesheet-summary-actions { display: flex; gap: 0.6rem; flex-wrap: wrap; margin-top: 0.8rem; }
+.timesheet-hidden { display: none !important; }
 .timesheet-week-label { font-weight: 600; color: #37474f; min-width: 220px; }
 .timesheet-entry-table input[type="number"] { margin: 0; height: 2rem; text-align: center; }
 .timesheet-entry-input { background: #fff !important; border: 1px solid #b0bec5 !important; border-radius: 4px; }
