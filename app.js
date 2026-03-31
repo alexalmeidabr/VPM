@@ -120,6 +120,20 @@ if (!isBrowserRuntime) {
     rolesList: document.getElementById('roles-list'),
     areasList: document.getElementById('areas-list'),
     dayOffTypesList: document.getElementById('day-off-types-list'),
+    timeTrackingListCard: document.getElementById('time-tracking-list-card'),
+    timeTrackingConsultantSelect: document.getElementById('time-tracking-consultant-select'),
+    loadTimesheetsBtn: document.getElementById('load-timesheets-btn'),
+    timesheetMonthCount: document.getElementById('timesheet-month-count'),
+    timesheetsEmptyState: document.getElementById('timesheets-empty-state'),
+    timesheetMonthList: document.getElementById('timesheet-month-list'),
+    timesheetDetailCard: document.getElementById('timesheet-detail-card'),
+    timesheetDetailTitle: document.getElementById('timesheet-detail-title'),
+    backToTimesheetsBtn: document.getElementById('back-to-timesheets-btn'),
+    timesheetPrevWeekBtn: document.getElementById('timesheet-prev-week-btn'),
+    timesheetNextWeekBtn: document.getElementById('timesheet-next-week-btn'),
+    timesheetWeekLabel: document.getElementById('timesheet-week-label'),
+    addManualTimesheetLineBtn: document.getElementById('add-manual-timesheet-line-btn'),
+    timesheetTableWrap: document.getElementById('timesheet-table-wrap'),
 
     weekTooltip: document.getElementById('week-tooltip')
   };
@@ -141,21 +155,6 @@ if (!isBrowserRuntime) {
     consultantCompanyRoleId: document.getElementById('consultant-company-role-id'),
     consultantSalary: document.getElementById('consultant-salary'),
     consultantHolidayLocationId: document.getElementById('consultant-holiday-location-id'),
-
-    timeTrackingConsultantSelect: document.getElementById('time-tracking-consultant-select'),
-    loadTimesheetsBtn: document.getElementById('load-timesheets-btn'),
-    timesheetMonthCount: document.getElementById('timesheet-month-count'),
-    timesheetsEmptyState: document.getElementById('timesheets-empty-state'),
-    timesheetMonthList: document.getElementById('timesheet-month-list'),
-    timesheetDetailCard: document.getElementById('timesheet-detail-card'),
-    timeTrackingListCard: document.getElementById('time-tracking-list-card'),
-    timesheetDetailTitle: document.getElementById('timesheet-detail-title'),
-    backToTimesheetsBtn: document.getElementById('back-to-timesheets-btn'),
-    timesheetPrevWeekBtn: document.getElementById('timesheet-prev-week-btn'),
-    timesheetNextWeekBtn: document.getElementById('timesheet-next-week-btn'),
-    timesheetWeekLabel: document.getElementById('timesheet-week-label'),
-    addManualTimesheetLineBtn: document.getElementById('add-manual-timesheet-line-btn'),
-    timesheetTableWrap: document.getElementById('timesheet-table-wrap'),
 
     roleName: document.getElementById('role-name'),
     areaName: document.getElementById('area-name'),
@@ -431,9 +430,7 @@ if (!isBrowserRuntime) {
   };
 
   async function refreshTimeTrackingConsultantSelectFromApi() {
-    const select = document.getElementById('time-tracking-consultant-select');
-    console.log('refreshTimeTrackingConsultantSelectFromApi called');
-    console.log('time-tracking consultant select found:', Boolean(select));
+    const select = ui.timeTrackingConsultantSelect;
     if (!select) return;
 
     const candidateBases = [
@@ -459,18 +456,16 @@ if (!isBrowserRuntime) {
       if (!data) throw lastError || new Error('Unable to fetch consultants');
 
       timeTrackingConsultants = Array.isArray(data?.consultants) ? data.consultants : [];
-      console.log('Loaded consultants:', timeTrackingConsultants.length);
       rebuildTimeTrackingConsultantSelect();
     } catch (error) {
       console.error('Failed loading consultants for time tracking:', error);
       timeTrackingConsultants = Array.isArray(consultants) ? consultants : [];
-      console.log('Loaded consultants (fallback cache):', timeTrackingConsultants.length);
       rebuildTimeTrackingConsultantSelect();
     }
   }
 
   function rebuildTimeTrackingConsultantSelect() {
-    const select = document.getElementById('time-tracking-consultant-select');
+    const select = ui.timeTrackingConsultantSelect;
     if (!select) return;
 
     const current = Number(activeTimesheetConsultantId || 0);
@@ -496,7 +491,6 @@ if (!isBrowserRuntime) {
       hasRequestedTimesheetLoad = false;
     }
 
-    console.log('Select options count:', select.options.length);
     updateTimeTrackingListVisibility();
   }
 
@@ -2820,7 +2814,7 @@ if (!isBrowserRuntime) {
     setConsultantFormMode('edit');
   });
 
-  const timeTrackingConsultantSelectEl = document.getElementById('time-tracking-consultant-select');
+  const timeTrackingConsultantSelectEl = ui.timeTrackingConsultantSelect;
   timeTrackingConsultantSelectEl?.addEventListener('change', () => {
     const selectedId = Number(timeTrackingConsultantSelectEl.value || 0);
     activeTimesheetConsultantId = selectedId;
