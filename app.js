@@ -1832,15 +1832,6 @@ if (!isBrowserRuntime) {
     resetSelect('deliveryPartnerBusinessPartner', fields.deliveryPartnerBusinessPartnerId);
     resetSelect('deliveryPartnerContacts', fields.deliveryPartnerContactIds);
     resetSelect('projectType', fields.projectType);
-    const readOnly = projectViewMode === 'view';
-    [fields.clientBusinessPartnerId, fields.clientContactIds, fields.deliveryPartnerBusinessPartnerId, fields.deliveryPartnerContactIds].forEach((el) => {
-      if (!el) return;
-      el.disabled = readOnly;
-    });
-    resetSelect('clientBusinessPartner', fields.clientBusinessPartnerId);
-    resetSelect('clientContacts', fields.clientContactIds);
-    resetSelect('deliveryPartnerBusinessPartner', fields.deliveryPartnerBusinessPartnerId);
-    resetSelect('deliveryPartnerContacts', fields.deliveryPartnerContactIds);
   };
 
   const rebuildConsultantSelects = ({ areaIds = [], companyRoleId = '', holidayLocationId = '' } = {}) => {
@@ -2236,6 +2227,10 @@ if (!isBrowserRuntime) {
     [fields.projectName, fields.clientBusinessPartnerId, fields.clientContactIds, fields.projectType, fields.deliveryPartnerBusinessPartnerId, fields.deliveryPartnerContactIds, fields.startDate, fields.endDate].forEach((el) => { if (el) el.disabled = readOnly; });
     fields.managerId.disabled = true;
     resetSelect('manager', fields.managerId);
+    resetSelect('clientBusinessPartner', fields.clientBusinessPartnerId);
+    resetSelect('clientContacts', fields.clientContactIds);
+    resetSelect('deliveryPartnerBusinessPartner', fields.deliveryPartnerBusinessPartnerId);
+    resetSelect('deliveryPartnerContacts', fields.deliveryPartnerContactIds);
     resetSelect('projectType', fields.projectType);
     updateProjectMembersPanel();
   };
@@ -2982,14 +2977,14 @@ if (!isBrowserRuntime) {
       deliveryPartnerBusinessPartnerId: project.deliveryPartnerBusinessPartnerId || '',
       deliveryPartnerContactIds: (project.deliveryPartnerContacts || []).map((item) => Number(item.id))
     });
-    setProjectFormMode(button.dataset.action === 'view-project' ? 'view' : 'edit');
+    const targetMode = button.dataset.action === 'view-project' ? 'view' : 'edit';
     showProjectPhaseForm = false;
     showProjectMilestoneForm = false;
     showManageProjectPanel();
     collapseProjectTimeline();
     updateProjectTimelineExpandUi();
-    updateProjectMembersPanel();
     renderProjectWeekDetail('', '', '');
+    setProjectFormMode(targetMode);
     updateTextFields();
   });
 
