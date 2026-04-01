@@ -154,22 +154,53 @@
               <input type="hidden" id="business-partner-id" />
               <div class="input-field"><input id="business-partner-company-name" type="text" required /><label for="business-partner-company-name">Company Name</label></div>
               <div class="input-field"><select id="business-partner-type-id"></select><label for="business-partner-type-id">Business Partner Type</label></div>
-              <div class="row date-row">
-                <div class="input-field col s12 m8"><input id="business-partner-address-street" type="text" /><label for="business-partner-address-street">Street Name</label></div>
-                <div class="input-field col s12 m4"><input id="business-partner-address-number" type="text" /><label for="business-partner-address-number">Number</label></div>
+              <div class="bp-collapsible-section">
+                <button class="bp-collapsible-header" type="button" id="bp-address-toggle-btn">
+                  <span>Address Information</span>
+                  <i class="material-icons" id="bp-address-toggle-icon">chevron_right</i>
+                </button>
+                <div id="bp-address-content" hidden>
+                  <div class="row date-row">
+                    <div class="input-field col s12 m8"><input id="business-partner-address-street" type="text" /><label for="business-partner-address-street">Street Name</label></div>
+                    <div class="input-field col s12 m4"><input id="business-partner-address-number" type="text" /><label for="business-partner-address-number">Number</label></div>
+                  </div>
+                  <div class="row date-row">
+                    <div class="input-field col s12 m4"><input id="business-partner-postal-code" type="text" /><label for="business-partner-postal-code">Postal Code</label></div>
+                    <div class="input-field col s12 m4"><input id="business-partner-city" type="text" /><label for="business-partner-city">City</label></div>
+                    <div class="input-field col s12 m4"><select id="business-partner-region"></select><label for="business-partner-region">Region</label></div>
+                  </div>
+                  <div class="input-field"><select id="business-partner-country"></select><label for="business-partner-country">Country</label></div>
+                </div>
               </div>
-              <div class="row date-row">
-                <div class="input-field col s12 m4"><input id="business-partner-postal-code" type="text" /><label for="business-partner-postal-code">Postal Code</label></div>
-                <div class="input-field col s12 m4"><input id="business-partner-city" type="text" /><label for="business-partner-city">City</label></div>
-                <div class="input-field col s12 m4"><select id="business-partner-region"></select><label for="business-partner-region">Region</label></div>
-              </div>
-              <div class="input-field"><select id="business-partner-country"></select><label for="business-partner-country">Country</label></div>
             </form>
-            <div class="section-header">
-              <h6>Contact Persons</h6>
-              <button class="btn blue-grey" type="button" id="add-business-partner-contact-btn">Add Contact Person</button>
+            <div class="bp-collapsible-section">
+              <button class="bp-collapsible-header" type="button" id="bp-contacts-toggle-btn">
+                <span>Contact Persons</span>
+                <i class="material-icons" id="bp-contacts-toggle-icon">chevron_right</i>
+              </button>
+              <div id="bp-contacts-content" hidden>
+                <div class="section-header">
+                  <h6>Contact Persons</h6>
+                  <button class="btn blue-grey" type="button" id="add-business-partner-contact-btn">Add Contact Person</button>
+                </div>
+                <div id="business-partner-contacts-list"></div>
+              </div>
             </div>
-            <div id="business-partner-contacts-list"></div>
+            <div class="bp-collapsible-section">
+              <button class="bp-collapsible-header" type="button" id="bp-projects-toggle-btn">
+                <span>Projects</span>
+                <i class="material-icons" id="bp-projects-toggle-icon">chevron_right</i>
+              </button>
+              <div id="bp-projects-content" hidden>
+                <div class="table-container">
+                  <table class="striped responsive-table">
+                    <thead><tr><th>Project Name</th><th>Client</th><th>Manager</th><th>Delivery Partner</th><th>Start Date</th><th>End Date</th></tr></thead>
+                    <tbody id="business-partner-projects-body"></tbody>
+                  </table>
+                </div>
+                <p id="business-partner-projects-empty-state" class="grey-text text-darken-1">No related projects found.</p>
+              </div>
+            </div>
             <div class="right-align" style="margin-top: 1rem;">
               <button class="btn" type="submit" form="business-partner-form" id="business-partner-save-btn">Save Business Partner</button>
             </div>

@@ -118,6 +118,17 @@ if (!isBrowserRuntime) {
     businessPartnerSaveBtn: document.getElementById('business-partner-save-btn'),
     addBusinessPartnerContactBtn: document.getElementById('add-business-partner-contact-btn'),
     businessPartnerContactsList: document.getElementById('business-partner-contacts-list'),
+    bpAddressToggleBtn: document.getElementById('bp-address-toggle-btn'),
+    bpContactsToggleBtn: document.getElementById('bp-contacts-toggle-btn'),
+    bpProjectsToggleBtn: document.getElementById('bp-projects-toggle-btn'),
+    bpAddressToggleIcon: document.getElementById('bp-address-toggle-icon'),
+    bpContactsToggleIcon: document.getElementById('bp-contacts-toggle-icon'),
+    bpProjectsToggleIcon: document.getElementById('bp-projects-toggle-icon'),
+    bpAddressContent: document.getElementById('bp-address-content'),
+    bpContactsContent: document.getElementById('bp-contacts-content'),
+    bpProjectsContent: document.getElementById('bp-projects-content'),
+    businessPartnerProjectsBody: document.getElementById('business-partner-projects-body'),
+    businessPartnerProjectsEmptyState: document.getElementById('business-partner-projects-empty-state'),
     businessPartnerCommunicationModal: document.getElementById('business-partner-communication-modal'),
     communicationModalContactName: document.getElementById('communication-modal-contact-name'),
     communicationEmailsList: document.getElementById('communication-emails-list'),
@@ -233,6 +244,9 @@ if (!isBrowserRuntime) {
   let editingBusinessPartnerContacts = [];
   let editingCommunicationContactIndex = -1;
   let editingCommunicationDraft = { emails: [], phoneNumbers: [] };
+  let businessPartnerAddressExpanded = false;
+  let businessPartnerContactsExpanded = false;
+  let businessPartnerProjectsExpanded = false;
   let businessPartnerViewMode = 'edit';
   let holidayLocations = [];
   let loadedHolidays = [];
@@ -2159,6 +2173,41 @@ if (!isBrowserRuntime) {
     });
   };
 
+  const renderBusinessPartnerSections = () => {
+    if (ui.bpAddressContent) ui.bpAddressContent.hidden = !businessPartnerAddressExpanded;
+    if (ui.bpContactsContent) ui.bpContactsContent.hidden = !businessPartnerContactsExpanded;
+    if (ui.bpProjectsContent) ui.bpProjectsContent.hidden = !businessPartnerProjectsExpanded;
+    if (ui.bpAddressToggleIcon) ui.bpAddressToggleIcon.textContent = businessPartnerAddressExpanded ? 'expand_more' : 'chevron_right';
+    if (ui.bpContactsToggleIcon) ui.bpContactsToggleIcon.textContent = businessPartnerContactsExpanded ? 'expand_more' : 'chevron_right';
+    if (ui.bpProjectsToggleIcon) ui.bpProjectsToggleIcon.textContent = businessPartnerProjectsExpanded ? 'expand_more' : 'chevron_right';
+  };
+
+  const renderBusinessPartnerProjects = () => {
+    if (!ui.businessPartnerProjectsBody || !ui.businessPartnerProjectsEmptyState) return;
+    const businessPartnerId = Number(fields.businessPartnerId.value || 0);
+    ui.businessPartnerProjectsBody.innerHTML = '';
+    if (!businessPartnerId) {
+      ui.businessPartnerProjectsEmptyState.hidden = false;
+      return;
+    }
+    const relatedProjects = projects.filter((project) => Number(project.clientBusinessPartnerId) === businessPartnerId || Number(project.deliveryPartnerBusinessPartnerId) === businessPartnerId);
+    relatedProjects.forEach((project) => {
+      const client = findBusinessPartnerById(project.clientBusinessPartnerId);
+      const delivery = findBusinessPartnerById(project.deliveryPartnerBusinessPartnerId);
+      const row = document.createElement('tr');
+      row.innerHTML = `
+        <td>${project.projectName || '—'}</td>
+        <td>${client?.companyName || '—'}</td>
+        <td>${consultantNameById(project.managerConsultantId)}</td>
+        <td>${delivery?.companyName || '—'}</td>
+        <td>${formatDate(project.startDate)}</td>
+        <td>${formatDate(project.endDate)}</td>
+      `;
+      ui.businessPartnerProjectsBody.appendChild(row);
+    });
+    ui.businessPartnerProjectsEmptyState.hidden = relatedProjects.length > 0;
+  };
+
   const renderCommunicationModalRows = () => {
     if (!ui.communicationEmailsList || !ui.communicationPhonesList) return;
     const readOnly = businessPartnerViewMode === 'view';
@@ -2222,6 +2271,11 @@ if (!isBrowserRuntime) {
     resetSelect('businessPartnerCountry', fields.businessPartnerCountry);
     resetSelect('businessPartnerRegion', fields.businessPartnerRegion);
     resetSelect('businessPartnerType', fields.businessPartnerTypeId);
+    businessPartnerAddressExpanded = false;
+    businessPartnerContactsExpanded = false;
+    businessPartnerProjectsExpanded = false;
+    renderBusinessPartnerSections();
+    renderBusinessPartnerProjects();
     setBusinessPartnerFormMode('edit');
     renderBusinessPartnerContactsEditor();
     updateTextFields();
@@ -3171,6 +3225,18 @@ if (!isBrowserRuntime) {
     showManageBusinessPartnerPanel();
   });
   ui.backToBusinessPartnersBtn?.addEventListener('click', showBusinessPartnersPanel);
+  ui.bpAddressToggleBtn?.addEventListener('click', () => {
+    businessPartnerAddressExpanded = !businessPartnerAddressExpanded;
+    renderBusinessPartnerSections();
+  });
+  ui.bpContactsToggleBtn?.addEventListener('click', () => {
+    businessPartnerContactsExpanded = !businessPartnerContactsExpanded;
+    renderBusinessPartnerSections();
+  });
+  ui.bpProjectsToggleBtn?.addEventListener('click', () => {
+    businessPartnerProjectsExpanded = !businessPartnerProjectsExpanded;
+    renderBusinessPartnerSections();
+  });
   fields.businessPartnerCountry?.addEventListener('change', () => {
     rebuildBusinessPartnerRegionSelect({ countryCode: fields.businessPartnerCountry.value, regionValue: '' });
   });
@@ -3334,6 +3400,11 @@ if (!isBrowserRuntime) {
     fields.businessPartnerTypeId.innerHTML = '<option value="" selected>No type</option>';
     businessPartnerTypes.forEach((type) => fields.businessPartnerTypeId.add(new Option(type.name, type.id, false, Number(type.id) === Number(partner.businessPartnerTypeId))));
     resetSelect('businessPartnerType', fields.businessPartnerTypeId);
+    businessPartnerAddressExpanded = false;
+    businessPartnerContactsExpanded = false;
+    businessPartnerProjectsExpanded = false;
+    renderBusinessPartnerSections();
+    renderBusinessPartnerProjects();
     setBusinessPartnerFormMode(button.dataset.action === 'view-business-partner' ? 'view' : 'edit');
     renderBusinessPartnerContactsEditor();
     updateTextFields();

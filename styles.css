@@ -234,6 +234,10 @@ body.project-timeline-expanded #project-timeline-chart { flex: 0 0 auto; max-hei
 .bp-communication-summary { margin-top: 0.8rem; }
 .bp-communication-summary .btn-flat { padding-left: 0; }
 .bp-comm-row { margin-bottom: 0; }
+.bp-collapsible-section { border: 1px solid #d7e1e6; border-radius: 8px; margin-top: 0.75rem; background: #fff; }
+.bp-collapsible-header { width: 100%; border: 0; background: #f7fafc; display: flex; justify-content: space-between; align-items: center; padding: 0.65rem 0.85rem; font-weight: 600; color: #37474f; cursor: pointer; }
+.bp-collapsible-header:hover { background: #eef4f8; }
+#bp-address-content, #bp-contacts-content, #bp-projects-content { padding: 0.35rem 0.85rem 0.75rem; }
 
 
 .time-tracking-consultant-picker { width: 350px; max-width: 100%; margin-bottom: 0.5rem; }
