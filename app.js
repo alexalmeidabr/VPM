@@ -775,6 +775,7 @@ if (!isBrowserRuntime) {
         const dayIso = formatIsoDate(day);
         const td = document.createElement('td');
         const context = dayContextForConsultant(consultant, day);
+        const holiday = holidayByDateForConsultant(consultant, day);
         const inMonth = monthStartDate ? (day.getMonth() === monthStartDate.getMonth() && day.getFullYear() === monthStartDate.getFullYear()) : false;
         const isWeekend = day.getDay() === 0 || day.getDay() === 6;
         if (inMonth && isWeekend) td.classList.add('timesheet-weekend');
@@ -782,8 +783,9 @@ if (!isBrowserRuntime) {
         if (context.className && context.className !== 'context-weekend') td.classList.add(context.className);
         const value = Number(line.entries?.[dayIso] || 0);
         total += value;
+        const holidayLabel = holiday?.name ? `<div class="timesheet-holiday-label">${holiday.name}</div>` : '';
         td.innerHTML = inMonth
-          ? `<input class="timesheet-entry-input ${locked ? 'timesheet-entry-input--locked' : ''}" type="number" min="0" max="24" step="0.5" value="${value || ''}" ${locked ? 'disabled' : ''} />`
+          ? `<input class="timesheet-entry-input ${locked ? 'timesheet-entry-input--locked' : ''}" type="number" min="0" max="24" step="0.5" value="${value || ''}" ${locked ? 'disabled' : ''} />${holidayLabel}`
           : '<span class="grey-text">—</span>';
         if (locked && inMonth) td.classList.add('timesheet-locked-cell');
         const input = td.querySelector('input');
