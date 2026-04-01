@@ -230,6 +230,8 @@ body.project-timeline-expanded #project-timeline-chart { flex: 0 0 auto; max-hei
 .timesheet-entry-table .context-holiday { background: #ffebee; }
 .timesheet-entry-table .context-dayoff { background: #fff3e0; }
 .timesheet-entry-table .line-activity-input { min-width: 220px; }
+.bp-phone-list { border-top: 1px solid #eceff1; margin-top: 0.35rem; padding-top: 0.35rem; }
+.bp-phone-row { margin-bottom: 0; }
 
 
 .time-tracking-consultant-picker { width: 350px; max-width: 100%; margin-bottom: 0.5rem; }

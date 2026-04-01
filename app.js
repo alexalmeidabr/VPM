@@ -224,6 +224,7 @@ if (!isBrowserRuntime) {
   let businessPartnerTypes = [];
   let businessPartners = [];
   let editingBusinessPartnerContacts = [];
+  let businessPartnerViewMode = 'edit';
   let holidayLocations = [];
   let loadedHolidays = [];
   let projectViewMode = 'edit';
@@ -1831,6 +1832,15 @@ if (!isBrowserRuntime) {
     resetSelect('deliveryPartnerBusinessPartner', fields.deliveryPartnerBusinessPartnerId);
     resetSelect('deliveryPartnerContacts', fields.deliveryPartnerContactIds);
     resetSelect('projectType', fields.projectType);
+    const readOnly = projectViewMode === 'view';
+    [fields.clientBusinessPartnerId, fields.clientContactIds, fields.deliveryPartnerBusinessPartnerId, fields.deliveryPartnerContactIds].forEach((el) => {
+      if (!el) return;
+      el.disabled = readOnly;
+    });
+    resetSelect('clientBusinessPartner', fields.clientBusinessPartnerId);
+    resetSelect('clientContacts', fields.clientContactIds);
+    resetSelect('deliveryPartnerBusinessPartner', fields.deliveryPartnerBusinessPartnerId);
+    resetSelect('deliveryPartnerContacts', fields.deliveryPartnerContactIds);
   };
 
   const rebuildConsultantSelects = ({ areaIds = [], companyRoleId = '', holidayLocationId = '' } = {}) => {
@@ -2101,23 +2111,49 @@ if (!isBrowserRuntime) {
   const showBusinessPartnersPanel = () => { ui.businessPartnersPanelCard.hidden = false; ui.businessPartnerFormCard.hidden = true; };
   const showManageBusinessPartnerPanel = () => { ui.businessPartnersPanelCard.hidden = true; ui.businessPartnerFormCard.hidden = false; };
 
+  const setBusinessPartnerFormMode = (mode) => {
+    businessPartnerViewMode = mode;
+    const readOnly = mode === 'view';
+    [fields.businessPartnerCompanyName, fields.businessPartnerTypeId, fields.businessPartnerAddressStreet, fields.businessPartnerAddressNumber, fields.businessPartnerPostalCode, fields.businessPartnerCity, fields.businessPartnerRegion, fields.businessPartnerCountry]
+      .forEach((el) => { if (el) el.disabled = readOnly; });
+    if (ui.addBusinessPartnerContactBtn) ui.addBusinessPartnerContactBtn.hidden = readOnly;
+    if (ui.businessPartnerSaveBtn) ui.businessPartnerSaveBtn.hidden = readOnly;
+    resetSelect('businessPartnerType', fields.businessPartnerTypeId);
+    resetSelect('businessPartnerCountry', fields.businessPartnerCountry);
+    resetSelect('businessPartnerRegion', fields.businessPartnerRegion);
+  };
+
   const renderBusinessPartnerContactsEditor = () => {
     if (!ui.businessPartnerContactsList) return;
+    const readOnly = businessPartnerViewMode === 'view';
     ui.businessPartnerContactsList.innerHTML = '';
     if (!editingBusinessPartnerContacts.length) {
       ui.businessPartnerContactsList.innerHTML = '<p class="grey-text">No contact persons yet.</p>';
       return;
     }
     editingBusinessPartnerContacts.forEach((contact, index) => {
+      const phoneRows = (contact.phoneNumbers?.length ? contact.phoneNumbers : [''])
+        .map((phone, phoneIndex) => `
+          <div class="row date-row bp-phone-row">
+            <div class="input-field col s10"><input type="text" data-contact-index="${index}" data-phone-index="${phoneIndex}" data-field="phone" value="${phone || ''}" ${readOnly ? 'disabled' : ''} /><label class="active">Phone Number</label></div>
+            <div class="col s2 right-align" style="margin-top:1.5rem;">
+              <button class="btn-flat red-text ${readOnly ? 'timesheet-hidden' : ''}" type="button" data-action="remove-phone" data-contact-index="${index}" data-phone-index="${phoneIndex}"><i class="material-icons tiny">remove_circle</i></button>
+            </div>
+          </div>
+        `).join('');
       const card = document.createElement('div');
       card.className = 'member-card';
       card.innerHTML = `
         <div class="row date-row">
-          <div class="input-field col s12 m3"><input type="text" data-contact-index="${index}" data-field="name" value="${contact.name || ''}" /><label class="active">Name</label></div>
-          <div class="input-field col s12 m3"><input type="text" data-contact-index="${index}" data-field="lastName" value="${contact.lastName || ''}" /><label class="active">Last Name</label></div>
-          <div class="input-field col s12 m3"><input type="email" data-contact-index="${index}" data-field="email" value="${contact.email || ''}" /><label class="active">Email</label></div>
-          <div class="input-field col s12 m2"><input type="text" data-contact-index="${index}" data-field="phonesCsv" value="${(contact.phoneNumbers || []).join(', ')}" /><label class="active">Phone Numbers (comma separated)</label></div>
-          <div class="col s12 m1 right-align" style="margin-top:1.5rem;"><button class="btn-flat red-text" type="button" data-action="remove-contact" data-contact-index="${index}"><i class="material-icons tiny">delete</i></button></div>
+          <div class="input-field col s12 m3"><input type="text" data-contact-index="${index}" data-field="name" value="${contact.name || ''}" ${readOnly ? 'disabled' : ''} /><label class="active">Name</label></div>
+          <div class="input-field col s12 m3"><input type="text" data-contact-index="${index}" data-field="lastName" value="${contact.lastName || ''}" ${readOnly ? 'disabled' : ''} /><label class="active">Last Name</label></div>
+          <div class="input-field col s12 m5"><input type="email" data-contact-index="${index}" data-field="email" value="${contact.email || ''}" ${readOnly ? 'disabled' : ''} /><label class="active">Email</label></div>
+          <div class="col s12 m1 right-align" style="margin-top:1.5rem;"><button class="btn-flat red-text ${readOnly ? 'timesheet-hidden' : ''}" type="button" data-action="remove-contact" data-contact-index="${index}"><i class="material-icons tiny">delete</i></button></div>
+        </div>
+        <div class="bp-phone-list">
+          <h6>Phone Numbers</h6>
+          ${phoneRows}
+          <button class="btn-flat blue-text ${readOnly ? 'timesheet-hidden' : ''}" type="button" data-action="add-phone" data-contact-index="${index}"><i class="material-icons tiny">add</i>Add Phone Number</button>
         </div>
       `;
       ui.businessPartnerContactsList.appendChild(card);
@@ -2148,6 +2184,7 @@ if (!isBrowserRuntime) {
     resetSelect('businessPartnerCountry', fields.businessPartnerCountry);
     resetSelect('businessPartnerRegion', fields.businessPartnerRegion);
     resetSelect('businessPartnerType', fields.businessPartnerTypeId);
+    setBusinessPartnerFormMode('edit');
     renderBusinessPartnerContactsEditor();
     updateTextFields();
     showBusinessPartnersPanel();
@@ -3097,7 +3134,7 @@ if (!isBrowserRuntime) {
   });
 
   ui.addBusinessPartnerContactBtn?.addEventListener('click', () => {
-    editingBusinessPartnerContacts.push({ name: '', lastName: '', email: '', phoneNumbers: [] });
+    editingBusinessPartnerContacts.push({ name: '', lastName: '', email: '', phoneNumbers: [''] });
     renderBusinessPartnerContactsEditor();
     updateTextFields();
   });
@@ -3109,17 +3146,42 @@ if (!isBrowserRuntime) {
     const field = input.dataset.field;
     const current = editingBusinessPartnerContacts[index];
     if (!current) return;
-    if (field === 'phonesCsv') current.phoneNumbers = String(input.value || '').split(',').map((item) => item.trim()).filter(Boolean);
-    else current[field] = input.value;
+    if (field === 'phone') {
+      const phoneIndex = Number(input.dataset.phoneIndex);
+      current.phoneNumbers = current.phoneNumbers || [];
+      current.phoneNumbers[phoneIndex] = input.value;
+      return;
+    }
+    current[field] = input.value;
   });
 
   ui.businessPartnerContactsList?.addEventListener('click', (event) => {
-    const button = event.target.closest('button[data-action="remove-contact"]');
+    const button = event.target.closest('button[data-action]');
     if (!button) return;
     const index = Number(button.dataset.contactIndex);
-    editingBusinessPartnerContacts = editingBusinessPartnerContacts.filter((_, idx) => idx !== index);
-    renderBusinessPartnerContactsEditor();
-    updateTextFields();
+    if (button.dataset.action === 'remove-contact') {
+      editingBusinessPartnerContacts = editingBusinessPartnerContacts.filter((_, idx) => idx !== index);
+      renderBusinessPartnerContactsEditor();
+      updateTextFields();
+      return;
+    }
+    if (button.dataset.action === 'add-phone') {
+      const contact = editingBusinessPartnerContacts[index];
+      if (!contact) return;
+      contact.phoneNumbers = [...(contact.phoneNumbers || []), ''];
+      renderBusinessPartnerContactsEditor();
+      updateTextFields();
+      return;
+    }
+    if (button.dataset.action === 'remove-phone') {
+      const phoneIndex = Number(button.dataset.phoneIndex);
+      const contact = editingBusinessPartnerContacts[index];
+      if (!contact) return;
+      contact.phoneNumbers = (contact.phoneNumbers || []).filter((_, idx) => idx !== phoneIndex);
+      if (!contact.phoneNumbers.length) contact.phoneNumbers = [''];
+      renderBusinessPartnerContactsEditor();
+      updateTextFields();
+    }
   });
 
   ui.businessPartnerForm?.addEventListener('submit', async (event) => {
@@ -3193,6 +3255,7 @@ if (!isBrowserRuntime) {
     fields.businessPartnerTypeId.innerHTML = '<option value="" selected>No type</option>';
     businessPartnerTypes.forEach((type) => fields.businessPartnerTypeId.add(new Option(type.name, type.id, false, Number(type.id) === Number(partner.businessPartnerTypeId))));
     resetSelect('businessPartnerType', fields.businessPartnerTypeId);
+    setBusinessPartnerFormMode(button.dataset.action === 'view-business-partner' ? 'view' : 'edit');
     renderBusinessPartnerContactsEditor();
     updateTextFields();
     showManageBusinessPartnerPanel();
