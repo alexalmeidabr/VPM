@@ -113,6 +113,14 @@ def init_db():
         FOREIGN KEY (contact_id) REFERENCES business_partner_contacts(id) ON DELETE CASCADE
       );
 
+      CREATE TABLE IF NOT EXISTS business_partner_contact_emails (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        contact_id INTEGER NOT NULL,
+        email TEXT NOT NULL,
+        created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (contact_id) REFERENCES business_partner_contacts(id) ON DELETE CASCADE
+      );
+
       CREATE TABLE IF NOT EXISTS consultants (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         name TEXT NOT NULL,
@@ -825,15 +833,23 @@ class VPMHandler(SimpleHTTPRequestHandler):
       ).fetchall()
       contact_payload = []
       for contact in contacts:
+        emails = conn.execute(
+          'SELECT email FROM business_partner_contact_emails WHERE contact_id = ? ORDER BY id',
+          (contact['id'],)
+        ).fetchall()
         phones = conn.execute(
           'SELECT phone_number FROM business_partner_contact_phones WHERE contact_id = ? ORDER BY id',
           (contact['id'],)
         ).fetchall()
+        normalized_emails = [item['email'] for item in emails if str(item['email'] or '').strip()]
+        if not normalized_emails and str(contact['email'] or '').strip():
+          normalized_emails = [str(contact['email']).strip()]
         contact_payload.append({
           'id': contact['id'],
           'name': contact['name'],
           'lastName': contact['last_name'],
-          'email': contact['email'],
+          'email': normalized_emails[0] if normalized_emails else '',
+          'emails': normalized_emails,
           'phoneNumbers': [item['phone_number'] for item in phones]
         })
       result.append({
@@ -1450,10 +1466,20 @@ class VPMHandler(SimpleHTTPRequestHandler):
         )
         partner_id = cursor.lastrowid
         for contact in contacts:
+          email_values = [str(email).strip() for email in (contact.get('emails') or []) if str(email).strip()]
+          if not email_values and str(contact.get('email', '')).strip():
+            email_values = [str(contact.get('email', '')).strip()]
           c = conn.execute(
             'INSERT INTO business_partner_contacts (business_partner_id, name, last_name, email) VALUES (?, ?, ?, ?)',
-            (partner_id, str(contact.get('name', '')).strip(), str(contact.get('lastName', '')).strip(), str(contact.get('email', '')).strip())
+            (
+              partner_id,
+              str(contact.get('name', '')).strip(),
+              str(contact.get('lastName', '')).strip(),
+              email_values[0] if email_values else ''
+            )
           )
+          for email in email_values:
+            conn.execute('INSERT INTO business_partner_contact_emails (contact_id, email) VALUES (?, ?)', (c.lastrowid, email))
           for phone in (contact.get('phoneNumbers') or []):
             phone_value = str(phone).strip()
             if phone_value:
@@ -1763,13 +1789,24 @@ class VPMHandler(SimpleHTTPRequestHandler):
         if cursor.rowcount == 0:
           self._send_json({'error': 'Business partner not found'}, HTTPStatus.NOT_FOUND)
           return
+        conn.execute('DELETE FROM business_partner_contact_emails WHERE contact_id IN (SELECT id FROM business_partner_contacts WHERE business_partner_id = ?)', (business_partner_id,))
         conn.execute('DELETE FROM business_partner_contact_phones WHERE contact_id IN (SELECT id FROM business_partner_contacts WHERE business_partner_id = ?)', (business_partner_id,))
         conn.execute('DELETE FROM business_partner_contacts WHERE business_partner_id = ?', (business_partner_id,))
         for contact in contacts:
+          email_values = [str(email).strip() for email in (contact.get('emails') or []) if str(email).strip()]
+          if not email_values and str(contact.get('email', '')).strip():
+            email_values = [str(contact.get('email', '')).strip()]
           c = conn.execute(
             'INSERT INTO business_partner_contacts (business_partner_id, name, last_name, email) VALUES (?, ?, ?, ?)',
-            (business_partner_id, str(contact.get('name', '')).strip(), str(contact.get('lastName', '')).strip(), str(contact.get('email', '')).strip())
+            (
+              business_partner_id,
+              str(contact.get('name', '')).strip(),
+              str(contact.get('lastName', '')).strip(),
+              email_values[0] if email_values else ''
+            )
           )
+          for email in email_values:
+            conn.execute('INSERT INTO business_partner_contact_emails (contact_id, email) VALUES (?, ?)', (c.lastrowid, email))
           for phone in (contact.get('phoneNumbers') or []):
             phone_value = str(phone).strip()
             if phone_value:

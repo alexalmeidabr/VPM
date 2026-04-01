@@ -118,6 +118,13 @@ if (!isBrowserRuntime) {
     businessPartnerSaveBtn: document.getElementById('business-partner-save-btn'),
     addBusinessPartnerContactBtn: document.getElementById('add-business-partner-contact-btn'),
     businessPartnerContactsList: document.getElementById('business-partner-contacts-list'),
+    businessPartnerCommunicationModal: document.getElementById('business-partner-communication-modal'),
+    communicationModalContactName: document.getElementById('communication-modal-contact-name'),
+    communicationEmailsList: document.getElementById('communication-emails-list'),
+    communicationPhonesList: document.getElementById('communication-phones-list'),
+    addCommunicationEmailBtn: document.getElementById('add-communication-email-btn'),
+    addCommunicationPhoneBtn: document.getElementById('add-communication-phone-btn'),
+    saveCommunicationBtn: document.getElementById('save-communication-btn'),
 
     daysOffModal: document.getElementById('days-off-modal'),
     holidayLoadModal: document.getElementById('holiday-load-modal'),
@@ -224,6 +231,8 @@ if (!isBrowserRuntime) {
   let businessPartnerTypes = [];
   let businessPartners = [];
   let editingBusinessPartnerContacts = [];
+  let editingCommunicationContactIndex = -1;
+  let editingCommunicationDraft = { emails: [], phoneNumbers: [] };
   let businessPartnerViewMode = 'edit';
   let holidayLocations = [];
   let loadedHolidays = [];
@@ -2123,32 +2132,70 @@ if (!isBrowserRuntime) {
       return;
     }
     editingBusinessPartnerContacts.forEach((contact, index) => {
-      const phoneRows = (contact.phoneNumbers?.length ? contact.phoneNumbers : [''])
-        .map((phone, phoneIndex) => `
-          <div class="row date-row bp-phone-row">
-            <div class="input-field col s10"><input type="text" data-contact-index="${index}" data-phone-index="${phoneIndex}" data-field="phone" value="${phone || ''}" ${readOnly ? 'disabled' : ''} /><label class="active">Phone Number</label></div>
-            <div class="col s2 right-align" style="margin-top:1.5rem;">
-              <button class="btn-flat red-text ${readOnly ? 'timesheet-hidden' : ''}" type="button" data-action="remove-phone" data-contact-index="${index}" data-phone-index="${phoneIndex}"><i class="material-icons tiny">remove_circle</i></button>
-            </div>
-          </div>
-        `).join('');
+      const emails = (contact.emails || []).filter((item) => String(item || '').trim());
+      const phones = (contact.phoneNumbers || []).filter((item) => String(item || '').trim());
+      const summarize = (values, label) => {
+        if (!values.length) return `${label}: —`;
+        const [first, ...rest] = values;
+        return `${label}: ${first}${rest.length ? ` (+${rest.length} more)` : ''}`;
+      };
+      const hasCommunication = emails.length || phones.length;
+      const actionLabel = hasCommunication ? (readOnly ? 'Communication' : 'Edit Communication') : 'Add Communication';
       const card = document.createElement('div');
-      card.className = 'member-card';
+      card.className = 'member-card bp-contact-card';
       card.innerHTML = `
         <div class="row date-row">
-          <div class="input-field col s12 m3"><input type="text" data-contact-index="${index}" data-field="name" value="${contact.name || ''}" ${readOnly ? 'disabled' : ''} /><label class="active">Name</label></div>
-          <div class="input-field col s12 m3"><input type="text" data-contact-index="${index}" data-field="lastName" value="${contact.lastName || ''}" ${readOnly ? 'disabled' : ''} /><label class="active">Last Name</label></div>
-          <div class="input-field col s12 m5"><input type="email" data-contact-index="${index}" data-field="email" value="${contact.email || ''}" ${readOnly ? 'disabled' : ''} /><label class="active">Email</label></div>
+          <div class="input-field col s12 m4"><input type="text" data-contact-index="${index}" data-field="name" value="${contact.name || ''}" ${readOnly ? 'disabled' : ''} /><label class="active">Name</label></div>
+          <div class="input-field col s12 m4"><input type="text" data-contact-index="${index}" data-field="lastName" value="${contact.lastName || ''}" ${readOnly ? 'disabled' : ''} /><label class="active">Last Name</label></div>
+          <div class="col s12 m3 bp-communication-summary">
+            <div class="grey-text text-darken-1">${hasCommunication ? summarize(emails, 'Emails') : 'No communication details'}</div>
+            <div class="grey-text text-darken-1">${hasCommunication ? summarize(phones, 'Phones') : ''}</div>
+            <button class="btn-flat blue-text" type="button" data-action="open-communication" data-contact-index="${index}">${actionLabel}</button>
+          </div>
           <div class="col s12 m1 right-align" style="margin-top:1.5rem;"><button class="btn-flat red-text ${readOnly ? 'timesheet-hidden' : ''}" type="button" data-action="remove-contact" data-contact-index="${index}"><i class="material-icons tiny">delete</i></button></div>
-        </div>
-        <div class="bp-phone-list">
-          <h6>Phone Numbers</h6>
-          ${phoneRows}
-          <button class="btn-flat blue-text ${readOnly ? 'timesheet-hidden' : ''}" type="button" data-action="add-phone" data-contact-index="${index}"><i class="material-icons tiny">add</i>Add Phone Number</button>
         </div>
       `;
       ui.businessPartnerContactsList.appendChild(card);
     });
+  };
+
+  const renderCommunicationModalRows = () => {
+    if (!ui.communicationEmailsList || !ui.communicationPhonesList) return;
+    const readOnly = businessPartnerViewMode === 'view';
+    const emails = editingCommunicationDraft.emails.length ? editingCommunicationDraft.emails : [''];
+    const phones = editingCommunicationDraft.phoneNumbers.length ? editingCommunicationDraft.phoneNumbers : [''];
+    ui.communicationEmailsList.innerHTML = emails.map((email, index) => `
+      <div class="row date-row bp-comm-row">
+        <div class="input-field col s10"><input type="email" data-comm-field="email" data-index="${index}" value="${email || ''}" ${readOnly ? 'disabled' : ''} /><label class="active">Email</label></div>
+        <div class="col s2 right-align" style="margin-top:1.5rem;"><button class="btn-flat red-text ${readOnly ? 'timesheet-hidden' : ''}" type="button" data-action="remove-comm-email" data-index="${index}"><i class="material-icons tiny">remove_circle</i></button></div>
+      </div>
+    `).join('');
+    ui.communicationPhonesList.innerHTML = phones.map((phone, index) => `
+      <div class="row date-row bp-comm-row">
+        <div class="input-field col s10"><input type="text" data-comm-field="phone" data-index="${index}" value="${phone || ''}" ${readOnly ? 'disabled' : ''} /><label class="active">Phone Number</label></div>
+        <div class="col s2 right-align" style="margin-top:1.5rem;"><button class="btn-flat red-text ${readOnly ? 'timesheet-hidden' : ''}" type="button" data-action="remove-comm-phone" data-index="${index}"><i class="material-icons tiny">remove_circle</i></button></div>
+      </div>
+    `).join('');
+    if (ui.addCommunicationEmailBtn) ui.addCommunicationEmailBtn.hidden = readOnly;
+    if (ui.addCommunicationPhoneBtn) ui.addCommunicationPhoneBtn.hidden = readOnly;
+    if (ui.saveCommunicationBtn) ui.saveCommunicationBtn.hidden = readOnly;
+    updateTextFields();
+  };
+
+  const openCommunicationModalForContact = (contactIndex) => {
+    const contact = editingBusinessPartnerContacts[contactIndex];
+    if (!contact) return;
+    editingCommunicationContactIndex = contactIndex;
+    editingCommunicationDraft = {
+      emails: [...(contact.emails || (contact.email ? [contact.email] : []))],
+      phoneNumbers: [...(contact.phoneNumbers || [])]
+    };
+    if (ui.communicationModalContactName) {
+      const label = `${contact.name || ''} ${contact.lastName || ''}`.trim();
+      ui.communicationModalContactName.textContent = label || 'Contact';
+    }
+    renderCommunicationModalRows();
+    modals.businessPartnerCommunication?.open();
   };
 
   const rebuildBusinessPartnerRegionSelect = ({ countryCode = '', regionValue = '' } = {}) => {
@@ -3129,7 +3176,7 @@ if (!isBrowserRuntime) {
   });
 
   ui.addBusinessPartnerContactBtn?.addEventListener('click', () => {
-    editingBusinessPartnerContacts.push({ name: '', lastName: '', email: '', phoneNumbers: [''] });
+    editingBusinessPartnerContacts.push({ name: '', lastName: '', emails: [], phoneNumbers: [] });
     renderBusinessPartnerContactsEditor();
     updateTextFields();
   });
@@ -3141,12 +3188,6 @@ if (!isBrowserRuntime) {
     const field = input.dataset.field;
     const current = editingBusinessPartnerContacts[index];
     if (!current) return;
-    if (field === 'phone') {
-      const phoneIndex = Number(input.dataset.phoneIndex);
-      current.phoneNumbers = current.phoneNumbers || [];
-      current.phoneNumbers[phoneIndex] = input.value;
-      return;
-    }
     current[field] = input.value;
   });
 
@@ -3160,23 +3201,56 @@ if (!isBrowserRuntime) {
       updateTextFields();
       return;
     }
-    if (button.dataset.action === 'add-phone') {
-      const contact = editingBusinessPartnerContacts[index];
-      if (!contact) return;
-      contact.phoneNumbers = [...(contact.phoneNumbers || []), ''];
-      renderBusinessPartnerContactsEditor();
-      updateTextFields();
+    if (button.dataset.action === 'open-communication') {
+      openCommunicationModalForContact(index);
+    }
+  });
+
+  ui.communicationEmailsList?.addEventListener('input', (event) => {
+    const input = event.target.closest('input[data-comm-field="email"]');
+    if (!input) return;
+    editingCommunicationDraft.emails[Number(input.dataset.index)] = input.value;
+  });
+
+  ui.communicationPhonesList?.addEventListener('input', (event) => {
+    const input = event.target.closest('input[data-comm-field="phone"]');
+    if (!input) return;
+    editingCommunicationDraft.phoneNumbers[Number(input.dataset.index)] = input.value;
+  });
+
+  ui.businessPartnerCommunicationModal?.addEventListener('click', (event) => {
+    const button = event.target.closest('button[data-action]');
+    if (!button) return;
+    if (button.dataset.action === 'remove-comm-email') {
+      editingCommunicationDraft.emails = editingCommunicationDraft.emails.filter((_, idx) => idx !== Number(button.dataset.index));
+      renderCommunicationModalRows();
       return;
     }
-    if (button.dataset.action === 'remove-phone') {
-      const phoneIndex = Number(button.dataset.phoneIndex);
-      const contact = editingBusinessPartnerContacts[index];
-      if (!contact) return;
-      contact.phoneNumbers = (contact.phoneNumbers || []).filter((_, idx) => idx !== phoneIndex);
-      if (!contact.phoneNumbers.length) contact.phoneNumbers = [''];
-      renderBusinessPartnerContactsEditor();
-      updateTextFields();
+    if (button.dataset.action === 'remove-comm-phone') {
+      editingCommunicationDraft.phoneNumbers = editingCommunicationDraft.phoneNumbers.filter((_, idx) => idx !== Number(button.dataset.index));
+      renderCommunicationModalRows();
     }
+  });
+
+  ui.addCommunicationEmailBtn?.addEventListener('click', () => {
+    editingCommunicationDraft.emails = [...(editingCommunicationDraft.emails || []), ''];
+    renderCommunicationModalRows();
+  });
+
+  ui.addCommunicationPhoneBtn?.addEventListener('click', () => {
+    editingCommunicationDraft.phoneNumbers = [...(editingCommunicationDraft.phoneNumbers || []), ''];
+    renderCommunicationModalRows();
+  });
+
+  ui.saveCommunicationBtn?.addEventListener('click', () => {
+    if (businessPartnerViewMode === 'view') return;
+    const contact = editingBusinessPartnerContacts[editingCommunicationContactIndex];
+    if (!contact) return;
+    contact.emails = (editingCommunicationDraft.emails || []).map((item) => String(item || '').trim()).filter(Boolean);
+    contact.phoneNumbers = (editingCommunicationDraft.phoneNumbers || []).map((item) => String(item || '').trim()).filter(Boolean);
+    contact.email = contact.emails[0] || '';
+    renderBusinessPartnerContactsEditor();
+    modals.businessPartnerCommunication?.close();
   });
 
   ui.businessPartnerForm?.addEventListener('submit', async (event) => {
@@ -3190,7 +3264,11 @@ if (!isBrowserRuntime) {
       city: fields.businessPartnerCity.value.trim(),
       region: fields.businessPartnerRegion.value.trim(),
       country: fields.businessPartnerCountry.value.trim(),
-      contacts: editingBusinessPartnerContacts
+      contacts: editingBusinessPartnerContacts.map((contact) => ({
+        ...contact,
+        emails: (contact.emails || (contact.email ? [contact.email] : [])).map((item) => String(item || '').trim()).filter(Boolean),
+        phoneNumbers: (contact.phoneNumbers || []).map((item) => String(item || '').trim()).filter(Boolean)
+      }))
     };
     try {
       const editing = Boolean(fields.businessPartnerId.value);
@@ -3246,7 +3324,13 @@ if (!isBrowserRuntime) {
     fields.businessPartnerCountry.value = normalizedCountryCode || rawCountry;
     resetSelect('businessPartnerCountry', fields.businessPartnerCountry);
     rebuildBusinessPartnerRegionSelect({ countryCode: normalizedCountryCode || rawCountry, regionValue: partner.region || '' });
-    editingBusinessPartnerContacts = (partner.contacts || []).map((c) => ({ name: c.name || '', lastName: c.lastName || '', email: c.email || '', phoneNumbers: c.phoneNumbers || [] }));
+    editingBusinessPartnerContacts = (partner.contacts || []).map((c) => ({
+      name: c.name || '',
+      lastName: c.lastName || '',
+      email: c.email || '',
+      emails: c.emails || (c.email ? [c.email] : []),
+      phoneNumbers: c.phoneNumbers || []
+    }));
     fields.businessPartnerTypeId.innerHTML = '<option value="" selected>No type</option>';
     businessPartnerTypes.forEach((type) => fields.businessPartnerTypeId.add(new Option(type.name, type.id, false, Number(type.id) === Number(partner.businessPartnerTypeId))));
     resetSelect('businessPartnerType', fields.businessPartnerTypeId);
@@ -3590,6 +3674,7 @@ if (!isBrowserRuntime) {
     modals.daysOff = M.Modal.init(ui.daysOffModal);
     modals.holidayLoad = M.Modal.init(ui.holidayLoadModal);
     modals.manualLine = M.Modal.init(ui.manualLineModal);
+    modals.businessPartnerCommunication = M.Modal.init(ui.businessPartnerCommunicationModal);
   }
 
   setSection('projects');
