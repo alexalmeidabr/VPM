@@ -251,6 +251,11 @@ if (!isBrowserRuntime) {
   let visibleOlderTimesheetCount = 0;
 
   const fallbackHolidayCountries = ['AD', 'AT', 'BE', 'CA', 'CH', 'DE', 'DK', 'ES', 'FI', 'FR', 'GB', 'IE', 'IT', 'MX', 'NL', 'NO', 'PL', 'PT', 'SE', 'US'];
+  const countryNamesByCode = {
+    AD: 'Andorra', AT: 'Austria', BE: 'Belgium', CA: 'Canada', CH: 'Switzerland', DE: 'Germany', DK: 'Denmark',
+    ES: 'Spain', FI: 'Finland', FR: 'France', GB: 'United Kingdom', IE: 'Ireland', IT: 'Italy', MX: 'Mexico',
+    NL: 'Netherlands', NO: 'Norway', PL: 'Poland', PT: 'Portugal', SE: 'Sweden', US: 'United States'
+  };
   const fallbackHolidayRegionsByCountry = {
     DE: ['BW', 'BY', 'BE', 'BB', 'HB', 'HH', 'HE', 'MV', 'NI', 'NW', 'RP', 'SL', 'SN', 'ST', 'SH', 'TH'],
     ES: ['AN', 'AR', 'AS', 'CB', 'CE', 'CL', 'CM', 'CN', 'CT', 'EX', 'GA', 'IB', 'MC', 'MD', 'ML', 'NC', 'PV', 'RI', 'VC'],
@@ -2119,12 +2124,29 @@ if (!isBrowserRuntime) {
     });
   };
 
+  const rebuildBusinessPartnerRegionSelect = ({ countryCode = '', regionValue = '' } = {}) => {
+    const normalizedCountry = String(countryCode || '').toUpperCase();
+    const regions = fallbackHolidayRegionsByCountry[normalizedCountry] || [];
+    fields.businessPartnerRegion.innerHTML = '<option value="" selected>No region</option>';
+    regions.forEach((region) => fields.businessPartnerRegion.add(new Option(region, region, false, String(region) === String(regionValue))));
+    fields.businessPartnerRegion.disabled = !normalizedCountry || !regions.length;
+    if (!regions.length) fields.businessPartnerRegion.value = '';
+    resetSelect('businessPartnerRegion', fields.businessPartnerRegion);
+  };
+
   const resetBusinessPartnerForm = () => {
     ui.businessPartnerForm?.reset();
     fields.businessPartnerId.value = '';
     editingBusinessPartnerContacts = [];
+    const countryCodes = [...new Set([...(fallbackHolidayCountries || []), ...Object.keys(countryNamesByCode)])].sort();
+    fields.businessPartnerCountry.innerHTML = '<option value="" selected>No country</option>';
+    countryCodes.forEach((code) => fields.businessPartnerCountry.add(new Option(`${code} - ${countryNamesByCode[code] || code}`, code)));
+    fields.businessPartnerRegion.innerHTML = '<option value="" selected>No region</option>';
+    fields.businessPartnerRegion.disabled = true;
     fields.businessPartnerTypeId.innerHTML = '<option value="" selected>No type</option>';
     businessPartnerTypes.forEach((type) => fields.businessPartnerTypeId.add(new Option(type.name, type.id)));
+    resetSelect('businessPartnerCountry', fields.businessPartnerCountry);
+    resetSelect('businessPartnerRegion', fields.businessPartnerRegion);
     resetSelect('businessPartnerType', fields.businessPartnerTypeId);
     renderBusinessPartnerContactsEditor();
     updateTextFields();
@@ -3070,6 +3092,9 @@ if (!isBrowserRuntime) {
     showManageBusinessPartnerPanel();
   });
   ui.backToBusinessPartnersBtn?.addEventListener('click', showBusinessPartnersPanel);
+  fields.businessPartnerCountry?.addEventListener('change', () => {
+    rebuildBusinessPartnerRegionSelect({ countryCode: fields.businessPartnerCountry.value, regionValue: '' });
+  });
 
   ui.addBusinessPartnerContactBtn?.addEventListener('click', () => {
     editingBusinessPartnerContacts.push({ name: '', lastName: '', email: '', phoneNumbers: [] });
@@ -3149,8 +3174,21 @@ if (!isBrowserRuntime) {
     fields.businessPartnerAddressNumber.value = partner.addressNumber || '';
     fields.businessPartnerPostalCode.value = partner.postalCode || '';
     fields.businessPartnerCity.value = partner.city || '';
-    fields.businessPartnerRegion.value = partner.region || '';
-    fields.businessPartnerCountry.value = partner.country || '';
+    const rawCountry = String(partner.country || '').trim();
+    const normalizedCountryCode = (() => {
+      const raw = String(partner.country || '').trim();
+      if (!raw) return '';
+      if (countryNamesByCode[raw.toUpperCase()]) return raw.toUpperCase();
+      const prefix = raw.split('-')[0]?.trim().toUpperCase();
+      if (countryNamesByCode[prefix]) return prefix;
+      return '';
+    })();
+    if (!normalizedCountryCode && rawCountry) {
+      fields.businessPartnerCountry.add(new Option(rawCountry, rawCountry, false, true));
+    }
+    fields.businessPartnerCountry.value = normalizedCountryCode || rawCountry;
+    resetSelect('businessPartnerCountry', fields.businessPartnerCountry);
+    rebuildBusinessPartnerRegionSelect({ countryCode: normalizedCountryCode || rawCountry, regionValue: partner.region || '' });
     editingBusinessPartnerContacts = (partner.contacts || []).map((c) => ({ name: c.name || '', lastName: c.lastName || '', email: c.email || '', phoneNumbers: c.phoneNumbers || [] }));
     fields.businessPartnerTypeId.innerHTML = '<option value="" selected>No type</option>';
     businessPartnerTypes.forEach((type) => fields.businessPartnerTypeId.add(new Option(type.name, type.id, false, Number(type.id) === Number(partner.businessPartnerTypeId))));
