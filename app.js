@@ -11,6 +11,7 @@ if (!isBrowserRuntime) {
   const sections = {
     projects: document.getElementById('projects-section'),
     consultants: document.getElementById('consultants-section'),
+    'business-partners': document.getElementById('business-partners-section'),
     'time-tracking': document.getElementById('time-tracking-section'),
     'allocation-forecast': document.getElementById('allocation-forecast-section'),
     'mass-update': document.getElementById('mass-update-section'),
@@ -106,6 +107,17 @@ if (!isBrowserRuntime) {
     monthDetailCard: document.getElementById('month-detail-card'),
     monthDetailTitle: document.getElementById('month-detail-title'),
     monthDetailTimeline: document.getElementById('month-detail-timeline'),
+    businessPartnersPanelCard: document.getElementById('business-partners-panel-card'),
+    businessPartnersBody: document.getElementById('business-partners-body'),
+    businessPartnersEmptyState: document.getElementById('business-partners-empty-state'),
+    showBusinessPartnerFormBtn: document.getElementById('show-business-partner-form-btn'),
+    businessPartnerFormCard: document.getElementById('business-partner-form-card'),
+    businessPartnerForm: document.getElementById('business-partner-form'),
+    businessPartnerFormTitle: document.getElementById('business-partner-form-title'),
+    backToBusinessPartnersBtn: document.getElementById('back-to-business-partners-btn'),
+    businessPartnerSaveBtn: document.getElementById('business-partner-save-btn'),
+    addBusinessPartnerContactBtn: document.getElementById('add-business-partner-contact-btn'),
+    businessPartnerContactsList: document.getElementById('business-partner-contacts-list'),
 
     daysOffModal: document.getElementById('days-off-modal'),
     holidayLoadModal: document.getElementById('holiday-load-modal'),
@@ -118,9 +130,11 @@ if (!isBrowserRuntime) {
     roleForm: document.getElementById('role-form'),
     areaForm: document.getElementById('area-form'),
     dayOffTypeForm: document.getElementById('day-off-type-form'),
+    businessPartnerTypeForm: document.getElementById('business-partner-type-form'),
     rolesList: document.getElementById('roles-list'),
     areasList: document.getElementById('areas-list'),
     dayOffTypesList: document.getElementById('day-off-types-list'),
+    businessPartnerTypesList: document.getElementById('business-partner-types-list'),
     timeTrackingListCard: document.getElementById('time-tracking-list-card'),
     timeTrackingConsultantSelect: document.getElementById('time-tracking-consultant-select'),
     loadTimesheetsBtn: document.getElementById('load-timesheets-btn'),
@@ -154,7 +168,10 @@ if (!isBrowserRuntime) {
     clientName: document.getElementById('client-name'),
     projectType: document.getElementById('project-type'),
     managerId: document.getElementById('manager-consultant-id'),
-    clientContact: document.getElementById('client-contact'),
+    clientBusinessPartnerId: document.getElementById('client-business-partner-id'),
+    clientContactIds: document.getElementById('client-contact-ids'),
+    deliveryPartnerBusinessPartnerId: document.getElementById('delivery-partner-business-partner-id'),
+    deliveryPartnerContactIds: document.getElementById('delivery-partner-contact-ids'),
     startDate: document.getElementById('start-date'),
     endDate: document.getElementById('end-date'),
 
@@ -168,7 +185,17 @@ if (!isBrowserRuntime) {
 
     roleName: document.getElementById('role-name'),
     areaName: document.getElementById('area-name'),
-    dayOffTypeName: document.getElementById('day-off-type-name')
+    dayOffTypeName: document.getElementById('day-off-type-name'),
+    businessPartnerTypeName: document.getElementById('business-partner-type-name'),
+    businessPartnerId: document.getElementById('business-partner-id'),
+    businessPartnerCompanyName: document.getElementById('business-partner-company-name'),
+    businessPartnerTypeId: document.getElementById('business-partner-type-id'),
+    businessPartnerAddressStreet: document.getElementById('business-partner-address-street'),
+    businessPartnerAddressNumber: document.getElementById('business-partner-address-number'),
+    businessPartnerPostalCode: document.getElementById('business-partner-postal-code'),
+    businessPartnerCity: document.getElementById('business-partner-city'),
+    businessPartnerRegion: document.getElementById('business-partner-region'),
+    businessPartnerCountry: document.getElementById('business-partner-country')
   };
 
   Object.assign(ui, {
@@ -194,6 +221,9 @@ if (!isBrowserRuntime) {
   let roles = [];
   let areas = [];
   let dayOffTypes = [];
+  let businessPartnerTypes = [];
+  let businessPartners = [];
+  let editingBusinessPartnerContacts = [];
   let holidayLocations = [];
   let loadedHolidays = [];
   let projectViewMode = 'edit';
@@ -275,10 +305,12 @@ if (!isBrowserRuntime) {
 
   const buildProjectPayload = () => ({
     projectName: fields.projectName.value.trim(),
-    clientName: fields.clientName.value.trim(),
+    clientBusinessPartnerId: fields.clientBusinessPartnerId.value ? Number(fields.clientBusinessPartnerId.value) : null,
+    clientContactIds: selectedIds(fields.clientContactIds),
+    deliveryPartnerBusinessPartnerId: fields.deliveryPartnerBusinessPartnerId.value ? Number(fields.deliveryPartnerBusinessPartnerId.value) : null,
+    deliveryPartnerContactIds: selectedIds(fields.deliveryPartnerContactIds),
     projectType: fields.projectType.value,
     managerConsultantId: managerConsultantIdFromAssignments(),
-    clientContact: fields.clientContact.value.trim(),
     startDate: fields.startDate.value,
     endDate: fields.endDate.value,
     consultantAssignments: selectedProjectAssignments,
@@ -307,6 +339,9 @@ if (!isBrowserRuntime) {
   };
 
   const findConsultantById = (id) => consultants.find((consultant) => Number(consultant.id) === Number(id));
+  const findBusinessPartnerById = (id) => businessPartners.find((partner) => Number(partner.id) === Number(id));
+  const businessPartnerTypeById = (id) => businessPartnerTypes.find((type) => Number(type.id) === Number(id));
+  const businessPartnerTypeName = (id) => businessPartnerTypeById(id)?.name || '—';
   const consultantNameById = (id) => findConsultantById(id)?.name || '—';
   const areaNameById = (id) => areas.find((area) => Number(area.id) === Number(id))?.name || '—';
   const roleNameById = (id) => roles.find((role) => Number(role.id) === Number(id))?.name || '—';
@@ -1755,10 +1790,41 @@ if (!isBrowserRuntime) {
       : 'No consultants assigned yet.';
   };
 
-  const rebuildProjectSelects = ({ managerId = '' } = {}) => {
+  const rebuildProjectSelects = ({ managerId = '', clientBusinessPartnerId = '', clientContactIds = [], deliveryPartnerBusinessPartnerId = '', deliveryPartnerContactIds = [] } = {}) => {
     fields.managerId.innerHTML = '<option value="" disabled selected>Select a manager</option>';
     managerCandidates().forEach((consultant) => fields.managerId.add(new Option(consultant.name, consultant.id, false, Number(managerId) === Number(consultant.id))));
+
+    const clientTypeId = businessPartnerTypes.find((type) => String(type.name || '').toLowerCase() === 'client')?.id;
+    const thirdPartyTypeId = businessPartnerTypes.find((type) => String(type.name || '').toLowerCase() === 'third party')?.id;
+    fields.clientBusinessPartnerId.innerHTML = '<option value="" selected>Select client</option>';
+    businessPartners
+      .filter((item) => !clientTypeId || Number(item.businessPartnerTypeId) === Number(clientTypeId))
+      .forEach((item) => fields.clientBusinessPartnerId.add(new Option(item.companyName, item.id, false, Number(clientBusinessPartnerId) === Number(item.id))));
+
+    fields.deliveryPartnerBusinessPartnerId.innerHTML = '<option value="" selected>No delivery partner</option>';
+    businessPartners
+      .filter((item) => !thirdPartyTypeId || Number(item.businessPartnerTypeId) === Number(thirdPartyTypeId))
+      .forEach((item) => fields.deliveryPartnerBusinessPartnerId.add(new Option(item.companyName, item.id, false, Number(deliveryPartnerBusinessPartnerId) === Number(item.id))));
+
+    const selectedClient = findBusinessPartnerById(clientBusinessPartnerId);
+    fields.clientContactIds.innerHTML = '';
+    (selectedClient?.contacts || []).forEach((contact) => {
+      const label = `${contact.name || ''} ${contact.lastName || ''}`.trim() || contact.email || `Contact ${contact.id}`;
+      fields.clientContactIds.add(new Option(label, contact.id, false, clientContactIds.map(Number).includes(Number(contact.id))));
+    });
+
+    const selectedDelivery = findBusinessPartnerById(deliveryPartnerBusinessPartnerId);
+    fields.deliveryPartnerContactIds.innerHTML = '';
+    (selectedDelivery?.contacts || []).forEach((contact) => {
+      const label = `${contact.name || ''} ${contact.lastName || ''}`.trim() || contact.email || `Contact ${contact.id}`;
+      fields.deliveryPartnerContactIds.add(new Option(label, contact.id, false, deliveryPartnerContactIds.map(Number).includes(Number(contact.id))));
+    });
+
     resetSelect('manager', fields.managerId);
+    resetSelect('clientBusinessPartner', fields.clientBusinessPartnerId);
+    resetSelect('clientContacts', fields.clientContactIds);
+    resetSelect('deliveryPartnerBusinessPartner', fields.deliveryPartnerBusinessPartnerId);
+    resetSelect('deliveryPartnerContacts', fields.deliveryPartnerContactIds);
     resetSelect('projectType', fields.projectType);
   };
 
@@ -1906,12 +1972,15 @@ if (!isBrowserRuntime) {
     ui.projectsBody.innerHTML = '';
     projects.forEach((project) => {
       const row = document.createElement('tr');
+      const client = findBusinessPartnerById(project.clientBusinessPartnerId);
+      const delivery = findBusinessPartnerById(project.deliveryPartnerBusinessPartnerId);
       row.innerHTML = `
         <td>${project.projectName}</td>
-        <td>${project.clientName}</td>
+        <td>${client?.companyName || '—'}</td>
         <td>${consultantNameById(project.managerConsultantId)}</td>
         <td>${project.projectType || '—'}</td>
-        <td>${project.clientContact}</td>
+        <td>${(project.clientContacts || []).map((item) => `${item.name || ''} ${item.lastName || ''}`.trim() || item.email).filter(Boolean).join(', ') || '—'}</td>
+        <td>${delivery?.companyName || '—'}</td>
         <td><span class="chip date-chip">${formatDate(project.startDate)} → ${formatDate(project.endDate)}</span></td>
         <td class="actions-cell">
           <button class="btn-flat teal-text" data-action="view-project" data-id="${project.id}"><i class="material-icons tiny">visibility</i></button>
@@ -1991,6 +2060,14 @@ if (!isBrowserRuntime) {
       li.innerHTML = `${type.name}<button class="btn-flat secondary-content red-text" data-action="delete-day-off-type" data-id="${type.id}"><i class="material-icons tiny">delete</i></button>`;
       ui.dayOffTypesList.appendChild(li);
     });
+
+    ui.businessPartnerTypesList.innerHTML = '';
+    businessPartnerTypes.forEach((type) => {
+      const li = document.createElement('li');
+      li.className = 'collection-item';
+      li.innerHTML = `${type.name}<button class="btn-flat secondary-content red-text" data-action="delete-business-partner-type" data-id="${type.id}"><i class="material-icons tiny">delete</i></button>`;
+      ui.businessPartnerTypesList.appendChild(li);
+    });
   };
 
   const updateProjectTimelineExpandUi = () => {
@@ -2016,6 +2093,63 @@ if (!isBrowserRuntime) {
   const showManageProjectPanel = () => { ui.projectsPanelCard.hidden = true; ui.projectFormCard.hidden = false; ui.projectMembersCard.hidden = false; };
   const showConsultantsPanel = () => { ui.consultantsPanelCard.hidden = false; ui.consultantFormCard.hidden = true; };
   const showManageConsultantsPanel = () => { ui.consultantsPanelCard.hidden = true; ui.consultantFormCard.hidden = false; };
+  const showBusinessPartnersPanel = () => { ui.businessPartnersPanelCard.hidden = false; ui.businessPartnerFormCard.hidden = true; };
+  const showManageBusinessPartnerPanel = () => { ui.businessPartnersPanelCard.hidden = true; ui.businessPartnerFormCard.hidden = false; };
+
+  const renderBusinessPartnerContactsEditor = () => {
+    if (!ui.businessPartnerContactsList) return;
+    ui.businessPartnerContactsList.innerHTML = '';
+    if (!editingBusinessPartnerContacts.length) {
+      ui.businessPartnerContactsList.innerHTML = '<p class="grey-text">No contact persons yet.</p>';
+      return;
+    }
+    editingBusinessPartnerContacts.forEach((contact, index) => {
+      const card = document.createElement('div');
+      card.className = 'member-card';
+      card.innerHTML = `
+        <div class="row date-row">
+          <div class="input-field col s12 m3"><input type="text" data-contact-index="${index}" data-field="name" value="${contact.name || ''}" /><label class="active">Name</label></div>
+          <div class="input-field col s12 m3"><input type="text" data-contact-index="${index}" data-field="lastName" value="${contact.lastName || ''}" /><label class="active">Last Name</label></div>
+          <div class="input-field col s12 m3"><input type="email" data-contact-index="${index}" data-field="email" value="${contact.email || ''}" /><label class="active">Email</label></div>
+          <div class="input-field col s12 m2"><input type="text" data-contact-index="${index}" data-field="phonesCsv" value="${(contact.phoneNumbers || []).join(', ')}" /><label class="active">Phone Numbers (comma separated)</label></div>
+          <div class="col s12 m1 right-align" style="margin-top:1.5rem;"><button class="btn-flat red-text" type="button" data-action="remove-contact" data-contact-index="${index}"><i class="material-icons tiny">delete</i></button></div>
+        </div>
+      `;
+      ui.businessPartnerContactsList.appendChild(card);
+    });
+  };
+
+  const resetBusinessPartnerForm = () => {
+    ui.businessPartnerForm?.reset();
+    fields.businessPartnerId.value = '';
+    editingBusinessPartnerContacts = [];
+    fields.businessPartnerTypeId.innerHTML = '<option value="" selected>No type</option>';
+    businessPartnerTypes.forEach((type) => fields.businessPartnerTypeId.add(new Option(type.name, type.id)));
+    resetSelect('businessPartnerType', fields.businessPartnerTypeId);
+    renderBusinessPartnerContactsEditor();
+    updateTextFields();
+    showBusinessPartnersPanel();
+  };
+
+  const renderBusinessPartners = () => {
+    ui.businessPartnersBody.innerHTML = '';
+    businessPartners.forEach((partner) => {
+      const row = document.createElement('tr');
+      row.innerHTML = `
+        <td>${partner.companyName}</td>
+        <td>${businessPartnerTypeName(partner.businessPartnerTypeId)}</td>
+        <td>${partner.city || '—'}</td>
+        <td>${partner.country || '—'}</td>
+        <td>
+          <button class="btn-flat teal-text" data-action="view-business-partner" data-id="${partner.id}"><i class="material-icons tiny">visibility</i></button>
+          <button class="btn-flat blue-text" data-action="edit-business-partner" data-id="${partner.id}"><i class="material-icons tiny">edit</i></button>
+          <button class="btn-flat red-text" data-action="delete-business-partner" data-id="${partner.id}"><i class="material-icons tiny">delete</i></button>
+        </td>
+      `;
+      ui.businessPartnersBody.appendChild(row);
+    });
+    ui.businessPartnersEmptyState.hidden = businessPartners.length > 0;
+  };
 
   const setTimeTrackingView = ({ showList }) => {
     if (ui.timeTrackingListCard) ui.timeTrackingListCard.hidden = !showList;
@@ -2040,7 +2174,7 @@ if (!isBrowserRuntime) {
       showProjectMilestoneForm = false;
     }
     updateProjectPlanningUi();
-    [fields.projectName, fields.clientName, fields.projectType, fields.clientContact, fields.startDate, fields.endDate].forEach((el) => { el.disabled = readOnly; });
+    [fields.projectName, fields.clientBusinessPartnerId, fields.clientContactIds, fields.projectType, fields.deliveryPartnerBusinessPartnerId, fields.deliveryPartnerContactIds, fields.startDate, fields.endDate].forEach((el) => { if (el) el.disabled = readOnly; });
     fields.managerId.disabled = true;
     resetSelect('manager', fields.managerId);
     resetSelect('projectType', fields.projectType);
@@ -2321,6 +2455,8 @@ if (!isBrowserRuntime) {
       { key: 'roles', path: '/api/roles', prop: 'roles', fallback: [] },
       { key: 'areas', path: '/api/areas', prop: 'areas', fallback: [] },
       { key: 'dayOffTypes', path: '/api/day-off-types', prop: 'dayOffTypes', fallback: [] },
+      { key: 'businessPartnerTypes', path: '/api/business-partner-types', prop: 'businessPartnerTypes', fallback: [] },
+      { key: 'businessPartners', path: '/api/business-partners', prop: 'businessPartners', fallback: [] },
       { key: 'holidayLocations', path: '/api/holiday-locations', prop: 'holidayLocations', fallback: [] },
       { key: 'allocationSimulations', path: '/api/allocation-simulations', prop: 'simulations', fallback: [] }
     ];
@@ -2344,14 +2480,23 @@ if (!isBrowserRuntime) {
     roles = loaded.roles;
     areas = loaded.areas;
     dayOffTypes = loaded.dayOffTypes;
+    businessPartnerTypes = loaded.businessPartnerTypes;
+    businessPartners = loaded.businessPartners;
     holidayLocations = loaded.holidayLocations;
     allocationSimulations = loaded.allocationSimulations;
 
     renderProjects();
     renderConsultants();
+    renderBusinessPartners();
     renderAdminLists();
     await refreshTimelines();
-    rebuildProjectSelects({ managerId: fields.managerId.value });
+    rebuildProjectSelects({
+      managerId: fields.managerId.value,
+      clientBusinessPartnerId: fields.clientBusinessPartnerId.value,
+      clientContactIds: selectedIds(fields.clientContactIds),
+      deliveryPartnerBusinessPartnerId: fields.deliveryPartnerBusinessPartnerId.value,
+      deliveryPartnerContactIds: selectedIds(fields.deliveryPartnerContactIds)
+    });
     rebuildConsultantSelects({ areaIds: selectedIds(fields.consultantAreaIds), companyRoleId: fields.consultantCompanyRoleId.value, holidayLocationId: fields.consultantHolidayLocationId.value });
     rebuildHolidayCountryRegionControls({ consultantHolidayLocationId: fields.consultantHolidayLocationId.value });
     rebuildAssignmentModalSelects();
@@ -2368,6 +2513,24 @@ if (!isBrowserRuntime) {
   ui.backToProjectsBtn.addEventListener('click', showProjectsPanel);
   fields.startDate.addEventListener('change', updateProjectMembersPanel);
   fields.endDate.addEventListener('change', updateProjectMembersPanel);
+  fields.clientBusinessPartnerId.addEventListener('change', () => {
+    rebuildProjectSelects({
+      managerId: fields.managerId.value,
+      clientBusinessPartnerId: fields.clientBusinessPartnerId.value,
+      clientContactIds: [],
+      deliveryPartnerBusinessPartnerId: fields.deliveryPartnerBusinessPartnerId.value,
+      deliveryPartnerContactIds: selectedIds(fields.deliveryPartnerContactIds)
+    });
+  });
+  fields.deliveryPartnerBusinessPartnerId.addEventListener('change', () => {
+    rebuildProjectSelects({
+      managerId: fields.managerId.value,
+      clientBusinessPartnerId: fields.clientBusinessPartnerId.value,
+      clientContactIds: selectedIds(fields.clientContactIds),
+      deliveryPartnerBusinessPartnerId: fields.deliveryPartnerBusinessPartnerId.value,
+      deliveryPartnerContactIds: []
+    });
+  });
   fields.projectName.addEventListener('input', updateProjectTimelineExpandUi);
   ui.toggleProjectTimelineExpandBtn?.addEventListener('click', () => {
     isProjectTimelineExpanded = !isProjectTimelineExpanded;
@@ -2722,10 +2885,10 @@ if (!isBrowserRuntime) {
 
     fields.projectId.value = project.id;
     fields.projectName.value = project.projectName;
-    fields.clientName.value = project.clientName;
     fields.projectType.value = project.projectType || '';
     fields.managerId.value = project.managerConsultantId || '';
-    fields.clientContact.value = project.clientContact;
+    fields.clientBusinessPartnerId.value = project.clientBusinessPartnerId || '';
+    fields.deliveryPartnerBusinessPartnerId.value = project.deliveryPartnerBusinessPartnerId || '';
     fields.startDate.value = project.startDate;
     fields.endDate.value = project.endDate;
     selectedProjectAssignments = (project.consultantAssignments || []).map((item) => ({
@@ -2753,7 +2916,13 @@ if (!isBrowserRuntime) {
 
     selectedProjectTimelineYear = new Date().getFullYear();
     updateAssignedConsultantsSummary();
-    rebuildProjectSelects({ managerId: project.managerConsultantId });
+    rebuildProjectSelects({
+      managerId: project.managerConsultantId,
+      clientBusinessPartnerId: project.clientBusinessPartnerId || '',
+      clientContactIds: (project.clientContacts || []).map((item) => Number(item.id)),
+      deliveryPartnerBusinessPartnerId: project.deliveryPartnerBusinessPartnerId || '',
+      deliveryPartnerContactIds: (project.deliveryPartnerContacts || []).map((item) => Number(item.id))
+    });
     setProjectFormMode(button.dataset.action === 'view-project' ? 'view' : 'edit');
     showProjectPhaseForm = false;
     showProjectMilestoneForm = false;
@@ -2836,6 +3005,18 @@ if (!isBrowserRuntime) {
     }
   });
 
+  ui.businessPartnerTypeForm.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    try {
+      await request('/api/business-partner-types', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: fields.businessPartnerTypeName.value.trim() }) });
+      ui.businessPartnerTypeForm.reset();
+      await loadAll();
+      toast('Business partner type added', 'teal darken-1');
+    } catch (error) {
+      toast(error.message || 'Failed to add business partner type', 'red darken-1');
+    }
+  });
+
   ui.rolesList.addEventListener('click', async (event) => {
     const button = event.target.closest('button[data-action="delete-role"]');
     if (!button) return;
@@ -2870,6 +3051,113 @@ if (!isBrowserRuntime) {
     } catch (error) {
       toast(error.message || 'Failed to delete day off type', 'red darken-1');
     }
+  });
+
+  ui.businessPartnerTypesList.addEventListener('click', async (event) => {
+    const button = event.target.closest('button[data-action="delete-business-partner-type"]');
+    if (!button) return;
+    try {
+      await request(`/api/business-partner-types/${button.dataset.id}`, { method: 'DELETE' });
+      await loadAll();
+      toast('Business partner type removed', 'orange darken-2');
+    } catch (error) {
+      toast(error.message || 'Failed to delete business partner type', 'red darken-1');
+    }
+  });
+
+  ui.showBusinessPartnerFormBtn?.addEventListener('click', () => {
+    resetBusinessPartnerForm();
+    showManageBusinessPartnerPanel();
+  });
+  ui.backToBusinessPartnersBtn?.addEventListener('click', showBusinessPartnersPanel);
+
+  ui.addBusinessPartnerContactBtn?.addEventListener('click', () => {
+    editingBusinessPartnerContacts.push({ name: '', lastName: '', email: '', phoneNumbers: [] });
+    renderBusinessPartnerContactsEditor();
+    updateTextFields();
+  });
+
+  ui.businessPartnerContactsList?.addEventListener('input', (event) => {
+    const input = event.target.closest('[data-contact-index][data-field]');
+    if (!input) return;
+    const index = Number(input.dataset.contactIndex);
+    const field = input.dataset.field;
+    const current = editingBusinessPartnerContacts[index];
+    if (!current) return;
+    if (field === 'phonesCsv') current.phoneNumbers = String(input.value || '').split(',').map((item) => item.trim()).filter(Boolean);
+    else current[field] = input.value;
+  });
+
+  ui.businessPartnerContactsList?.addEventListener('click', (event) => {
+    const button = event.target.closest('button[data-action="remove-contact"]');
+    if (!button) return;
+    const index = Number(button.dataset.contactIndex);
+    editingBusinessPartnerContacts = editingBusinessPartnerContacts.filter((_, idx) => idx !== index);
+    renderBusinessPartnerContactsEditor();
+    updateTextFields();
+  });
+
+  ui.businessPartnerForm?.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    const payload = {
+      companyName: fields.businessPartnerCompanyName.value.trim(),
+      businessPartnerTypeId: fields.businessPartnerTypeId.value ? Number(fields.businessPartnerTypeId.value) : null,
+      addressStreet: fields.businessPartnerAddressStreet.value.trim(),
+      addressNumber: fields.businessPartnerAddressNumber.value.trim(),
+      postalCode: fields.businessPartnerPostalCode.value.trim(),
+      city: fields.businessPartnerCity.value.trim(),
+      region: fields.businessPartnerRegion.value.trim(),
+      country: fields.businessPartnerCountry.value.trim(),
+      contacts: editingBusinessPartnerContacts
+    };
+    try {
+      const editing = Boolean(fields.businessPartnerId.value);
+      await request(editing ? `/api/business-partners/${fields.businessPartnerId.value}` : '/api/business-partners', {
+        method: editing ? 'PUT' : 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      await loadAll();
+      resetBusinessPartnerForm();
+      toast(editing ? 'Business partner updated' : 'Business partner added', 'teal darken-1');
+    } catch (error) {
+      toast(error.message || 'Failed to save business partner', 'red darken-1');
+    }
+  });
+
+  ui.businessPartnersBody?.addEventListener('click', async (event) => {
+    const button = event.target.closest('button[data-action]');
+    if (!button) return;
+    const id = Number(button.dataset.id);
+    const partner = findBusinessPartnerById(id);
+    if (!partner) return;
+    if (button.dataset.action === 'delete-business-partner') {
+      if (!window.confirm(`Delete business partner "${partner.companyName}"?`)) return;
+      try {
+        await request(`/api/business-partners/${id}`, { method: 'DELETE' });
+        await loadAll();
+        toast('Business partner removed', 'orange darken-2');
+      } catch (error) {
+        toast(error.message || 'Failed to delete business partner', 'red darken-1');
+      }
+      return;
+    }
+    fields.businessPartnerId.value = partner.id;
+    fields.businessPartnerCompanyName.value = partner.companyName || '';
+    fields.businessPartnerTypeId.value = partner.businessPartnerTypeId || '';
+    fields.businessPartnerAddressStreet.value = partner.addressStreet || '';
+    fields.businessPartnerAddressNumber.value = partner.addressNumber || '';
+    fields.businessPartnerPostalCode.value = partner.postalCode || '';
+    fields.businessPartnerCity.value = partner.city || '';
+    fields.businessPartnerRegion.value = partner.region || '';
+    fields.businessPartnerCountry.value = partner.country || '';
+    editingBusinessPartnerContacts = (partner.contacts || []).map((c) => ({ name: c.name || '', lastName: c.lastName || '', email: c.email || '', phoneNumbers: c.phoneNumbers || [] }));
+    fields.businessPartnerTypeId.innerHTML = '<option value="" selected>No type</option>';
+    businessPartnerTypes.forEach((type) => fields.businessPartnerTypeId.add(new Option(type.name, type.id, false, Number(type.id) === Number(partner.businessPartnerTypeId))));
+    resetSelect('businessPartnerType', fields.businessPartnerTypeId);
+    renderBusinessPartnerContactsEditor();
+    updateTextFields();
+    showManageBusinessPartnerPanel();
   });
 
 
@@ -3212,5 +3500,6 @@ if (!isBrowserRuntime) {
   updateProjectTimelineExpandUi();
   resetProjectForm();
   resetConsultantForm();
+  resetBusinessPartnerForm();
   loadAll().catch((error) => toast(error.message || 'Unable to load data', 'red darken-1'));
 }

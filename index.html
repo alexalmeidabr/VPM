@@ -14,6 +14,7 @@
       <ul class="collection" id="nav-menu">
         <li class="collection-item active" data-section="projects">Projects</li>
         <li class="collection-item" data-section="consultants">Consultants</li>
+        <li class="collection-item" data-section="business-partners">Business Partners</li>
         <li class="collection-item" data-section="time-tracking">Time Tracking</li>
         <li class="collection-item" data-section="allocation-forecast">Allocation Forecast</li>
         <li class="collection-item" data-section="mass-update">Mass Update</li>
@@ -37,7 +38,7 @@
                 <div class="table-container projects-table-container">
                   <table class="striped responsive-table">
                     <thead>
-                      <tr><th>Project</th><th>Client</th><th>Manager</th><th>Type</th><th>Client Contact</th><th>Dates</th><th>Actions</th></tr>
+                      <tr><th>Project</th><th>Client</th><th>Manager</th><th>Type</th><th>Client Contacts</th><th>Delivery Partner</th><th>Dates</th><th>Actions</th></tr>
                     </thead>
                     <tbody id="projects-body"></tbody>
                   </table>
@@ -59,10 +60,12 @@
                 <form id="project-form">
                   <input type="hidden" id="project-id" />
                   <div class="input-field"><input id="project-name" type="text" required /><label for="project-name">Project Name</label></div>
-                  <div class="input-field"><input id="client-name" type="text" required /><label for="client-name">Client Name</label></div>
+                  <div class="input-field"><select id="client-business-partner-id"></select><label for="client-business-partner-id">Client</label></div>
+                  <div class="input-field"><select id="client-contact-ids" multiple></select><label for="client-contact-ids">Client Contacts</label></div>
                   <div class="input-field"><select id="project-type" required><option value="" disabled selected>Select type</option><option value="Time Material">Time Material</option><option value="Fixed Price">Fixed Price</option></select><label for="project-type">Type</label></div>
                   <div class="input-field"><select id="manager-consultant-id" required></select><label for="manager-consultant-id">Manager</label></div>
-                  <div class="input-field"><input id="client-contact" type="text" required /><label for="client-contact">Client Contact</label></div>
+                  <div class="input-field"><select id="delivery-partner-business-partner-id"></select><label for="delivery-partner-business-partner-id">Delivery Partner (Optional)</label></div>
+                  <div class="input-field"><select id="delivery-partner-contact-ids" multiple></select><label for="delivery-partner-contact-ids">Delivery Partner Contacts</label></div>
                   <div class="row date-row">
                     <div class="input-field col s12 m6"><input id="start-date" type="date" required /><label class="active" for="start-date">Start Date</label></div>
                     <div class="input-field col s12 m6"><input id="end-date" type="date" required /><label class="active" for="end-date">End Date</label></div>
@@ -119,6 +122,56 @@
                 </div>
                 <div id="project-members-list" class="project-members-list"></div>
               </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section id="business-partners-section" hidden>
+        <div class="card" id="business-partners-panel-card">
+          <div class="card-content">
+            <div class="section-header">
+              <span class="card-title">Business Partners</span>
+              <button class="btn waves-effect waves-light" id="show-business-partner-form-btn" type="button">Add Business Partner<i class="material-icons right">add</i></button>
+            </div>
+            <div class="table-container">
+              <table class="striped responsive-table">
+                <thead><tr><th>Company</th><th>Type</th><th>City</th><th>Country</th><th>Actions</th></tr></thead>
+                <tbody id="business-partners-body"></tbody>
+              </table>
+            </div>
+            <p id="business-partners-empty-state" class="center-align grey-text text-darken-1 empty-message">No business partners yet.</p>
+          </div>
+        </div>
+
+        <div class="card" id="business-partner-form-card" hidden>
+          <div class="card-content">
+            <div class="section-header">
+              <span class="card-title" id="business-partner-form-title">Manage Business Partner</span>
+              <button class="btn-flat" type="button" id="back-to-business-partners-btn">Back to Business Partners</button>
+            </div>
+            <form id="business-partner-form">
+              <input type="hidden" id="business-partner-id" />
+              <div class="input-field"><input id="business-partner-company-name" type="text" required /><label for="business-partner-company-name">Company Name</label></div>
+              <div class="input-field"><select id="business-partner-type-id"></select><label for="business-partner-type-id">Business Partner Type</label></div>
+              <div class="row date-row">
+                <div class="input-field col s12 m8"><input id="business-partner-address-street" type="text" /><label for="business-partner-address-street">Street</label></div>
+                <div class="input-field col s12 m4"><input id="business-partner-address-number" type="text" /><label for="business-partner-address-number">Number</label></div>
+              </div>
+              <div class="row date-row">
+                <div class="input-field col s12 m4"><input id="business-partner-postal-code" type="text" /><label for="business-partner-postal-code">Postal Code</label></div>
+                <div class="input-field col s12 m4"><input id="business-partner-city" type="text" /><label for="business-partner-city">City</label></div>
+                <div class="input-field col s12 m4"><input id="business-partner-region" type="text" /><label for="business-partner-region">Region</label></div>
+              </div>
+              <div class="input-field"><input id="business-partner-country" type="text" /><label for="business-partner-country">Country</label></div>
+            </form>
+            <div class="section-header">
+              <h6>Contact Persons</h6>
+              <button class="btn blue-grey" type="button" id="add-business-partner-contact-btn">Add Contact Person</button>
+            </div>
+            <div id="business-partner-contacts-list"></div>
+            <div class="right-align" style="margin-top: 1rem;">
+              <button class="btn" type="submit" form="business-partner-form" id="business-partner-save-btn">Save Business Partner</button>
             </div>
           </div>
         </div>
@@ -288,20 +341,25 @@
           <div class="card-content">
             <span class="card-title">Administration</span>
             <div class="row">
-              <div class="col s12 m4">
+              <div class="col s12 m3">
                 <h6>Manage Roles</h6>
                 <form id="role-form" class="inline-form"><div class="input-field inline-input"><input id="role-name" type="text" required /><label for="role-name">New Role</label></div><button class="btn" type="submit">Add</button></form>
                 <ul class="collection" id="roles-list"></ul>
               </div>
-              <div class="col s12 m4">
+              <div class="col s12 m3">
                 <h6>Manage Areas</h6>
                 <form id="area-form" class="inline-form"><div class="input-field inline-input"><input id="area-name" type="text" required /><label for="area-name">New Area</label></div><button class="btn" type="submit">Add</button></form>
                 <ul class="collection" id="areas-list"></ul>
               </div>
-              <div class="col s12 m4">
+              <div class="col s12 m3">
                 <h6>Manage Day Off Types</h6>
                 <form id="day-off-type-form" class="inline-form"><div class="input-field inline-input"><input id="day-off-type-name" type="text" required /><label for="day-off-type-name">New Type</label></div><button class="btn" type="submit">Add</button></form>
                 <ul class="collection" id="day-off-types-list"></ul>
+              </div>
+              <div class="col s12 m3">
+                <h6>Manage Business Partner Types</h6>
+                <form id="business-partner-type-form" class="inline-form"><div class="input-field inline-input"><input id="business-partner-type-name" type="text" required /><label for="business-partner-type-name">New Type</label></div><button class="btn" type="submit">Add</button></form>
+                <ul class="collection" id="business-partner-types-list"></ul>
               </div>
             </div>
           </div>

@@ -48,6 +48,9 @@ def seed_defaults(conn):
   if conn.execute('SELECT COUNT(*) AS total FROM day_off_types').fetchone()['total'] == 0:
     for day_off_type in DEFAULT_DAY_OFF_TYPES:
       conn.execute('INSERT INTO day_off_types (name) VALUES (?)', (day_off_type,))
+  if conn.execute('SELECT COUNT(*) AS total FROM business_partner_types').fetchone()['total'] == 0:
+    for bp_type in ['Client', 'Third Party']:
+      conn.execute('INSERT INTO business_partner_types (name) VALUES (?)', (bp_type,))
 
 
 def init_db():
@@ -70,6 +73,44 @@ def init_db():
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         name TEXT NOT NULL UNIQUE,
         created_at TEXT DEFAULT CURRENT_TIMESTAMP
+      );
+
+      CREATE TABLE IF NOT EXISTS business_partner_types (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT NOT NULL UNIQUE,
+        created_at TEXT DEFAULT CURRENT_TIMESTAMP
+      );
+
+      CREATE TABLE IF NOT EXISTS business_partners (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        company_name TEXT NOT NULL,
+        address_street TEXT,
+        address_number TEXT,
+        postal_code TEXT,
+        city TEXT,
+        region TEXT,
+        country TEXT,
+        business_partner_type_id INTEGER,
+        created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (business_partner_type_id) REFERENCES business_partner_types(id) ON DELETE SET NULL
+      );
+
+      CREATE TABLE IF NOT EXISTS business_partner_contacts (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        business_partner_id INTEGER NOT NULL,
+        name TEXT,
+        last_name TEXT,
+        email TEXT,
+        created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (business_partner_id) REFERENCES business_partners(id) ON DELETE CASCADE
+      );
+
+      CREATE TABLE IF NOT EXISTS business_partner_contact_phones (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        contact_id INTEGER NOT NULL,
+        phone_number TEXT NOT NULL,
+        created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (contact_id) REFERENCES business_partner_contacts(id) ON DELETE CASCADE
       );
 
       CREATE TABLE IF NOT EXISTS consultants (
@@ -199,6 +240,22 @@ def init_db():
         FOREIGN KEY (manager_consultant_id) REFERENCES consultants(id) ON DELETE SET NULL
       );
 
+      CREATE TABLE IF NOT EXISTS project_client_contacts (
+        project_id INTEGER NOT NULL,
+        contact_id INTEGER NOT NULL,
+        PRIMARY KEY (project_id, contact_id),
+        FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE,
+        FOREIGN KEY (contact_id) REFERENCES business_partner_contacts(id) ON DELETE CASCADE
+      );
+
+      CREATE TABLE IF NOT EXISTS project_delivery_partner_contacts (
+        project_id INTEGER NOT NULL,
+        contact_id INTEGER NOT NULL,
+        PRIMARY KEY (project_id, contact_id),
+        FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE,
+        FOREIGN KEY (contact_id) REFERENCES business_partner_contacts(id) ON DELETE CASCADE
+      );
+
 
       CREATE TABLE IF NOT EXISTS project_phases (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -243,6 +300,8 @@ def init_db():
 
     ensure_column(conn, 'projects', 'manager_consultant_id', 'manager_consultant_id INTEGER')
     ensure_column(conn, 'projects', 'project_type', 'project_type TEXT')
+    ensure_column(conn, 'projects', 'client_business_partner_id', 'client_business_partner_id INTEGER REFERENCES business_partners(id) ON DELETE SET NULL')
+    ensure_column(conn, 'projects', 'delivery_partner_business_partner_id', 'delivery_partner_business_partner_id INTEGER REFERENCES business_partners(id) ON DELETE SET NULL')
     ensure_column(conn, 'project_consultants', 'project_role', 'project_role TEXT')
     ensure_column(conn, 'project_consultants', 'start_date', 'start_date TEXT')
     ensure_column(conn, 'project_consultants', 'end_date', 'end_date TEXT')
@@ -374,11 +433,40 @@ class VPMHandler(SimpleHTTPRequestHandler):
     return None if payload['name'] else 'name is required'
 
   def _project_payload_error(self, payload):
-    for field in ['projectName', 'clientName', 'clientContact', 'startDate', 'endDate', 'managerConsultantId', 'projectType']:
+    for field in ['projectName', 'startDate', 'endDate', 'managerConsultantId', 'projectType']:
       value = str(payload.get(field, '')).strip()
       if not value:
         return f'{field} is required'
       payload[field] = value
+
+    client_bp = payload.get('clientBusinessPartnerId')
+    if client_bp in (None, '', 0):
+      return 'clientBusinessPartnerId is required'
+    try:
+      payload['clientBusinessPartnerId'] = int(client_bp)
+    except (TypeError, ValueError):
+      return 'clientBusinessPartnerId must be numeric'
+
+    delivery_bp = payload.get('deliveryPartnerBusinessPartnerId')
+    if delivery_bp in (None, ''):
+      payload['deliveryPartnerBusinessPartnerId'] = None
+    else:
+      try:
+        payload['deliveryPartnerBusinessPartnerId'] = int(delivery_bp)
+      except (TypeError, ValueError):
+        return 'deliveryPartnerBusinessPartnerId must be numeric'
+
+    for key in ('clientContactIds', 'deliveryPartnerContactIds'):
+      values = payload.get(key, [])
+      if not isinstance(values, list):
+        return f'{key} must be a list'
+      normalized_ids = []
+      for value in values:
+        try:
+          normalized_ids.append(int(value))
+        except (TypeError, ValueError):
+          return f'{key} must include only numeric ids'
+      payload[key] = sorted(set(normalized_ids))
 
     if payload['projectType'] not in ('Time Material', 'Fixed Price'):
       return 'projectType must be Time Material or Fixed Price'
@@ -721,6 +809,47 @@ class VPMHandler(SimpleHTTPRequestHandler):
     rows = conn.execute(f'SELECT id, name FROM {table} ORDER BY name').fetchall()
     return [{'id': row['id'], 'name': row['name']} for row in rows]
 
+  def _fetch_business_partners(self, conn):
+    partners = conn.execute(
+      '''
+      SELECT id, company_name, address_street, address_number, postal_code, city, region, country, business_partner_type_id
+      FROM business_partners
+      ORDER BY company_name
+      '''
+    ).fetchall()
+    result = []
+    for partner in partners:
+      contacts = conn.execute(
+        'SELECT id, name, last_name, email FROM business_partner_contacts WHERE business_partner_id = ? ORDER BY id',
+        (partner['id'],)
+      ).fetchall()
+      contact_payload = []
+      for contact in contacts:
+        phones = conn.execute(
+          'SELECT phone_number FROM business_partner_contact_phones WHERE contact_id = ? ORDER BY id',
+          (contact['id'],)
+        ).fetchall()
+        contact_payload.append({
+          'id': contact['id'],
+          'name': contact['name'],
+          'lastName': contact['last_name'],
+          'email': contact['email'],
+          'phoneNumbers': [item['phone_number'] for item in phones]
+        })
+      result.append({
+        'id': partner['id'],
+        'companyName': partner['company_name'],
+        'addressStreet': partner['address_street'],
+        'addressNumber': partner['address_number'],
+        'postalCode': partner['postal_code'],
+        'city': partner['city'],
+        'region': partner['region'],
+        'country': partner['country'],
+        'businessPartnerTypeId': partner['business_partner_type_id'],
+        'contacts': contact_payload
+      })
+    return result
+
   def _fetch_consultants(self, conn):
     rows = conn.execute('SELECT id, name, salary, holiday_location_id, start_date FROM consultants ORDER BY created_at DESC, id DESC').fetchall()
     consultants = []
@@ -798,7 +927,7 @@ class VPMHandler(SimpleHTTPRequestHandler):
     rows = conn.execute(
       '''
       SELECT p.id, p.project_name, p.client_name, p.client_contact, p.start_date, p.end_date,
-             p.project_type, p.manager_consultant_id, c.name AS manager_name
+             p.project_type, p.manager_consultant_id, p.client_business_partner_id, p.delivery_partner_business_partner_id, c.name AS manager_name
       FROM projects p
       LEFT JOIN consultants c ON c.id = p.manager_consultant_id
       ORDER BY p.created_at DESC, p.id DESC
@@ -824,11 +953,35 @@ class VPMHandler(SimpleHTTPRequestHandler):
         'SELECT id, phase_id, name, start_date, end_date FROM project_milestones WHERE project_id = ? ORDER BY start_date, id',
         (row['id'],)
       ).fetchall()
+      client_contacts = conn.execute(
+        '''
+        SELECT bc.id, bc.name, bc.last_name, bc.email
+        FROM project_client_contacts pcc
+        JOIN business_partner_contacts bc ON bc.id = pcc.contact_id
+        WHERE pcc.project_id = ?
+        ORDER BY bc.id
+        ''',
+        (row['id'],)
+      ).fetchall()
+      delivery_contacts = conn.execute(
+        '''
+        SELECT bc.id, bc.name, bc.last_name, bc.email
+        FROM project_delivery_partner_contacts pdc
+        JOIN business_partner_contacts bc ON bc.id = pdc.contact_id
+        WHERE pdc.project_id = ?
+        ORDER BY bc.id
+        ''',
+        (row['id'],)
+      ).fetchall()
       projects.append({
         'id': row['id'],
         'projectName': row['project_name'],
         'clientName': row['client_name'],
         'clientContact': row['client_contact'],
+        'clientBusinessPartnerId': row['client_business_partner_id'],
+        'deliveryPartnerBusinessPartnerId': row['delivery_partner_business_partner_id'],
+        'clientContacts': [{'id': c['id'], 'name': c['name'], 'lastName': c['last_name'], 'email': c['email']} for c in client_contacts],
+        'deliveryPartnerContacts': [{'id': c['id'], 'name': c['name'], 'lastName': c['last_name'], 'email': c['email']} for c in delivery_contacts],
         'startDate': row['start_date'],
         'endDate': row['end_date'],
         'projectType': row['project_type'],
@@ -1046,6 +1199,12 @@ class VPMHandler(SimpleHTTPRequestHandler):
       if path == '/api/day-off-types':
         self._send_json({'dayOffTypes': self._fetch_simple_table(conn, 'day_off_types')})
         return
+      if path == '/api/business-partner-types':
+        self._send_json({'businessPartnerTypes': self._fetch_simple_table(conn, 'business_partner_types')})
+        return
+      if path == '/api/business-partners':
+        self._send_json({'businessPartners': self._fetch_business_partners(conn)})
+        return
       if path == '/api/holiday-locations':
         self._send_json({'holidayLocations': self._fetch_holiday_locations(conn)})
         return
@@ -1133,10 +1292,10 @@ class VPMHandler(SimpleHTTPRequestHandler):
         manager_name = self._consultant_name(conn, payload['managerConsultantId'])
         cursor = conn.execute(
           '''
-          INSERT INTO projects (project_name, client_name, project_lead, client_contact, start_date, end_date, manager_consultant_id, project_type)
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+          INSERT INTO projects (project_name, client_name, project_lead, client_contact, start_date, end_date, manager_consultant_id, project_type, client_business_partner_id, delivery_partner_business_partner_id)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
           ''',
-          (payload['projectName'], payload['clientName'], manager_name or 'Manager', payload['clientContact'], payload['startDate'], payload['endDate'], payload['managerConsultantId'], payload['projectType'])
+          (payload['projectName'], '', manager_name or 'Manager', '', payload['startDate'], payload['endDate'], payload['managerConsultantId'], payload['projectType'], payload['clientBusinessPartnerId'], payload['deliveryPartnerBusinessPartnerId'])
         )
         project_id = cursor.lastrowid
         for item in payload['consultantAssignments']:
@@ -1156,6 +1315,10 @@ class VPMHandler(SimpleHTTPRequestHandler):
             'INSERT INTO project_milestones (project_id, phase_id, name, start_date, end_date) VALUES (?, ?, ?, ?, ?)',
             (project_id, phase_id_map.get(milestone['phaseId']), milestone['name'], milestone['startDate'], milestone['endDate'])
           )
+        for contact_id in payload['clientContactIds']:
+          conn.execute('INSERT INTO project_client_contacts (project_id, contact_id) VALUES (?, ?)', (project_id, contact_id))
+        for contact_id in payload['deliveryPartnerContactIds']:
+          conn.execute('INSERT INTO project_delivery_partner_contacts (project_id, contact_id) VALUES (?, ?)', (project_id, contact_id))
       self._send_json({'id': project_id}, HTTPStatus.CREATED)
       return
 
@@ -1243,6 +1406,59 @@ class VPMHandler(SimpleHTTPRequestHandler):
           self._send_json({'error': 'Day off type already exists'}, HTTPStatus.BAD_REQUEST)
           return
       self._send_json({'id': cursor.lastrowid}, HTTPStatus.CREATED)
+      return
+
+    if path == '/api/business-partner-types':
+      error = self._name_payload_error(payload)
+      if error:
+        self._send_json({'error': error}, HTTPStatus.BAD_REQUEST)
+        return
+      with get_connection() as conn:
+        try:
+          cursor = conn.execute('INSERT INTO business_partner_types (name) VALUES (?)', (payload['name'],))
+        except sqlite3.IntegrityError:
+          self._send_json({'error': 'Business partner type already exists'}, HTTPStatus.BAD_REQUEST)
+          return
+      self._send_json({'id': cursor.lastrowid}, HTTPStatus.CREATED)
+      return
+
+    if path == '/api/business-partners':
+      company_name = str(payload.get('companyName', '')).strip()
+      if not company_name:
+        self._send_json({'error': 'companyName is required'}, HTTPStatus.BAD_REQUEST)
+        return
+      contacts = payload.get('contacts', [])
+      if not isinstance(contacts, list):
+        self._send_json({'error': 'contacts must be a list'}, HTTPStatus.BAD_REQUEST)
+        return
+      with get_connection() as conn:
+        cursor = conn.execute(
+          '''
+          INSERT INTO business_partners (company_name, address_street, address_number, postal_code, city, region, country, business_partner_type_id)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+          ''',
+          (
+            company_name,
+            str(payload.get('addressStreet', '')).strip(),
+            str(payload.get('addressNumber', '')).strip(),
+            str(payload.get('postalCode', '')).strip(),
+            str(payload.get('city', '')).strip(),
+            str(payload.get('region', '')).strip(),
+            str(payload.get('country', '')).strip(),
+            int(payload['businessPartnerTypeId']) if payload.get('businessPartnerTypeId') not in (None, '') else None
+          )
+        )
+        partner_id = cursor.lastrowid
+        for contact in contacts:
+          c = conn.execute(
+            'INSERT INTO business_partner_contacts (business_partner_id, name, last_name, email) VALUES (?, ?, ?, ?)',
+            (partner_id, str(contact.get('name', '')).strip(), str(contact.get('lastName', '')).strip(), str(contact.get('email', '')).strip())
+          )
+          for phone in (contact.get('phoneNumbers') or []):
+            phone_value = str(phone).strip()
+            if phone_value:
+              conn.execute('INSERT INTO business_partner_contact_phones (contact_id, phone_number) VALUES (?, ?)', (c.lastrowid, phone_value))
+      self._send_json({'id': partner_id}, HTTPStatus.CREATED)
       return
 
     if path == '/api/holiday-locations':
@@ -1400,6 +1616,7 @@ class VPMHandler(SimpleHTTPRequestHandler):
     path = self._path()
     project_id = self._resource_id('projects')
     consultant_id = self._resource_id('consultants')
+    business_partner_id = self._resource_id('business-partners')
     holiday_location_id = self._holiday_location_id()
     allocation_simulation_id = self._allocation_simulation_id()
 
@@ -1446,10 +1663,10 @@ class VPMHandler(SimpleHTTPRequestHandler):
         cursor = conn.execute(
           '''
           UPDATE projects
-          SET project_name = ?, client_name = ?, project_lead = ?, client_contact = ?, start_date = ?, end_date = ?, manager_consultant_id = ?, project_type = ?
+          SET project_name = ?, client_name = ?, project_lead = ?, client_contact = ?, start_date = ?, end_date = ?, manager_consultant_id = ?, project_type = ?, client_business_partner_id = ?, delivery_partner_business_partner_id = ?
           WHERE id = ?
           ''',
-          (payload['projectName'], payload['clientName'], manager_name or 'Manager', payload['clientContact'], payload['startDate'], payload['endDate'], payload['managerConsultantId'], payload['projectType'], project_id)
+          (payload['projectName'], '', manager_name or 'Manager', '', payload['startDate'], payload['endDate'], payload['managerConsultantId'], payload['projectType'], payload['clientBusinessPartnerId'], payload['deliveryPartnerBusinessPartnerId'], project_id)
         )
         if cursor.rowcount == 0:
           self._send_json({'error': 'Project not found'}, HTTPStatus.NOT_FOUND)
@@ -1457,6 +1674,8 @@ class VPMHandler(SimpleHTTPRequestHandler):
         conn.execute('DELETE FROM project_consultants WHERE project_id = ?', (project_id,))
         conn.execute('DELETE FROM project_milestones WHERE project_id = ?', (project_id,))
         conn.execute('DELETE FROM project_phases WHERE project_id = ?', (project_id,))
+        conn.execute('DELETE FROM project_client_contacts WHERE project_id = ?', (project_id,))
+        conn.execute('DELETE FROM project_delivery_partner_contacts WHERE project_id = ?', (project_id,))
         for item in payload['consultantAssignments']:
           conn.execute(
             'INSERT INTO project_consultants (project_id, consultant_id, project_role, start_date, end_date) VALUES (?, ?, ?, ?, ?)',
@@ -1474,6 +1693,10 @@ class VPMHandler(SimpleHTTPRequestHandler):
             'INSERT INTO project_milestones (project_id, phase_id, name, start_date, end_date) VALUES (?, ?, ?, ?, ?)',
             (project_id, phase_id_map.get(milestone['phaseId']), milestone['name'], milestone['startDate'], milestone['endDate'])
           )
+        for contact_id in payload['clientContactIds']:
+          conn.execute('INSERT INTO project_client_contacts (project_id, contact_id) VALUES (?, ?)', (project_id, contact_id))
+        for contact_id in payload['deliveryPartnerContactIds']:
+          conn.execute('INSERT INTO project_delivery_partner_contacts (project_id, contact_id) VALUES (?, ?)', (project_id, contact_id))
       self._send_json({'status': 'updated'})
       return
 
@@ -1506,6 +1729,51 @@ class VPMHandler(SimpleHTTPRequestHandler):
         for area_id in sorted(set(payload['areaIds'])):
           conn.execute('INSERT INTO consultant_areas (consultant_id, area_id) VALUES (?, ?)', (consultant_id, area_id))
         conn.execute('INSERT INTO consultant_roles (consultant_id, role_id) VALUES (?, ?)', (consultant_id, payload['companyRoleId']))
+      self._send_json({'status': 'updated'})
+      return
+
+    if business_partner_id is not None:
+      company_name = str(payload.get('companyName', '')).strip()
+      if not company_name:
+        self._send_json({'error': 'companyName is required'}, HTTPStatus.BAD_REQUEST)
+        return
+      contacts = payload.get('contacts', [])
+      if not isinstance(contacts, list):
+        self._send_json({'error': 'contacts must be a list'}, HTTPStatus.BAD_REQUEST)
+        return
+      with get_connection() as conn:
+        cursor = conn.execute(
+          '''
+          UPDATE business_partners
+          SET company_name = ?, address_street = ?, address_number = ?, postal_code = ?, city = ?, region = ?, country = ?, business_partner_type_id = ?
+          WHERE id = ?
+          ''',
+          (
+            company_name,
+            str(payload.get('addressStreet', '')).strip(),
+            str(payload.get('addressNumber', '')).strip(),
+            str(payload.get('postalCode', '')).strip(),
+            str(payload.get('city', '')).strip(),
+            str(payload.get('region', '')).strip(),
+            str(payload.get('country', '')).strip(),
+            int(payload['businessPartnerTypeId']) if payload.get('businessPartnerTypeId') not in (None, '') else None,
+            business_partner_id
+          )
+        )
+        if cursor.rowcount == 0:
+          self._send_json({'error': 'Business partner not found'}, HTTPStatus.NOT_FOUND)
+          return
+        conn.execute('DELETE FROM business_partner_contact_phones WHERE contact_id IN (SELECT id FROM business_partner_contacts WHERE business_partner_id = ?)', (business_partner_id,))
+        conn.execute('DELETE FROM business_partner_contacts WHERE business_partner_id = ?', (business_partner_id,))
+        for contact in contacts:
+          c = conn.execute(
+            'INSERT INTO business_partner_contacts (business_partner_id, name, last_name, email) VALUES (?, ?, ?, ?)',
+            (business_partner_id, str(contact.get('name', '')).strip(), str(contact.get('lastName', '')).strip(), str(contact.get('email', '')).strip())
+          )
+          for phone in (contact.get('phoneNumbers') or []):
+            phone_value = str(phone).strip()
+            if phone_value:
+              conn.execute('INSERT INTO business_partner_contact_phones (contact_id, phone_number) VALUES (?, ?)', (c.lastrowid, phone_value))
       self._send_json({'status': 'updated'})
       return
 
@@ -1560,6 +1828,8 @@ class VPMHandler(SimpleHTTPRequestHandler):
     role_id = self._resource_id('roles')
     area_id = self._resource_id('areas')
     day_off_type_id = self._resource_id('day-off-types')
+    business_partner_type_id = self._resource_id('business-partner-types')
+    business_partner_id = self._resource_id('business-partners')
     availability_consultant_id, availability_id = self._availability_route()
     allocation_simulation_id = self._allocation_simulation_id()
 
@@ -1613,6 +1883,24 @@ class VPMHandler(SimpleHTTPRequestHandler):
         cursor = conn.execute('DELETE FROM day_off_types WHERE id = ?', (day_off_type_id,))
       if cursor.rowcount == 0:
         self._send_json({'error': 'Day off type not found'}, HTTPStatus.NOT_FOUND)
+        return
+      self._send_json({'status': 'deleted'})
+      return
+
+    if business_partner_type_id is not None:
+      with get_connection() as conn:
+        cursor = conn.execute('DELETE FROM business_partner_types WHERE id = ?', (business_partner_type_id,))
+      if cursor.rowcount == 0:
+        self._send_json({'error': 'Business partner type not found'}, HTTPStatus.NOT_FOUND)
+        return
+      self._send_json({'status': 'deleted'})
+      return
+
+    if business_partner_id is not None:
+      with get_connection() as conn:
+        cursor = conn.execute('DELETE FROM business_partners WHERE id = ?', (business_partner_id,))
+      if cursor.rowcount == 0:
+        self._send_json({'error': 'Business partner not found'}, HTTPStatus.NOT_FOUND)
         return
       self._send_json({'status': 'deleted'})
       return
