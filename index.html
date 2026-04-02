@@ -57,19 +57,18 @@
                     <button class="btn waves-effect waves-light" type="submit" form="project-form" id="project-save-btn" aria-label="Save Project"><i class="material-icons">save</i></button>
                     <button class="btn-flat" type="button" id="project-switch-edit-btn" aria-label="Switch to edit mode" hidden><i class="material-icons">edit</i></button>
                   </div>
-                  <button class="btn-flat" type="button" id="project-summary-back-btn">Back to Projects</button>
+                  <button class="btn-flat" type="button" id="back-to-projects-btn">Back to Projects</button>
                 </div>
                 <div id="project-summary-header" class="project-summary-header" hidden>
                   <div>
                     <h5 id="project-summary-name">Project</h5>
-                    <div class="grey-text" id="project-summary-client">Client: —</div>
+                    <div class="project-summary-subline"><span class="grey-text" id="project-summary-client">Client: —</span><span id="project-summary-status" class="status-badge status-not-started">Not Started</span></div>
                   </div>
                   <div class="project-summary-actions">
-                    <span id="project-summary-status" class="status-badge status-not-started">Not Started</span>
                     <button class="btn waves-effect waves-light" type="submit" form="project-form" id="project-save-btn-header" aria-label="Save Project"><i class="material-icons">save</i></button>
                     <button class="btn-flat" type="button" id="project-switch-edit-btn-header" aria-label="Switch to edit mode" hidden><i class="material-icons">edit</i></button>
+                    <button class="btn-flat" type="button" id="project-summary-back-btn">Back to Projects</button>
                   </div>
-                  <button class="btn-flat" type="button" id="back-to-projects-btn">Back to Projects</button>
                 </div>
                 <form id="project-form">
                   <input type="hidden" id="project-id" />

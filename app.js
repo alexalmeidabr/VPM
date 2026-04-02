@@ -404,6 +404,7 @@ if (!isBrowserRuntime) {
     const isSavedProject = Boolean(fields.projectId.value);
     if (ui.projectFormBasicHeader) ui.projectFormBasicHeader.hidden = isSavedProject;
     if (ui.projectSummaryHeader) ui.projectSummaryHeader.hidden = !isSavedProject;
+    if (ui.projectFormTitle) ui.projectFormTitle.hidden = isSavedProject;
     if (!isSavedProject) return;
     const client = findBusinessPartnerById(fields.clientBusinessPartnerId.value);
     if (ui.projectSummaryName) ui.projectSummaryName.textContent = fields.projectName.value || 'Project';
