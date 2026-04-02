@@ -62,7 +62,7 @@
                   <div class="input-field"><input id="project-name" type="text" required /><label for="project-name">Project Name</label></div>
                   <div class="input-field"><select id="client-business-partner-id"></select><label for="client-business-partner-id">Client</label></div>
                   <div class="input-field"><select id="client-contact-ids" multiple></select><label for="client-contact-ids">Client Contacts</label></div>
-                  <div class="input-field"><select id="project-type" required><option value="" disabled selected>Select type</option><option value="Time Material">Time Material</option><option value="Fixed Price">Fixed Price</option></select><label for="project-type">Type</label></div>
+                  <div class="input-field"><select id="project-type" required><option value="" disabled selected>Select type</option></select><label for="project-type">Type</label></div>
                   <div class="input-field"><select id="manager-consultant-id" required></select><label for="manager-consultant-id">Manager</label></div>
                   <div class="input-field"><select id="delivery-partner-business-partner-id"></select><label for="delivery-partner-business-partner-id">Delivery Partner (Optional)</label></div>
                   <div class="input-field"><select id="delivery-partner-contact-ids" multiple></select><label for="delivery-partner-contact-ids">Delivery Partner Contacts</label></div>
@@ -391,6 +391,11 @@
                 <h6>Manage Business Partner Types</h6>
                 <form id="business-partner-type-form" class="inline-form"><div class="input-field inline-input"><input id="business-partner-type-name" type="text" required /><label for="business-partner-type-name">New Type</label></div><button class="btn" type="submit">Add</button></form>
                 <ul class="collection" id="business-partner-types-list"></ul>
+              </div>
+              <div class="col s12 m3">
+                <h6>Manage Project Types</h6>
+                <form id="project-type-form" class="inline-form"><div class="input-field inline-input"><input id="project-type-name" type="text" required /><label for="project-type-name">New Type</label></div><button class="btn" type="submit">Add</button></form>
+                <ul class="collection" id="project-types-list"></ul>
               </div>
             </div>
           </div>

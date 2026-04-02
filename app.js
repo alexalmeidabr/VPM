@@ -149,10 +149,12 @@ if (!isBrowserRuntime) {
     areaForm: document.getElementById('area-form'),
     dayOffTypeForm: document.getElementById('day-off-type-form'),
     businessPartnerTypeForm: document.getElementById('business-partner-type-form'),
+    projectTypeForm: document.getElementById('project-type-form'),
     rolesList: document.getElementById('roles-list'),
     areasList: document.getElementById('areas-list'),
     dayOffTypesList: document.getElementById('day-off-types-list'),
     businessPartnerTypesList: document.getElementById('business-partner-types-list'),
+    projectTypesList: document.getElementById('project-types-list'),
     timeTrackingListCard: document.getElementById('time-tracking-list-card'),
     timeTrackingConsultantSelect: document.getElementById('time-tracking-consultant-select'),
     loadTimesheetsBtn: document.getElementById('load-timesheets-btn'),
@@ -205,6 +207,7 @@ if (!isBrowserRuntime) {
     areaName: document.getElementById('area-name'),
     dayOffTypeName: document.getElementById('day-off-type-name'),
     businessPartnerTypeName: document.getElementById('business-partner-type-name'),
+    projectTypeName: document.getElementById('project-type-name'),
     businessPartnerId: document.getElementById('business-partner-id'),
     businessPartnerCompanyName: document.getElementById('business-partner-company-name'),
     businessPartnerTypeId: document.getElementById('business-partner-type-id'),
@@ -240,6 +243,7 @@ if (!isBrowserRuntime) {
   let areas = [];
   let dayOffTypes = [];
   let businessPartnerTypes = [];
+  let projectTypes = [];
   let businessPartners = [];
   let editingBusinessPartnerContacts = [];
   let editingCommunicationContactIndex = -1;
@@ -1819,7 +1823,7 @@ if (!isBrowserRuntime) {
       : 'No consultants assigned yet.';
   };
 
-  const rebuildProjectSelects = ({ managerId = '', clientBusinessPartnerId = '', clientContactIds = [], deliveryPartnerBusinessPartnerId = '', deliveryPartnerContactIds = [] } = {}) => {
+  const rebuildProjectSelects = ({ managerId = '', projectType = '', clientBusinessPartnerId = '', clientContactIds = [], deliveryPartnerBusinessPartnerId = '', deliveryPartnerContactIds = [] } = {}) => {
     fields.managerId.innerHTML = '<option value="" disabled selected>Select a manager</option>';
     managerCandidates().forEach((consultant) => fields.managerId.add(new Option(consultant.name, consultant.id, false, Number(managerId) === Number(consultant.id))));
 
@@ -1848,6 +1852,12 @@ if (!isBrowserRuntime) {
       const label = `${contact.name || ''} ${contact.lastName || ''}`.trim() || contact.email || `Contact ${contact.id}`;
       fields.deliveryPartnerContactIds.add(new Option(label, contact.id, false, deliveryPartnerContactIds.map(Number).includes(Number(contact.id))));
     });
+
+    fields.projectType.innerHTML = '<option value="" disabled>Select type</option>';
+    projectTypes.forEach((type) => fields.projectType.add(new Option(type.name, type.name, false, String(projectType) === String(type.name))));
+    if (projectType && !projectTypes.some((type) => String(type.name) === String(projectType))) {
+      fields.projectType.add(new Option(`${projectType} (Legacy)`, projectType, false, true));
+    }
 
     resetSelect('manager', fields.managerId);
     resetSelect('clientBusinessPartner', fields.clientBusinessPartnerId);
@@ -2096,6 +2106,14 @@ if (!isBrowserRuntime) {
       li.className = 'collection-item';
       li.innerHTML = `${type.name}<button class="btn-flat secondary-content red-text" data-action="delete-business-partner-type" data-id="${type.id}"><i class="material-icons tiny">delete</i></button>`;
       ui.businessPartnerTypesList.appendChild(li);
+    });
+
+    ui.projectTypesList.innerHTML = '';
+    projectTypes.forEach((type) => {
+      const li = document.createElement('li');
+      li.className = 'collection-item';
+      li.innerHTML = `${type.name}<button class="btn-flat secondary-content red-text" data-action="delete-project-type" data-id="${type.id}"><i class="material-icons tiny">delete</i></button>`;
+      ui.projectTypesList.appendChild(li);
     });
   };
 
@@ -2611,6 +2629,7 @@ if (!isBrowserRuntime) {
       { key: 'areas', path: '/api/areas', prop: 'areas', fallback: [] },
       { key: 'dayOffTypes', path: '/api/day-off-types', prop: 'dayOffTypes', fallback: [] },
       { key: 'businessPartnerTypes', path: '/api/business-partner-types', prop: 'businessPartnerTypes', fallback: [] },
+      { key: 'projectTypes', path: '/api/project-types', prop: 'projectTypes', fallback: [] },
       { key: 'businessPartners', path: '/api/business-partners', prop: 'businessPartners', fallback: [] },
       { key: 'holidayLocations', path: '/api/holiday-locations', prop: 'holidayLocations', fallback: [] },
       { key: 'allocationSimulations', path: '/api/allocation-simulations', prop: 'simulations', fallback: [] }
@@ -2636,6 +2655,7 @@ if (!isBrowserRuntime) {
     areas = loaded.areas;
     dayOffTypes = loaded.dayOffTypes;
     businessPartnerTypes = loaded.businessPartnerTypes;
+    projectTypes = loaded.projectTypes;
     businessPartners = loaded.businessPartners;
     holidayLocations = loaded.holidayLocations;
     allocationSimulations = loaded.allocationSimulations;
@@ -2647,6 +2667,7 @@ if (!isBrowserRuntime) {
     await refreshTimelines();
     rebuildProjectSelects({
       managerId: fields.managerId.value,
+      projectType: fields.projectType.value,
       clientBusinessPartnerId: fields.clientBusinessPartnerId.value,
       clientContactIds: selectedIds(fields.clientContactIds),
       deliveryPartnerBusinessPartnerId: fields.deliveryPartnerBusinessPartnerId.value,
@@ -2671,6 +2692,7 @@ if (!isBrowserRuntime) {
   fields.clientBusinessPartnerId.addEventListener('change', () => {
     rebuildProjectSelects({
       managerId: fields.managerId.value,
+      projectType: fields.projectType.value,
       clientBusinessPartnerId: fields.clientBusinessPartnerId.value,
       clientContactIds: [],
       deliveryPartnerBusinessPartnerId: fields.deliveryPartnerBusinessPartnerId.value,
@@ -2680,6 +2702,7 @@ if (!isBrowserRuntime) {
   fields.deliveryPartnerBusinessPartnerId.addEventListener('change', () => {
     rebuildProjectSelects({
       managerId: fields.managerId.value,
+      projectType: fields.projectType.value,
       clientBusinessPartnerId: fields.clientBusinessPartnerId.value,
       clientContactIds: selectedIds(fields.clientContactIds),
       deliveryPartnerBusinessPartnerId: fields.deliveryPartnerBusinessPartnerId.value,
@@ -3073,6 +3096,7 @@ if (!isBrowserRuntime) {
     updateAssignedConsultantsSummary();
     rebuildProjectSelects({
       managerId: project.managerConsultantId,
+      projectType: project.projectType || '',
       clientBusinessPartnerId: project.clientBusinessPartnerId || '',
       clientContactIds: (project.clientContacts || []).map((item) => Number(item.id)),
       deliveryPartnerBusinessPartnerId: project.deliveryPartnerBusinessPartnerId || '',
@@ -3172,6 +3196,18 @@ if (!isBrowserRuntime) {
     }
   });
 
+  ui.projectTypeForm?.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    try {
+      await request('/api/project-types', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: fields.projectTypeName.value.trim() }) });
+      ui.projectTypeForm.reset();
+      await loadAll();
+      toast('Project type added', 'teal darken-1');
+    } catch (error) {
+      toast(error.message || 'Failed to add project type', 'red darken-1');
+    }
+  });
+
   ui.rolesList.addEventListener('click', async (event) => {
     const button = event.target.closest('button[data-action="delete-role"]');
     if (!button) return;
@@ -3217,6 +3253,18 @@ if (!isBrowserRuntime) {
       toast('Business partner type removed', 'orange darken-2');
     } catch (error) {
       toast(error.message || 'Failed to delete business partner type', 'red darken-1');
+    }
+  });
+
+  ui.projectTypesList?.addEventListener('click', async (event) => {
+    const button = event.target.closest('button[data-action="delete-project-type"]');
+    if (!button) return;
+    try {
+      await request(`/api/project-types/${button.dataset.id}`, { method: 'DELETE' });
+      await loadAll();
+      toast('Project type removed', 'orange darken-2');
+    } catch (error) {
+      toast(error.message || 'Failed to delete project type', 'red darken-1');
     }
   });
 

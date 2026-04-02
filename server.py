@@ -23,6 +23,7 @@ DEFAULT_ROLES = [
 ]
 DEFAULT_AREAS = ['TM (Transport Management)', 'EWM (Extended Warehouse Management)', 'YL (Yard Logistics)']
 DEFAULT_DAY_OFF_TYPES = ['Vacation', 'PTO']
+DEFAULT_PROJECT_TYPES = ['Time Material', 'Fixed Price', 'Milestone Billing', 'Non-Billable']
 
 
 def get_connection():
@@ -51,6 +52,9 @@ def seed_defaults(conn):
   if conn.execute('SELECT COUNT(*) AS total FROM business_partner_types').fetchone()['total'] == 0:
     for bp_type in ['Client', 'Third Party']:
       conn.execute('INSERT INTO business_partner_types (name) VALUES (?)', (bp_type,))
+  if conn.execute('SELECT COUNT(*) AS total FROM project_types').fetchone()['total'] == 0:
+    for project_type in DEFAULT_PROJECT_TYPES:
+      conn.execute('INSERT INTO project_types (name) VALUES (?)', (project_type,))
 
 
 def init_db():
@@ -76,6 +80,12 @@ def init_db():
       );
 
       CREATE TABLE IF NOT EXISTS business_partner_types (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT NOT NULL UNIQUE,
+        created_at TEXT DEFAULT CURRENT_TIMESTAMP
+      );
+
+      CREATE TABLE IF NOT EXISTS project_types (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         name TEXT NOT NULL UNIQUE,
         created_at TEXT DEFAULT CURRENT_TIMESTAMP
@@ -440,7 +450,7 @@ class VPMHandler(SimpleHTTPRequestHandler):
     payload['name'] = str(payload.get('name', '')).strip()
     return None if payload['name'] else 'name is required'
 
-  def _project_payload_error(self, payload):
+  def _project_payload_error(self, conn, payload):
     for field in ['projectName', 'startDate', 'endDate', 'managerConsultantId', 'projectType']:
       value = str(payload.get(field, '')).strip()
       if not value:
@@ -476,8 +486,9 @@ class VPMHandler(SimpleHTTPRequestHandler):
           return f'{key} must include only numeric ids'
       payload[key] = sorted(set(normalized_ids))
 
-    if payload['projectType'] not in ('Time Material', 'Fixed Price'):
-      return 'projectType must be Time Material or Fixed Price'
+    type_exists = conn.execute('SELECT 1 FROM project_types WHERE name = ? LIMIT 1', (payload['projectType'],)).fetchone()
+    if not type_exists:
+      return 'projectType must exist in configured project types'
     if payload['startDate'] > payload['endDate']:
       return 'startDate cannot be after endDate'
 
@@ -1218,6 +1229,9 @@ class VPMHandler(SimpleHTTPRequestHandler):
       if path == '/api/business-partner-types':
         self._send_json({'businessPartnerTypes': self._fetch_simple_table(conn, 'business_partner_types')})
         return
+      if path == '/api/project-types':
+        self._send_json({'projectTypes': self._fetch_simple_table(conn, 'project_types')})
+        return
       if path == '/api/business-partners':
         self._send_json({'businessPartners': self._fetch_business_partners(conn)})
         return
@@ -1292,11 +1306,11 @@ class VPMHandler(SimpleHTTPRequestHandler):
       return
 
     if path == '/api/projects':
-      error = self._project_payload_error(payload)
-      if error:
-        self._send_json({'error': error}, HTTPStatus.BAD_REQUEST)
-        return
       with get_connection() as conn:
+        error = self._project_payload_error(conn, payload)
+        if error:
+          self._send_json({'error': error}, HTTPStatus.BAD_REQUEST)
+          return
         ids_to_check = [item['consultantId'] for item in payload['consultantAssignments']] + [payload['managerConsultantId']]
         if not self._ids_exist(conn, 'consultants', ids_to_check):
           self._send_json({'error': 'Manager or members include unknown consultant IDs'}, HTTPStatus.BAD_REQUEST)
@@ -1434,6 +1448,20 @@ class VPMHandler(SimpleHTTPRequestHandler):
           cursor = conn.execute('INSERT INTO business_partner_types (name) VALUES (?)', (payload['name'],))
         except sqlite3.IntegrityError:
           self._send_json({'error': 'Business partner type already exists'}, HTTPStatus.BAD_REQUEST)
+          return
+      self._send_json({'id': cursor.lastrowid}, HTTPStatus.CREATED)
+      return
+
+    if path == '/api/project-types':
+      error = self._name_payload_error(payload)
+      if error:
+        self._send_json({'error': error}, HTTPStatus.BAD_REQUEST)
+        return
+      with get_connection() as conn:
+        try:
+          cursor = conn.execute('INSERT INTO project_types (name) VALUES (?)', (payload['name'],))
+        except sqlite3.IntegrityError:
+          self._send_json({'error': 'Project type already exists'}, HTTPStatus.BAD_REQUEST)
           return
       self._send_json({'id': cursor.lastrowid}, HTTPStatus.CREATED)
       return
@@ -1672,11 +1700,11 @@ class VPMHandler(SimpleHTTPRequestHandler):
       return
 
     if project_id is not None:
-      error = self._project_payload_error(payload)
-      if error:
-        self._send_json({'error': error}, HTTPStatus.BAD_REQUEST)
-        return
       with get_connection() as conn:
+        error = self._project_payload_error(conn, payload)
+        if error:
+          self._send_json({'error': error}, HTTPStatus.BAD_REQUEST)
+          return
         ids_to_check = [item['consultantId'] for item in payload['consultantAssignments']] + [payload['managerConsultantId']]
         if not self._ids_exist(conn, 'consultants', ids_to_check):
           self._send_json({'error': 'Manager or members include unknown consultant IDs'}, HTTPStatus.BAD_REQUEST)
@@ -1866,6 +1894,7 @@ class VPMHandler(SimpleHTTPRequestHandler):
     area_id = self._resource_id('areas')
     day_off_type_id = self._resource_id('day-off-types')
     business_partner_type_id = self._resource_id('business-partner-types')
+    project_type_id = self._resource_id('project-types')
     business_partner_id = self._resource_id('business-partners')
     availability_consultant_id, availability_id = self._availability_route()
     allocation_simulation_id = self._allocation_simulation_id()
@@ -1929,6 +1958,15 @@ class VPMHandler(SimpleHTTPRequestHandler):
         cursor = conn.execute('DELETE FROM business_partner_types WHERE id = ?', (business_partner_type_id,))
       if cursor.rowcount == 0:
         self._send_json({'error': 'Business partner type not found'}, HTTPStatus.NOT_FOUND)
+        return
+      self._send_json({'status': 'deleted'})
+      return
+
+    if project_type_id is not None:
+      with get_connection() as conn:
+        cursor = conn.execute('DELETE FROM project_types WHERE id = ?', (project_type_id,))
+      if cursor.rowcount == 0:
+        self._send_json({'error': 'Project type not found'}, HTTPStatus.NOT_FOUND)
         return
       self._send_json({'status': 'deleted'})
       return
