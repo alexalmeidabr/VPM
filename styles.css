@@ -42,6 +42,8 @@ body { min-height: 100vh; }
 .project-summary-header h5 { margin: 0; font-size: 2rem; color: #2f3b45; }
 .project-summary-subline { display: inline-flex; align-items: center; gap: 0.5rem; margin-top: 0.2rem; }
 .project-summary-actions { display: flex; align-items: center; gap: 0.5rem; }
+.saved-project-mode #project-form-basic-header { display: none !important; }
+.saved-project-mode #project-summary-header { display: flex !important; }
 .status-badge {
   display: inline-flex;
   align-items: center;

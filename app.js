@@ -402,13 +402,14 @@ if (!isBrowserRuntime) {
 
   const updateProjectSummaryHeader = () => {
     const isSavedProject = Boolean(fields.projectId.value);
+    if (ui.projectFormCard) ui.projectFormCard.classList.toggle('saved-project-mode', isSavedProject);
     if (ui.projectFormBasicHeader) ui.projectFormBasicHeader.hidden = isSavedProject;
     if (ui.projectSummaryHeader) ui.projectSummaryHeader.hidden = !isSavedProject;
     if (ui.projectFormTitle) ui.projectFormTitle.hidden = isSavedProject;
     if (!isSavedProject) return;
     const client = findBusinessPartnerById(fields.clientBusinessPartnerId.value);
     if (ui.projectSummaryName) ui.projectSummaryName.textContent = fields.projectName.value || 'Project';
-    if (ui.projectSummaryClient) ui.projectSummaryClient.textContent = `Client: ${client?.companyName || '—'}`;
+    if (ui.projectSummaryClient) ui.projectSummaryClient.textContent = client?.companyName || '—';
     updateProjectStatusUi();
   };
 
