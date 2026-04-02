@@ -301,6 +301,7 @@ def init_db():
         project_role TEXT,
         start_date TEXT,
         end_date TEXT,
+        billable INTEGER NOT NULL DEFAULT 1,
         PRIMARY KEY (project_id, consultant_id),
         FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE,
         FOREIGN KEY (consultant_id) REFERENCES consultants(id) ON DELETE CASCADE
@@ -323,6 +324,7 @@ def init_db():
     ensure_column(conn, 'project_consultants', 'project_role', 'project_role TEXT')
     ensure_column(conn, 'project_consultants', 'start_date', 'start_date TEXT')
     ensure_column(conn, 'project_consultants', 'end_date', 'end_date TEXT')
+    ensure_column(conn, 'project_consultants', 'billable', 'billable INTEGER NOT NULL DEFAULT 1')
     ensure_column(conn, 'consultant_availability', 'day_off_type_id', 'day_off_type_id INTEGER')
     ensure_column(conn, 'consultant_availability', 'type', 'type TEXT')
     ensure_column(conn, 'consultants', 'holiday_location_id', 'holiday_location_id INTEGER REFERENCES holiday_locations(id) ON DELETE SET NULL')
@@ -521,7 +523,12 @@ class VPMHandler(SimpleHTTPRequestHandler):
         consultant_id = int(assignment.get('consultantId'))
       except (TypeError, ValueError):
         return 'consultantId must be numeric for each project consultant'
-      normalized.append({'consultantId': consultant_id, 'projectRole': role, 'startDate': start, 'endDate': end})
+      billable = assignment.get('billable', True)
+      if isinstance(billable, str):
+        billable = billable.strip().lower() not in ('false', '0', 'no', 'off', '')
+      else:
+        billable = bool(billable)
+      normalized.append({'consultantId': consultant_id, 'projectRole': role, 'startDate': start, 'endDate': end, 'billable': billable})
 
     payload['consultantAssignments'] = normalized
 
@@ -965,7 +972,7 @@ class VPMHandler(SimpleHTTPRequestHandler):
     for row in rows:
       members = conn.execute(
         '''
-        SELECT pc.consultant_id, pc.project_role, pc.start_date, pc.end_date, c.name AS consultant_name
+        SELECT pc.consultant_id, pc.project_role, pc.start_date, pc.end_date, pc.billable, c.name AS consultant_name
         FROM project_consultants pc
         JOIN consultants c ON c.id = pc.consultant_id
         WHERE pc.project_id = ? ORDER BY c.name
@@ -1028,7 +1035,8 @@ class VPMHandler(SimpleHTTPRequestHandler):
             'consultantName': m['consultant_name'],
             'projectRole': m['project_role'] or 'Project Member',
             'startDate': m['start_date'] or '',
-            'endDate': m['end_date'] or ''
+            'endDate': m['end_date'] or '',
+            'billable': bool(m['billable']) if m['billable'] is not None else True
           }
           for m in members
         ]
@@ -1330,8 +1338,8 @@ class VPMHandler(SimpleHTTPRequestHandler):
         project_id = cursor.lastrowid
         for item in payload['consultantAssignments']:
           conn.execute(
-            'INSERT INTO project_consultants (project_id, consultant_id, project_role, start_date, end_date) VALUES (?, ?, ?, ?, ?)',
-            (project_id, item['consultantId'], item['projectRole'], item['startDate'], item['endDate'])
+            'INSERT INTO project_consultants (project_id, consultant_id, project_role, start_date, end_date, billable) VALUES (?, ?, ?, ?, ?, ?)',
+            (project_id, item['consultantId'], item['projectRole'], item['startDate'], item['endDate'], 1 if item.get('billable', True) else 0)
           )
         phase_id_map = {}
         for phase in payload['projectPhases']:
@@ -1732,8 +1740,8 @@ class VPMHandler(SimpleHTTPRequestHandler):
         conn.execute('DELETE FROM project_delivery_partner_contacts WHERE project_id = ?', (project_id,))
         for item in payload['consultantAssignments']:
           conn.execute(
-            'INSERT INTO project_consultants (project_id, consultant_id, project_role, start_date, end_date) VALUES (?, ?, ?, ?, ?)',
-            (project_id, item['consultantId'], item['projectRole'], item['startDate'], item['endDate'])
+            'INSERT INTO project_consultants (project_id, consultant_id, project_role, start_date, end_date, billable) VALUES (?, ?, ?, ?, ?, ?)',
+            (project_id, item['consultantId'], item['projectRole'], item['startDate'], item['endDate'], 1 if item.get('billable', True) else 0)
           )
         phase_id_map = {}
         for phase in payload['projectPhases']:

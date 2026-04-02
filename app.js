@@ -65,6 +65,7 @@ if (!isBrowserRuntime) {
     memberStartDateModal: document.getElementById('member-start-date-modal'),
     memberEndDateModal: document.getElementById('member-end-date-modal'),
     memberAllocationModal: document.getElementById('member-allocation-modal'),
+    memberBillableModal: document.getElementById('member-billable-modal'),
     consultantPickerList: document.getElementById('consultant-picker-list'),
     saveConsultantAssignmentsBtn: document.getElementById('save-consultant-assignments-btn'),
 
@@ -74,6 +75,7 @@ if (!isBrowserRuntime) {
     memberNameModal: document.getElementById('member-name-modal'),
     memberProjectRoleModal: document.getElementById('member-project-role-modal'),
     memberAllocationEdit: document.getElementById('member-allocation-edit'),
+    memberBillableEdit: document.getElementById('member-billable-edit'),
     memberCommentsEdit: document.getElementById('member-comments-edit'),
     memberStartDateEdit: document.getElementById('member-start-date-edit'),
     memberEndDateEdit: document.getElementById('member-end-date-edit'),
@@ -1945,6 +1947,7 @@ if (!isBrowserRuntime) {
             <div class="member-meta">Project Role: ${member.projectRole || '—'}</div>
             <div class="member-meta">Dates: ${formatDate(member.startDate)} - ${formatDate(member.endDate)}</div>
             <div class="member-meta">Allocation: ${Number(member.allocation ?? 100)}%</div>
+            <div class="member-meta">Billable: ${member.billable === false ? 'No' : 'Yes'}</div>
           </div>
           <div>
             <button class="btn-flat teal-text" data-action="view-member" data-id="${member.consultantId}"><i class="material-icons tiny">visibility</i></button>
@@ -2805,6 +2808,7 @@ if (!isBrowserRuntime) {
     ui.memberStartDateModal.value = fields.startDate.value;
     ui.memberEndDateModal.value = fields.endDate.value;
     ui.memberAllocationModal.value = '100';
+    if (ui.memberBillableModal) ui.memberBillableModal.checked = true;
     rebuildAssignmentModalSelects();
     renderConsultantPickerList();
     modals.consultantAssignment?.open();
@@ -2836,7 +2840,15 @@ if (!isBrowserRuntime) {
     }
 
     const selectedConsultantId = Number(modalTempConsultantIds[0]);
-    selectedProjectAssignments.push({ consultantId: selectedConsultantId, projectRole: role, startDate: start, endDate: end, allocation, comments: '' });
+    selectedProjectAssignments.push({
+      consultantId: selectedConsultantId,
+      projectRole: role,
+      startDate: start,
+      endDate: end,
+      allocation,
+      billable: ui.memberBillableModal ? ui.memberBillableModal.checked : true,
+      comments: ''
+    });
 
     try {
       if (fields.projectId.value) {
@@ -2892,6 +2904,7 @@ if (!isBrowserRuntime) {
     ui.memberEditConsultantId.value = consultantId;
     ui.memberNameModal.value = consultantNameById(consultantId);
     ui.memberAllocationEdit.value = Number(member.allocation ?? 100);
+    if (ui.memberBillableEdit) ui.memberBillableEdit.checked = member.billable !== false;
     ui.memberCommentsEdit.value = member.comments || '';
     ui.memberStartDateEdit.value = member.startDate || '';
     ui.memberEndDateEdit.value = member.endDate || '';
@@ -2899,6 +2912,7 @@ if (!isBrowserRuntime) {
 
     ui.memberProjectRoleModal.disabled = readOnly;
     ui.memberAllocationEdit.disabled = readOnly;
+    if (ui.memberBillableEdit) ui.memberBillableEdit.disabled = readOnly;
     ui.memberCommentsEdit.disabled = readOnly;
     ui.memberStartDateEdit.disabled = readOnly;
     ui.memberEndDateEdit.disabled = readOnly;
@@ -2924,6 +2938,7 @@ if (!isBrowserRuntime) {
 
     item.projectRole = ui.memberProjectRoleModal.value;
     item.allocation = allocation;
+    item.billable = ui.memberBillableEdit ? ui.memberBillableEdit.checked : true;
     item.comments = ui.memberCommentsEdit.value.trim();
     item.startDate = ui.memberStartDateEdit.value;
     item.endDate = ui.memberEndDateEdit.value;
@@ -3075,6 +3090,7 @@ if (!isBrowserRuntime) {
       startDate: item.startDate || '',
       endDate: item.endDate || '',
       allocation: Number(item.allocation ?? 100),
+      billable: item.billable !== false,
       comments: item.comments || ''
     }));
     selectedProjectPhases = (project.projectPhases || []).map((item) => ({ id: String(item.id || Date.now() + Math.random()), name: item.name || '', startDate: item.startDate || '', endDate: item.endDate || '' }));
@@ -3088,6 +3104,7 @@ if (!isBrowserRuntime) {
         startDate: project.startDate,
         endDate: project.endDate,
         allocation: 100,
+        billable: true,
         comments: ''
       });
     }
