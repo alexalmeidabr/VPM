@@ -135,6 +135,40 @@ textarea.materialize-textarea:disabled,
   opacity: 1;
 }
 
+.form-mode-edit input:not([type]):not(.browser-default):not(:disabled),
+.form-mode-edit input[type=text]:not(.browser-default):not(:disabled),
+.form-mode-edit input[type=password]:not(.browser-default):not(:disabled),
+.form-mode-edit input[type=email]:not(.browser-default):not(:disabled),
+.form-mode-edit input[type=url]:not(.browser-default):not(:disabled),
+.form-mode-edit input[type=time]:not(.browser-default):not(:disabled),
+.form-mode-edit input[type=date]:not(.browser-default):not(:disabled),
+.form-mode-edit input[type=datetime]:not(.browser-default):not(:disabled),
+.form-mode-edit input[type=datetime-local]:not(.browser-default):not(:disabled),
+.form-mode-edit input[type=tel]:not(.browser-default):not(:disabled),
+.form-mode-edit input[type=number]:not(.browser-default):not(:disabled),
+.form-mode-edit input[type=search]:not(.browser-default):not(:disabled),
+.form-mode-edit textarea.materialize-textarea:not(:disabled),
+.form-mode-edit .select-wrapper:not(.disabled) input.select-dropdown {
+  background: #fff !important;
+}
+
+.form-mode-view input:not([type]):not(.browser-default),
+.form-mode-view input[type=text]:not(.browser-default),
+.form-mode-view input[type=password]:not(.browser-default),
+.form-mode-view input[type=email]:not(.browser-default),
+.form-mode-view input[type=url]:not(.browser-default),
+.form-mode-view input[type=time]:not(.browser-default),
+.form-mode-view input[type=date]:not(.browser-default),
+.form-mode-view input[type=datetime]:not(.browser-default),
+.form-mode-view input[type=datetime-local]:not(.browser-default),
+.form-mode-view input[type=tel]:not(.browser-default),
+.form-mode-view input[type=number]:not(.browser-default),
+.form-mode-view input[type=search]:not(.browser-default),
+.form-mode-view textarea.materialize-textarea,
+.form-mode-view .select-wrapper input.select-dropdown {
+  background: #eceff3 !important;
+}
+
 .select-wrapper .caret { fill: #6f7f8c; }
 
 .input-field input::placeholder,

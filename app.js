@@ -37,6 +37,7 @@ if (!isBrowserRuntime) {
     projectSummaryStatus: document.getElementById('project-summary-status'),
     projectSaveBtnHeader: document.getElementById('project-save-btn-header'),
     projectSwitchEditBtnHeader: document.getElementById('project-switch-edit-btn-header'),
+    projectSwitchViewBtnHeader: document.getElementById('project-switch-view-btn-header'),
     projectSaveBtn: document.getElementById('project-save-btn'),
     projectSwitchEditBtn: document.getElementById('project-switch-edit-btn'),
     backToProjectsBtn: document.getElementById('back-to-projects-btn'),
@@ -2210,6 +2211,8 @@ if (!isBrowserRuntime) {
   const setBusinessPartnerFormMode = (mode) => {
     businessPartnerViewMode = mode;
     const readOnly = mode === 'view';
+    ui.businessPartnerFormCard?.classList.toggle('form-mode-view', readOnly);
+    ui.businessPartnerFormCard?.classList.toggle('form-mode-edit', !readOnly);
     [fields.businessPartnerCompanyName, fields.businessPartnerTypeId, fields.businessPartnerAddressStreet, fields.businessPartnerAddressNumber, fields.businessPartnerPostalCode, fields.businessPartnerCity, fields.businessPartnerRegion, fields.businessPartnerCountry]
       .forEach((el) => { if (el) el.disabled = readOnly; });
     if (ui.addBusinessPartnerContactBtn) ui.addBusinessPartnerContactBtn.hidden = readOnly;
@@ -2392,12 +2395,15 @@ if (!isBrowserRuntime) {
   const setProjectFormMode = (mode) => {
     projectViewMode = mode;
     const readOnly = mode === 'view';
+    ui.projectFormCard?.classList.toggle('form-mode-view', readOnly);
+    ui.projectFormCard?.classList.toggle('form-mode-edit', !readOnly);
     ui.projectFormTitle.textContent = readOnly ? 'Manage Project (View)' : 'Manage Project';
     ui.projectSaveBtn.hidden = readOnly;
     ui.projectSaveBtn.style.display = readOnly ? 'none' : '';
     if (ui.projectSaveBtnHeader) ui.projectSaveBtnHeader.hidden = readOnly;
     if (ui.projectSwitchEditBtn) ui.projectSwitchEditBtn.hidden = !readOnly;
     if (ui.projectSwitchEditBtnHeader) ui.projectSwitchEditBtnHeader.hidden = !readOnly;
+    if (ui.projectSwitchViewBtnHeader) ui.projectSwitchViewBtnHeader.hidden = readOnly;
     ui.openConsultantModalBtn.disabled = readOnly;
     ui.openConsultantModalBtn.hidden = readOnly;
     if (ui.addProjectPhaseBtn) ui.addProjectPhaseBtn.disabled = readOnly;
@@ -2426,6 +2432,8 @@ if (!isBrowserRuntime) {
   const setConsultantFormMode = (mode) => {
     consultantViewMode = mode;
     const readOnly = mode === 'view';
+    ui.consultantFormCard?.classList.toggle('form-mode-view', readOnly);
+    ui.consultantFormCard?.classList.toggle('form-mode-edit', !readOnly);
     ui.consultantFormTitle.textContent = readOnly ? 'Manage Consultant (View)' : 'Manage Consultant';
     ui.consultantModeLabel.textContent = readOnly ? 'Read-only mode' : 'Edit mode';
     ui.consultantSaveBtn.hidden = readOnly;
@@ -2761,6 +2769,7 @@ if (!isBrowserRuntime) {
   ui.projectSummaryBackBtn?.addEventListener('click', showProjectsPanel);
   ui.projectSaveBtnHeader?.addEventListener('click', () => ui.projectForm.requestSubmit());
   ui.projectSwitchEditBtnHeader?.addEventListener('click', () => setProjectFormMode('edit'));
+  ui.projectSwitchViewBtnHeader?.addEventListener('click', () => setProjectFormMode('view'));
   fields.startDate.addEventListener('change', updateProjectMembersPanel);
   fields.startDate.addEventListener('change', updateProjectStatusUi);
   fields.endDate.addEventListener('change', updateProjectMembersPanel);
