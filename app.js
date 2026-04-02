@@ -401,6 +401,14 @@ if (!isBrowserRuntime) {
     }
   };
 
+  const refreshSavedProjectHeaderActions = () => {
+    const isSavedProject = Boolean(fields.projectId.value);
+    const isViewMode = projectViewMode === 'view';
+    if (ui.projectSaveBtnHeader) ui.projectSaveBtnHeader.hidden = !isSavedProject || isViewMode;
+    if (ui.projectSwitchEditBtnHeader) ui.projectSwitchEditBtnHeader.hidden = !isSavedProject || !isViewMode;
+    if (ui.projectSwitchViewBtnHeader) ui.projectSwitchViewBtnHeader.hidden = !isSavedProject || isViewMode;
+  };
+
   const updateProjectSummaryHeader = () => {
     const isSavedProject = Boolean(fields.projectId.value);
     if (ui.projectFormCard) ui.projectFormCard.classList.toggle('saved-project-mode', isSavedProject);
@@ -412,6 +420,7 @@ if (!isBrowserRuntime) {
     if (ui.projectSummaryName) ui.projectSummaryName.textContent = fields.projectName.value || 'Project';
     if (ui.projectSummaryClient) ui.projectSummaryClient.textContent = client?.companyName || '—';
     updateProjectStatusUi();
+    refreshSavedProjectHeaderActions();
   };
 
   const persistProjectPlanningIfEditing = async () => {
@@ -2400,10 +2409,7 @@ if (!isBrowserRuntime) {
     ui.projectFormTitle.textContent = readOnly ? 'Manage Project (View)' : 'Manage Project';
     ui.projectSaveBtn.hidden = readOnly;
     ui.projectSaveBtn.style.display = readOnly ? 'none' : '';
-    if (ui.projectSaveBtnHeader) ui.projectSaveBtnHeader.hidden = readOnly;
     if (ui.projectSwitchEditBtn) ui.projectSwitchEditBtn.hidden = !readOnly;
-    if (ui.projectSwitchEditBtnHeader) ui.projectSwitchEditBtnHeader.hidden = !readOnly;
-    if (ui.projectSwitchViewBtnHeader) ui.projectSwitchViewBtnHeader.hidden = readOnly;
     ui.openConsultantModalBtn.disabled = readOnly;
     ui.openConsultantModalBtn.hidden = readOnly;
     if (ui.addProjectPhaseBtn) ui.addProjectPhaseBtn.disabled = readOnly;
@@ -2425,6 +2431,7 @@ if (!isBrowserRuntime) {
     resetSelect('projectType', fields.projectType);
     resetSelect('projectStatus', fields.projectStatus);
     updateProjectSummaryHeader();
+    refreshSavedProjectHeaderActions();
     updateProjectStatusUi();
     updateProjectMembersPanel();
   };
