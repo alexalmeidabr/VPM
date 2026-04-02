@@ -418,18 +418,24 @@ if (!isBrowserRuntime) {
   const applyProjectModeUi = (context = 'applyProjectModeUi') => {
     const readOnly = projectViewMode === 'view';
     const isSavedProject = Boolean(fields.projectId.value);
-    const headerSaveBtn = document.getElementById('project-save-btn-header');
-    const headerPenBtn = document.getElementById('project-switch-edit-btn-header');
-    const headerEyeBtn = document.getElementById('project-switch-view-btn-header');
+    const summaryHeader = document.getElementById('project-summary-header');
+    const headerSaveBtn = summaryHeader?.querySelector('#project-save-btn-header');
+    const headerPenBtn = summaryHeader?.querySelector('#project-switch-edit-btn-header');
+    const headerEyeBtn = summaryHeader?.querySelector('#project-switch-view-btn-header');
+    const applyButtonVisibility = (el, visible) => {
+      if (!el) return;
+      el.hidden = !visible;
+      el.style.display = visible ? '' : 'none';
+    };
     ui.projectFormCard?.classList.toggle('form-mode-view', readOnly);
     ui.projectFormCard?.classList.toggle('form-mode-edit', !readOnly);
 
     ui.projectSaveBtn.hidden = readOnly;
     ui.projectSaveBtn.style.display = readOnly ? 'none' : '';
     if (ui.projectSwitchEditBtn) ui.projectSwitchEditBtn.hidden = !readOnly;
-    if (headerSaveBtn) headerSaveBtn.hidden = !isSavedProject || readOnly;
-    if (headerPenBtn) headerPenBtn.hidden = !isSavedProject || !readOnly;
-    if (headerEyeBtn) headerEyeBtn.hidden = !isSavedProject || readOnly;
+    applyButtonVisibility(headerSaveBtn, isSavedProject && !readOnly);
+    applyButtonVisibility(headerPenBtn, isSavedProject && readOnly);
+    applyButtonVisibility(headerEyeBtn, isSavedProject && !readOnly);
 
     [fields.projectName, fields.clientBusinessPartnerId, fields.clientContactIds, fields.projectType, fields.projectStatus, fields.deliveryPartnerBusinessPartnerId, fields.deliveryPartnerContactIds, fields.startDate, fields.endDate]
       .forEach((el) => { if (el) el.disabled = readOnly; });
@@ -443,7 +449,7 @@ if (!isBrowserRuntime) {
     resetSelect('projectType', fields.projectType);
     resetSelect('projectStatus', fields.projectStatus);
 
-    console.debug(`[applyProjectModeUi] context=${context} mode=${projectViewMode} saved=${isSavedProject} refs(save=${Boolean(headerSaveBtn)} pen=${Boolean(headerPenBtn)} eye=${Boolean(headerEyeBtn)}) counts(save=${document.querySelectorAll('#project-save-btn-header').length} pen=${document.querySelectorAll('#project-switch-edit-btn-header').length} eye=${document.querySelectorAll('#project-switch-view-btn-header').length}) saveHidden=${headerSaveBtn?.hidden} penHidden=${headerPenBtn?.hidden} eyeHidden=${headerEyeBtn?.hidden} nameDisabled=${fields.projectName.disabled} clientDisabled=${fields.clientBusinessPartnerId.disabled}`);
+    console.debug(`[applyProjectModeUi] context=${context} mode=${projectViewMode} saved=${isSavedProject} refs(save=${Boolean(headerSaveBtn)} pen=${Boolean(headerPenBtn)} eye=${Boolean(headerEyeBtn)}) counts(save=${document.querySelectorAll('#project-save-btn-header').length} pen=${document.querySelectorAll('#project-switch-edit-btn-header').length} eye=${document.querySelectorAll('#project-switch-view-btn-header').length}) saveHidden=${headerSaveBtn?.hidden} saveDisplay=${headerSaveBtn?.style.display} penHidden=${headerPenBtn?.hidden} penDisplay=${headerPenBtn?.style.display} eyeHidden=${headerEyeBtn?.hidden} eyeDisplay=${headerEyeBtn?.style.display} nameDisabled=${fields.projectName.disabled} clientDisabled=${fields.clientBusinessPartnerId.disabled}`);
   };
 
   const persistProjectPlanningIfEditing = async () => {
