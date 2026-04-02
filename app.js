@@ -403,6 +403,7 @@ if (!isBrowserRuntime) {
 
   const updateProjectSummaryHeader = () => {
     const isSavedProject = Boolean(fields.projectId.value);
+    console.debug(`[updateProjectSummaryHeader] re-render header saved=${isSavedProject} mode=${projectViewMode}`);
     if (ui.projectFormCard) ui.projectFormCard.classList.toggle('saved-project-mode', isSavedProject);
     if (ui.projectFormBasicHeader) ui.projectFormBasicHeader.hidden = isSavedProject;
     if (ui.projectSummaryHeader) ui.projectSummaryHeader.hidden = !isSavedProject;
@@ -417,15 +418,18 @@ if (!isBrowserRuntime) {
   const applyProjectModeUi = (context = 'applyProjectModeUi') => {
     const readOnly = projectViewMode === 'view';
     const isSavedProject = Boolean(fields.projectId.value);
+    const headerSaveBtn = document.getElementById('project-save-btn-header');
+    const headerPenBtn = document.getElementById('project-switch-edit-btn-header');
+    const headerEyeBtn = document.getElementById('project-switch-view-btn-header');
     ui.projectFormCard?.classList.toggle('form-mode-view', readOnly);
     ui.projectFormCard?.classList.toggle('form-mode-edit', !readOnly);
 
     ui.projectSaveBtn.hidden = readOnly;
     ui.projectSaveBtn.style.display = readOnly ? 'none' : '';
     if (ui.projectSwitchEditBtn) ui.projectSwitchEditBtn.hidden = !readOnly;
-    if (ui.projectSaveBtnHeader) ui.projectSaveBtnHeader.hidden = !isSavedProject || readOnly;
-    if (ui.projectSwitchEditBtnHeader) ui.projectSwitchEditBtnHeader.hidden = !isSavedProject || !readOnly;
-    if (ui.projectSwitchViewBtnHeader) ui.projectSwitchViewBtnHeader.hidden = !isSavedProject || readOnly;
+    if (headerSaveBtn) headerSaveBtn.hidden = !isSavedProject || readOnly;
+    if (headerPenBtn) headerPenBtn.hidden = !isSavedProject || !readOnly;
+    if (headerEyeBtn) headerEyeBtn.hidden = !isSavedProject || readOnly;
 
     [fields.projectName, fields.clientBusinessPartnerId, fields.clientContactIds, fields.projectType, fields.projectStatus, fields.deliveryPartnerBusinessPartnerId, fields.deliveryPartnerContactIds, fields.startDate, fields.endDate]
       .forEach((el) => { if (el) el.disabled = readOnly; });
@@ -439,7 +443,7 @@ if (!isBrowserRuntime) {
     resetSelect('projectType', fields.projectType);
     resetSelect('projectStatus', fields.projectStatus);
 
-    console.debug(`[ProjectMode:${context}] mode=${projectViewMode} saved=${isSavedProject} saveHidden=${ui.projectSaveBtnHeader?.hidden} penHidden=${ui.projectSwitchEditBtnHeader?.hidden} eyeHidden=${ui.projectSwitchViewBtnHeader?.hidden} nameDisabled=${fields.projectName.disabled} clientDisabled=${fields.clientBusinessPartnerId.disabled}`);
+    console.debug(`[applyProjectModeUi] context=${context} mode=${projectViewMode} saved=${isSavedProject} refs(save=${Boolean(headerSaveBtn)} pen=${Boolean(headerPenBtn)} eye=${Boolean(headerEyeBtn)}) counts(save=${document.querySelectorAll('#project-save-btn-header').length} pen=${document.querySelectorAll('#project-switch-edit-btn-header').length} eye=${document.querySelectorAll('#project-switch-view-btn-header').length}) saveHidden=${headerSaveBtn?.hidden} penHidden=${headerPenBtn?.hidden} eyeHidden=${headerEyeBtn?.hidden} nameDisabled=${fields.projectName.disabled} clientDisabled=${fields.clientBusinessPartnerId.disabled}`);
   };
 
   const persistProjectPlanningIfEditing = async () => {
@@ -2783,10 +2787,12 @@ if (!isBrowserRuntime) {
   ui.projectSwitchEditBtnHeader?.addEventListener('click', () => {
     console.debug('[ProjectMode:switchToEdit] from header pen');
     setProjectFormMode('edit');
+    console.debug(`[switchToEdit] mode now ${projectViewMode}`);
   });
   ui.projectSwitchViewBtnHeader?.addEventListener('click', () => {
     console.debug('[ProjectMode:switchToView] from header eye');
     setProjectFormMode('view');
+    console.debug(`[switchToView] mode now ${projectViewMode}`);
   });
   fields.startDate.addEventListener('change', updateProjectMembersPanel);
   fields.startDate.addEventListener('change', updateProjectStatusUi);
@@ -3231,6 +3237,7 @@ if (!isBrowserRuntime) {
     renderProjectWeekDetail('', '', '');
     console.debug(`[ProjectMode:openProject] action=${button.dataset.action} targetMode=${targetMode} projectId=${project.id}`);
     setProjectFormMode(targetMode);
+    applyProjectModeUi('openProject-final');
     updateTextFields();
   });
 
@@ -3715,6 +3722,7 @@ if (!isBrowserRuntime) {
   ui.projectSwitchEditBtn?.addEventListener('click', () => {
     console.debug('[ProjectMode:switchToEdit] from legacy pen');
     setProjectFormMode('edit');
+    console.debug(`[switchToEditLegacy] mode now ${projectViewMode}`);
   });
 
   ui.consultantSwitchEditBtn?.addEventListener('click', () => {
