@@ -71,6 +71,16 @@
                     <button class="btn-flat" type="button" id="project-summary-back-btn">Back to Projects</button>
                   </div>
                 </div>
+                <div id="project-workspace-tabs" class="project-workspace-tabs" hidden>
+                  <button type="button" class="project-workspace-tab active" data-workspace-tab="overview">Overview</button>
+                  <button type="button" class="project-workspace-tab" data-workspace-tab="team">Team</button>
+                  <button type="button" class="project-workspace-tab" data-workspace-tab="timeline">Timeline</button>
+                  <button type="button" class="project-workspace-tab" data-workspace-tab="revenue">Revenue</button>
+                  <button type="button" class="project-workspace-tab" data-workspace-tab="profitability">Profitability</button>
+                  <button type="button" class="project-workspace-tab" data-workspace-tab="files">Files</button>
+                </div>
+                <div id="project-workspace-content" class="project-workspace-content">
+                  <div id="project-workspace-overview" class="project-workspace-panel" data-workspace-panel="overview">
                 <form id="project-form">
                   <input type="hidden" id="project-id" />
                   <div class="input-field"><input id="project-name" type="text" required /><label for="project-name">Project Name</label></div>
@@ -121,11 +131,41 @@
                     <div id="project-week-detail-timeline" class="week-detail-timeline"></div>
                   </div>
                 </div>
+                  </div>
+                  <div id="project-workspace-team" class="project-workspace-panel" data-workspace-panel="team" hidden>
+                    <div id="project-team-tab-host"></div>
+                  </div>
+                  <div id="project-workspace-timeline" class="project-workspace-panel" data-workspace-panel="timeline" hidden>
+                    <div id="project-timeline-tab-host"></div>
+                  </div>
+                  <div id="project-workspace-revenue" class="project-workspace-panel project-workspace-placeholder" data-workspace-panel="revenue" hidden>
+                    Revenue view will be available later.
+                  </div>
+                  <div id="project-workspace-profitability" class="project-workspace-panel project-workspace-placeholder" data-workspace-panel="profitability" hidden>
+                    Profitability view will be available later.
+                  </div>
+                  <div id="project-workspace-files" class="project-workspace-panel" data-workspace-panel="files" hidden>
+                    <div class="section-header">
+                      <h6>Project Files</h6>
+                      <button class="btn waves-effect waves-light" id="project-upload-file-btn" type="button">Upload File</button>
+                      <input type="file" id="project-file-upload-input" hidden />
+                    </div>
+                    <div class="table-container">
+                      <table class="striped responsive-table">
+                        <thead>
+                          <tr><th>Name</th><th>Size</th><th>Uploaded On</th><th>Actions</th></tr>
+                        </thead>
+                        <tbody id="project-files-body"></tbody>
+                      </table>
+                    </div>
+                    <p id="project-files-empty-state" class="grey-text text-darken-1 empty-message">No files uploaded for this project.</p>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
 
-          <div class="col s12 l4">
+          <div class="col s12 l4" id="project-members-column">
             <div class="card sticky-members-panel" id="project-members-card" hidden>
               <div class="card-content">
                 <div class="section-header">

@@ -35,6 +35,16 @@ if (!isBrowserRuntime) {
     projectSummaryName: document.getElementById('project-summary-name'),
     projectSummaryClient: document.getElementById('project-summary-client'),
     projectSummaryStatus: document.getElementById('project-summary-status'),
+    projectWorkspaceTabs: document.getElementById('project-workspace-tabs'),
+    projectWorkspaceContent: document.getElementById('project-workspace-content'),
+    projectWorkspacePanels: document.querySelectorAll('[data-workspace-panel]'),
+    projectMembersColumn: document.getElementById('project-members-column'),
+    projectTeamTabHost: document.getElementById('project-team-tab-host'),
+    projectTimelineTabHost: document.getElementById('project-timeline-tab-host'),
+    projectUploadFileBtn: document.getElementById('project-upload-file-btn'),
+    projectFileUploadInput: document.getElementById('project-file-upload-input'),
+    projectFilesBody: document.getElementById('project-files-body'),
+    projectFilesEmptyState: document.getElementById('project-files-empty-state'),
     projectSaveBtnHeader: document.getElementById('project-save-btn-header'),
     projectSwitchEditBtnHeader: document.getElementById('project-switch-edit-btn-header'),
     projectSwitchViewBtnHeader: document.getElementById('project-switch-view-btn-header'),
@@ -274,6 +284,8 @@ if (!isBrowserRuntime) {
   let selectedTimelineYear = new Date().getFullYear();
   let selectedProjectTimelineYear = new Date().getFullYear();
   let isProjectTimelineExpanded = false;
+  let activeProjectWorkspaceTab = 'overview';
+  let projectFiles = [];
   let selectedProjectWeekDetail = null;
   let selectedProjectPhases = [];
   let selectedProjectMilestones = [];
@@ -289,6 +301,8 @@ if (!isBrowserRuntime) {
   let timeTrackingConsultants = [];
   let hasRequestedTimesheetLoad = false;
   let visibleOlderTimesheetCount = 0;
+  const projectMembersDefaultParent = ui.projectMembersCard?.parentElement;
+  const projectTimelineDefaultParent = ui.projectTimelinePanel?.parentElement;
 
   const fallbackHolidayCountries = ['AD', 'AT', 'BE', 'CA', 'CH', 'DE', 'DK', 'ES', 'FI', 'FR', 'GB', 'IE', 'IT', 'MX', 'NL', 'NO', 'PL', 'PT', 'SE', 'US'];
   const countryNamesByCode = {
@@ -322,6 +336,36 @@ if (!isBrowserRuntime) {
       throw new Error(payload.error || 'Request failed');
     }
     return response.status === 204 ? null : response.json();
+  };
+
+  const uploadProjectFile = async (projectId, file) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    const upload = async (baseUrl) => fetch(`${baseUrl}/api/projects/${projectId}/files`, { method: 'POST', body: formData });
+    let response;
+    try {
+      response = await upload(primaryApiBase);
+    } catch (error) {
+      if (!(error instanceof TypeError) || primaryApiBase === fallbackApiBase) throw error;
+      response = await upload(fallbackApiBase);
+      window.localStorage.setItem('vpmApiOrigin', fallbackApiBase);
+    }
+    if (!response.ok) {
+      const payload = await response.json().catch(() => ({ error: 'Upload failed' }));
+      throw new Error(payload.error || 'Upload failed');
+    }
+    return response.json();
+  };
+
+  const formatFileSize = (sizeBytes) => {
+    const value = Number(sizeBytes || 0);
+    if (!Number.isFinite(value) || value <= 0) return '0 B';
+    if (value < 1024) return `${value} B`;
+    const kb = value / 1024;
+    if (kb < 1024) return `${kb.toFixed(1)} KB`;
+    const mb = kb / 1024;
+    if (mb < 1024) return `${mb.toFixed(1)} MB`;
+    return `${(mb / 1024).toFixed(1)} GB`;
   };
 
   const resetSelect = (key, element) => {
@@ -363,6 +407,79 @@ if (!isBrowserRuntime) {
     projectPhases: selectedProjectPhases,
     projectMilestones: selectedProjectMilestones
   });
+
+  const movePanelToHost = (element, host) => {
+    if (!element || !host || element.parentElement === host) return;
+    host.appendChild(element);
+  };
+
+  const renderProjectFiles = () => {
+    if (!ui.projectFilesBody) return;
+    ui.projectFilesBody.innerHTML = '';
+    if (!projectFiles.length) {
+      if (ui.projectFilesEmptyState) ui.projectFilesEmptyState.hidden = false;
+      return;
+    }
+    if (ui.projectFilesEmptyState) ui.projectFilesEmptyState.hidden = true;
+    projectFiles.forEach((item) => {
+      const row = document.createElement('tr');
+      row.innerHTML = `
+        <td>${item.originalFilename}</td>
+        <td>${formatFileSize(item.fileSize)}</td>
+        <td>${formatDate(item.uploadedAt)}</td>
+        <td><button class="btn-flat blue-text" type="button" data-action="download-project-file" data-id="${item.id}"><i class="material-icons tiny">download</i></button></td>
+      `;
+      ui.projectFilesBody.appendChild(row);
+    });
+  };
+
+  const loadProjectFiles = async (projectId) => {
+    if (!projectId) {
+      projectFiles = [];
+      renderProjectFiles();
+      return;
+    }
+    const payload = await request(`/api/projects/${projectId}/files`);
+    projectFiles = payload?.files || [];
+    renderProjectFiles();
+  };
+
+  const updateProjectWorkspaceUi = (context = 'updateProjectWorkspaceUi') => {
+    const isSavedProject = Boolean(fields.projectId.value);
+    const manageProjectOpen = !ui.projectFormCard.hidden;
+    if (!isSavedProject) activeProjectWorkspaceTab = 'overview';
+    if (ui.projectWorkspaceTabs) ui.projectWorkspaceTabs.hidden = !isSavedProject || !manageProjectOpen;
+
+    const activeTab = isSavedProject ? activeProjectWorkspaceTab : 'overview';
+    ui.projectWorkspaceTabs?.querySelectorAll('[data-workspace-tab]').forEach((tabButton) => {
+      tabButton.classList.toggle('active', tabButton.dataset.workspaceTab === activeTab);
+    });
+    ui.projectWorkspacePanels?.forEach((panel) => {
+      const panelTab = panel.dataset.workspacePanel;
+      const shouldShow = isSavedProject ? panelTab === activeTab : panelTab === 'overview';
+      panel.hidden = !shouldShow;
+    });
+
+    const showTeamInMain = isSavedProject && activeTab === 'team';
+    const showTimelineInMain = isSavedProject && activeTab === 'timeline';
+    if (showTeamInMain) movePanelToHost(ui.projectMembersCard, ui.projectTeamTabHost);
+    else movePanelToHost(ui.projectMembersCard, projectMembersDefaultParent);
+
+    if (showTimelineInMain) {
+      movePanelToHost(ui.projectTimelinePanel, ui.projectTimelineTabHost);
+      if (!isProjectTimelineExpanded) {
+        isProjectTimelineExpanded = true;
+        updateProjectTimelineExpandUi();
+      }
+    } else {
+      movePanelToHost(ui.projectTimelinePanel, projectTimelineDefaultParent);
+      if (isProjectTimelineExpanded) collapseProjectTimeline();
+    }
+
+    if (ui.projectMembersColumn) ui.projectMembersColumn.hidden = !manageProjectOpen || showTeamInMain;
+    if (ui.projectMembersCard) ui.projectMembersCard.hidden = !manageProjectOpen;
+    console.debug(`[projectWorkspace] context=${context} saved=${isSavedProject} activeTab=${activeTab} teamMain=${showTeamInMain} timelineMain=${showTimelineInMain}`);
+  };
 
   const statusClassByValue = (status) => ({
     'Not Started': 'status-not-started',
@@ -450,6 +567,7 @@ if (!isBrowserRuntime) {
     resetSelect('projectStatus', fields.projectStatus);
 
     console.debug(`[applyProjectModeUi] context=${context} mode=${projectViewMode} saved=${isSavedProject} refs(save=${Boolean(headerSaveBtn)} pen=${Boolean(headerPenBtn)} eye=${Boolean(headerEyeBtn)}) counts(save=${document.querySelectorAll('#project-save-btn-header').length} pen=${document.querySelectorAll('#project-switch-edit-btn-header').length} eye=${document.querySelectorAll('#project-switch-view-btn-header').length}) saveHidden=${headerSaveBtn?.hidden} saveDisplay=${headerSaveBtn?.style.display} penHidden=${headerPenBtn?.hidden} penDisplay=${headerPenBtn?.style.display} eyeHidden=${headerEyeBtn?.hidden} eyeDisplay=${headerEyeBtn?.style.display} nameDisabled=${fields.projectName.disabled} clientDisabled=${fields.clientBusinessPartnerId.disabled}`);
+    updateProjectWorkspaceUi(`applyProjectModeUi:${context}`);
   };
 
   const persistProjectPlanningIfEditing = async () => {
@@ -2239,8 +2357,20 @@ if (!isBrowserRuntime) {
     updateProjectTimelineExpandUi();
   };
 
-  const showProjectsPanel = () => { collapseProjectTimeline(); ui.projectsPanelCard.hidden = false; ui.projectFormCard.hidden = true; ui.projectMembersCard.hidden = true; };
-  const showManageProjectPanel = () => { ui.projectsPanelCard.hidden = true; ui.projectFormCard.hidden = false; ui.projectMembersCard.hidden = false; };
+  const showProjectsPanel = () => {
+    collapseProjectTimeline();
+    ui.projectsPanelCard.hidden = false;
+    ui.projectFormCard.hidden = true;
+    ui.projectMembersCard.hidden = true;
+    if (ui.projectMembersColumn) ui.projectMembersColumn.hidden = true;
+    updateProjectWorkspaceUi('showProjectsPanel');
+  };
+  const showManageProjectPanel = () => {
+    ui.projectsPanelCard.hidden = true;
+    ui.projectFormCard.hidden = false;
+    ui.projectMembersCard.hidden = false;
+    updateProjectWorkspaceUi('showManageProjectPanel');
+  };
   const showConsultantsPanel = () => { ui.consultantsPanelCard.hidden = false; ui.consultantFormCard.hidden = true; };
   const showManageConsultantsPanel = () => { ui.consultantsPanelCard.hidden = true; ui.consultantFormCard.hidden = false; };
   const showBusinessPartnersPanel = () => { ui.businessPartnersPanelCard.hidden = false; ui.businessPartnerFormCard.hidden = true; };
@@ -2683,6 +2813,9 @@ if (!isBrowserRuntime) {
     editingProjectPhaseId = null;
     modalSelectedAreaId = '';
     modalTempConsultantIds = [];
+    activeProjectWorkspaceTab = 'overview';
+    projectFiles = [];
+    renderProjectFiles();
     updateAssignedConsultantsSummary();
     rebuildProjectSelects();
     if (fields.projectStatus) resetSelect('projectStatus', fields.projectStatus);
@@ -2693,6 +2826,7 @@ if (!isBrowserRuntime) {
     refreshProjectTimeline();
     renderProjectWeekDetail('', '', '');
     collapseProjectTimeline();
+    updateProjectWorkspaceUi('resetProjectForm');
     showProjectsPanel();
     updateTextFields();
   };
@@ -2789,6 +2923,39 @@ if (!isBrowserRuntime) {
   ui.showProjectFormBtn.addEventListener('click', () => { resetProjectForm(); showManageProjectPanel(); });
   ui.backToProjectsBtn.addEventListener('click', showProjectsPanel);
   ui.projectSummaryBackBtn?.addEventListener('click', showProjectsPanel);
+  ui.projectWorkspaceTabs?.addEventListener('click', (event) => {
+    const tabButton = event.target.closest('[data-workspace-tab]');
+    if (!tabButton) return;
+    activeProjectWorkspaceTab = tabButton.dataset.workspaceTab || 'overview';
+    updateProjectWorkspaceUi('workspaceTabClick');
+  });
+  ui.projectUploadFileBtn?.addEventListener('click', () => {
+    if (!fields.projectId.value) {
+      toast('Save the project before uploading files', 'orange darken-2');
+      return;
+    }
+    ui.projectFileUploadInput?.click();
+  });
+  ui.projectFileUploadInput?.addEventListener('change', async () => {
+    const file = ui.projectFileUploadInput?.files?.[0];
+    if (!file || !fields.projectId.value) return;
+    try {
+      await uploadProjectFile(fields.projectId.value, file);
+      await loadProjectFiles(fields.projectId.value);
+      toast('File uploaded', 'teal darken-1');
+    } catch (error) {
+      toast(error.message || 'Failed to upload file', 'red darken-1');
+    } finally {
+      if (ui.projectFileUploadInput) ui.projectFileUploadInput.value = '';
+    }
+  });
+  ui.projectFilesBody?.addEventListener('click', (event) => {
+    const button = event.target.closest('button[data-action="download-project-file"]');
+    if (!button || !fields.projectId.value) return;
+    const fileId = Number(button.dataset.id);
+    if (!fileId) return;
+    window.location.href = `${primaryApiBase}/api/projects/${fields.projectId.value}/files/${fileId}/download`;
+  });
   ui.projectSaveBtnHeader?.addEventListener('click', () => ui.projectForm.requestSubmit());
   ui.projectSwitchEditBtnHeader?.addEventListener('click', () => {
     console.debug('[ProjectMode:switchToEdit] from header pen');
@@ -3237,12 +3404,14 @@ if (!isBrowserRuntime) {
     const targetMode = button.dataset.action === 'view-project' ? 'view' : 'edit';
     showProjectPhaseForm = false;
     showProjectMilestoneForm = false;
+    activeProjectWorkspaceTab = 'overview';
     showManageProjectPanel();
     collapseProjectTimeline();
     updateProjectTimelineExpandUi();
     renderProjectWeekDetail('', '', '');
     console.debug(`[ProjectMode:openProject] action=${button.dataset.action} targetMode=${targetMode} projectId=${project.id}`);
     setProjectFormMode(targetMode);
+    await loadProjectFiles(project.id);
     applyProjectModeUi('openProject-final');
     updateTextFields();
   });

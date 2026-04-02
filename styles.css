@@ -44,6 +44,42 @@ body { min-height: 100vh; }
 .project-summary-actions { display: flex; align-items: center; gap: 0.5rem; }
 .saved-project-mode #project-form-basic-header { display: none !important; }
 .saved-project-mode #project-summary-header { display: flex !important; }
+.project-workspace-tabs {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  border-bottom: 1px solid #d7e1e6;
+  margin-bottom: 0.9rem;
+  overflow-x: auto;
+}
+.project-workspace-tab {
+  border: 0;
+  background: transparent;
+  text-transform: uppercase;
+  font-size: 0.78rem;
+  letter-spacing: 0.04em;
+  font-weight: 600;
+  color: #607d8b;
+  padding: 0.55rem 0.7rem;
+  border-bottom: 2px solid transparent;
+  cursor: pointer;
+}
+.project-workspace-tab.active {
+  color: #1e88e5;
+  border-bottom-color: #1e88e5;
+}
+.project-workspace-panel { margin-top: 0.25rem; }
+.project-workspace-placeholder {
+  border: 1px dashed #cfd8dc;
+  border-radius: 10px;
+  padding: 1rem;
+  color: #607d8b;
+  background: #fafcfd;
+}
+#project-team-tab-host .sticky-members-panel {
+  position: static;
+  min-width: 0;
+}
 .status-badge {
   display: inline-flex;
   align-items: center;

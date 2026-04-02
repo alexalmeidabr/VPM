@@ -1,13 +1,16 @@
 #!/usr/bin/env python3
 import json
+import mimetypes
 import sqlite3
+import uuid
 from datetime import datetime, timedelta
 from http import HTTPStatus
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.error import URLError
-from urllib.parse import parse_qs, urlparse
+from urllib.parse import parse_qs, quote, urlparse
 from urllib.request import urlopen
+import cgi
 
 try:
   import holidays as pyholidays
@@ -16,6 +19,7 @@ except ImportError:
 
 BASE_DIR = Path(__file__).resolve().parent
 DB_PATH = BASE_DIR / 'projects.db'
+PROJECT_FILES_DIR = BASE_DIR / 'project-files'
 
 DEFAULT_ROLES = [
   'TM Junior Consultant', 'TM Regular Consultant', 'TM Senior Consultant',
@@ -59,6 +63,7 @@ def seed_defaults(conn):
 
 
 def init_db():
+  PROJECT_FILES_DIR.mkdir(parents=True, exist_ok=True)
   with get_connection() as conn:
     conn.executescript(
       '''
@@ -315,6 +320,16 @@ def init_db():
         created_at TEXT DEFAULT CURRENT_TIMESTAMP,
         updated_at TEXT DEFAULT CURRENT_TIMESTAMP
       );
+
+      CREATE TABLE IF NOT EXISTS project_files (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        project_id INTEGER NOT NULL,
+        original_filename TEXT NOT NULL,
+        stored_filename TEXT NOT NULL UNIQUE,
+        file_size INTEGER NOT NULL,
+        uploaded_at TEXT DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE
+      );
       '''
     )
 
@@ -391,6 +406,14 @@ class VPMHandler(SimpleHTTPRequestHandler):
     if len(parts) == 3 and parts[0:2] == ['api', 'allocation-simulations'] and parts[2].isdigit():
       return int(parts[2])
     return None
+
+  def _project_files_route(self):
+    parts = self._parts()
+    if len(parts) == 4 and parts[0:2] == ['api', 'projects'] and parts[2].isdigit() and parts[3] == 'files':
+      return int(parts[2]), None, None
+    if len(parts) == 6 and parts[0:2] == ['api', 'projects'] and parts[2].isdigit() and parts[3] == 'files' and parts[4].isdigit() and parts[5] == 'download':
+      return int(parts[2]), int(parts[4]), 'download'
+    return None, None, None
 
   def _ids_exist(self, conn, table, ids):
     unique_ids = sorted(set(ids))
@@ -1051,6 +1074,46 @@ class VPMHandler(SimpleHTTPRequestHandler):
       })
     return projects
 
+  def _fetch_project_files(self, conn, project_id):
+    rows = conn.execute(
+      '''
+      SELECT id, project_id, original_filename, stored_filename, file_size, uploaded_at
+      FROM project_files
+      WHERE project_id = ?
+      ORDER BY uploaded_at DESC, id DESC
+      ''',
+      (project_id,)
+    ).fetchall()
+    return [
+      {
+        'id': row['id'],
+        'projectId': row['project_id'],
+        'originalFilename': row['original_filename'],
+        'storedFilename': row['stored_filename'],
+        'fileSize': row['file_size'],
+        'uploadedAt': row['uploaded_at']
+      }
+      for row in rows
+    ]
+
+  def _read_upload_file(self):
+    form = cgi.FieldStorage(
+      fp=self.rfile,
+      headers=self.headers,
+      environ={
+        'REQUEST_METHOD': 'POST',
+        'CONTENT_TYPE': self.headers.get('Content-Type', '')
+      }
+    )
+    file_item = form['file'] if 'file' in form else None
+    if not file_item or not getattr(file_item, 'filename', ''):
+      return None, None
+    original_filename = Path(str(file_item.filename)).name
+    file_data = file_item.file.read()
+    if not original_filename or file_data is None:
+      return None, None
+    return original_filename, file_data
+
   def _allocation_simulation_payload_error(self, payload, require_state=False):
     if 'name' in payload:
       payload['name'] = str(payload.get('name', '')).strip()
@@ -1216,7 +1279,39 @@ class VPMHandler(SimpleHTTPRequestHandler):
     path = self._path()
     query = self._query()
     allocation_simulation_id = self._allocation_simulation_id()
+    files_project_id, file_id, files_action = self._project_files_route()
     with get_connection() as conn:
+      if files_project_id is not None and file_id is None:
+        if not self._ids_exist(conn, 'projects', [files_project_id]):
+          self._send_json({'error': 'Project not found'}, HTTPStatus.NOT_FOUND)
+          return
+        self._send_json({'files': self._fetch_project_files(conn, files_project_id)})
+        return
+      if files_project_id is not None and files_action == 'download':
+        row = conn.execute(
+          '''
+          SELECT id, original_filename, stored_filename
+          FROM project_files
+          WHERE id = ? AND project_id = ?
+          ''',
+          (file_id, files_project_id)
+        ).fetchone()
+        if not row:
+          self._send_json({'error': 'Project file not found'}, HTTPStatus.NOT_FOUND)
+          return
+        file_path = PROJECT_FILES_DIR / row['stored_filename']
+        if not file_path.exists() or not file_path.is_file():
+          self._send_json({'error': 'Stored file is missing'}, HTTPStatus.NOT_FOUND)
+          return
+        data = file_path.read_bytes()
+        content_type = mimetypes.guess_type(row['original_filename'])[0] or 'application/octet-stream'
+        self.send_response(HTTPStatus.OK)
+        self.send_header('Content-Type', content_type)
+        self.send_header('Content-Length', str(len(data)))
+        self.send_header('Content-Disposition', f"attachment; filename*=UTF-8''{quote(row['original_filename'])}")
+        self.end_headers()
+        self.wfile.write(data)
+        return
       if path == '/api/allocation-simulations':
         self._send_json({'simulations': self._fetch_allocation_simulations(conn)})
         return
@@ -1298,6 +1393,31 @@ class VPMHandler(SimpleHTTPRequestHandler):
 
   def do_POST(self):
     path = self._path()
+    files_project_id, _, files_action = self._project_files_route()
+    if files_project_id is not None and files_action is None:
+      with get_connection() as conn:
+        if not self._ids_exist(conn, 'projects', [files_project_id]):
+          self._send_json({'error': 'Project not found'}, HTTPStatus.NOT_FOUND)
+          return
+      original_filename, file_data = self._read_upload_file()
+      if not original_filename or file_data is None:
+        self._send_json({'error': 'file upload is required (multipart/form-data, field name "file")'}, HTTPStatus.BAD_REQUEST)
+        return
+      suffix = Path(original_filename).suffix[:20]
+      stored_filename = f'{files_project_id}-{datetime.utcnow().strftime("%Y%m%d%H%M%S")}-{uuid.uuid4().hex}{suffix}'
+      target_path = PROJECT_FILES_DIR / stored_filename
+      target_path.write_bytes(file_data)
+      with get_connection() as conn:
+        cursor = conn.execute(
+          '''
+          INSERT INTO project_files (project_id, original_filename, stored_filename, file_size)
+          VALUES (?, ?, ?, ?)
+          ''',
+          (files_project_id, original_filename, stored_filename, len(file_data))
+        )
+      self._send_json({'id': cursor.lastrowid}, HTTPStatus.CREATED)
+      return
+
     try:
       payload = self._read_json()
     except json.JSONDecodeError:
