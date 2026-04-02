@@ -30,9 +30,17 @@ if (!isBrowserRuntime) {
     projectFormCard: document.getElementById('project-form-card'),
     projectForm: document.getElementById('project-form'),
     projectFormTitle: document.getElementById('project-form-title'),
+    projectFormBasicHeader: document.getElementById('project-form-basic-header'),
+    projectSummaryHeader: document.getElementById('project-summary-header'),
+    projectSummaryName: document.getElementById('project-summary-name'),
+    projectSummaryClient: document.getElementById('project-summary-client'),
+    projectSummaryStatus: document.getElementById('project-summary-status'),
+    projectSaveBtnHeader: document.getElementById('project-save-btn-header'),
+    projectSwitchEditBtnHeader: document.getElementById('project-switch-edit-btn-header'),
     projectSaveBtn: document.getElementById('project-save-btn'),
     projectSwitchEditBtn: document.getElementById('project-switch-edit-btn'),
     backToProjectsBtn: document.getElementById('back-to-projects-btn'),
+    projectSummaryBackBtn: document.getElementById('project-summary-back-btn'),
     openConsultantModalBtn: document.getElementById('open-consultant-modal-btn'),
     assignedConsultantsSummary: document.getElementById('assigned-consultants-summary'),
     projectMembersList: document.getElementById('project-members-list'),
@@ -190,6 +198,7 @@ if (!isBrowserRuntime) {
     clientName: document.getElementById('client-name'),
     projectType: document.getElementById('project-type'),
     managerId: document.getElementById('manager-consultant-id'),
+    projectStatus: document.getElementById('project-status'),
     clientBusinessPartnerId: document.getElementById('client-business-partner-id'),
     clientContactIds: document.getElementById('client-contact-ids'),
     deliveryPartnerBusinessPartnerId: document.getElementById('delivery-partner-business-partner-id'),
@@ -345,6 +354,7 @@ if (!isBrowserRuntime) {
     deliveryPartnerBusinessPartnerId: fields.deliveryPartnerBusinessPartnerId.value ? Number(fields.deliveryPartnerBusinessPartnerId.value) : null,
     deliveryPartnerContactIds: selectedIds(fields.deliveryPartnerContactIds),
     projectType: fields.projectType.value,
+    projectStatus: fields.projectStatus?.value || 'Not Started',
     managerConsultantId: managerConsultantIdFromAssignments(),
     startDate: fields.startDate.value,
     endDate: fields.endDate.value,
@@ -352,6 +362,54 @@ if (!isBrowserRuntime) {
     projectPhases: selectedProjectPhases,
     projectMilestones: selectedProjectMilestones
   });
+
+  const statusClassByValue = (status) => ({
+    'Not Started': 'status-not-started',
+    'In Progress': 'status-in-progress',
+    Delayed: 'status-delayed',
+    Completed: 'status-completed'
+  }[status] || 'status-not-started');
+
+  const deriveProjectDisplayStatus = () => {
+    const today = new Date();
+    const projectStart = fields.startDate.value ? new Date(`${fields.startDate.value}T00:00:00`) : null;
+    if (projectStart && projectStart > today) return 'Not Started';
+    const phases = (selectedProjectPhases || []).filter((item) => item.startDate && item.endDate);
+    if (phases.length) {
+      const parsed = phases.map((phase) => ({
+        start: new Date(`${phase.startDate}T00:00:00`),
+        end: new Date(`${phase.endDate}T00:00:00`)
+      }));
+      if (parsed.every((phase) => phase.end < today)) return 'Completed';
+      if (parsed.some((phase) => phase.start <= today && phase.end >= today)) return 'In Progress';
+      return 'Not Started';
+    }
+    return fields.projectStatus?.value || 'Not Started';
+  };
+
+  const updateProjectStatusUi = () => {
+    const hasPhases = (selectedProjectPhases || []).length > 0;
+    const statusWrap = document.getElementById('project-status-field-wrap');
+    if (statusWrap) statusWrap.hidden = hasPhases;
+    if (fields.projectStatus) fields.projectStatus.disabled = hasPhases || projectViewMode === 'view';
+    if (fields.projectStatus) resetSelect('projectStatus', fields.projectStatus);
+    const displayStatus = deriveProjectDisplayStatus();
+    if (ui.projectSummaryStatus) {
+      ui.projectSummaryStatus.textContent = displayStatus;
+      ui.projectSummaryStatus.className = `status-badge ${statusClassByValue(displayStatus)}`;
+    }
+  };
+
+  const updateProjectSummaryHeader = () => {
+    const isSavedProject = Boolean(fields.projectId.value);
+    if (ui.projectFormBasicHeader) ui.projectFormBasicHeader.hidden = isSavedProject;
+    if (ui.projectSummaryHeader) ui.projectSummaryHeader.hidden = !isSavedProject;
+    if (!isSavedProject) return;
+    const client = findBusinessPartnerById(fields.clientBusinessPartnerId.value);
+    if (ui.projectSummaryName) ui.projectSummaryName.textContent = fields.projectName.value || 'Project';
+    if (ui.projectSummaryClient) ui.projectSummaryClient.textContent = `Client: ${client?.companyName || '—'}`;
+    updateProjectStatusUi();
+  };
 
   const persistProjectPlanningIfEditing = async () => {
     if (!fields.projectId.value) return;
@@ -371,6 +429,7 @@ if (!isBrowserRuntime) {
     if (ui.showProjectMilestoneFormBtn) ui.showProjectMilestoneFormBtn.hidden = !showPlanning;
     if (ui.projectPhaseFormRow) ui.projectPhaseFormRow.hidden = !showPlanning || !showProjectPhaseForm;
     if (ui.projectMilestoneFormRow) ui.projectMilestoneFormRow.hidden = !showPlanning || !showProjectMilestoneForm;
+    updateProjectStatusUi();
   };
 
   const findConsultantById = (id) => consultants.find((consultant) => Number(consultant.id) === Number(id));
@@ -2334,7 +2393,9 @@ if (!isBrowserRuntime) {
     ui.projectFormTitle.textContent = readOnly ? 'Manage Project (View)' : 'Manage Project';
     ui.projectSaveBtn.hidden = readOnly;
     ui.projectSaveBtn.style.display = readOnly ? 'none' : '';
+    if (ui.projectSaveBtnHeader) ui.projectSaveBtnHeader.hidden = readOnly;
     if (ui.projectSwitchEditBtn) ui.projectSwitchEditBtn.hidden = !readOnly;
+    if (ui.projectSwitchEditBtnHeader) ui.projectSwitchEditBtnHeader.hidden = !readOnly;
     ui.openConsultantModalBtn.disabled = readOnly;
     ui.openConsultantModalBtn.hidden = readOnly;
     if (ui.addProjectPhaseBtn) ui.addProjectPhaseBtn.disabled = readOnly;
@@ -2346,7 +2407,7 @@ if (!isBrowserRuntime) {
       showProjectMilestoneForm = false;
     }
     updateProjectPlanningUi();
-    [fields.projectName, fields.clientBusinessPartnerId, fields.clientContactIds, fields.projectType, fields.deliveryPartnerBusinessPartnerId, fields.deliveryPartnerContactIds, fields.startDate, fields.endDate].forEach((el) => { if (el) el.disabled = readOnly; });
+    [fields.projectName, fields.clientBusinessPartnerId, fields.clientContactIds, fields.projectType, fields.projectStatus, fields.deliveryPartnerBusinessPartnerId, fields.deliveryPartnerContactIds, fields.startDate, fields.endDate].forEach((el) => { if (el) el.disabled = readOnly; });
     fields.managerId.disabled = true;
     resetSelect('manager', fields.managerId);
     resetSelect('clientBusinessPartner', fields.clientBusinessPartnerId);
@@ -2354,6 +2415,9 @@ if (!isBrowserRuntime) {
     resetSelect('deliveryPartnerBusinessPartner', fields.deliveryPartnerBusinessPartnerId);
     resetSelect('deliveryPartnerContacts', fields.deliveryPartnerContactIds);
     resetSelect('projectType', fields.projectType);
+    resetSelect('projectStatus', fields.projectStatus);
+    updateProjectSummaryHeader();
+    updateProjectStatusUi();
     updateProjectMembersPanel();
   };
 
@@ -2578,6 +2642,7 @@ if (!isBrowserRuntime) {
   const resetProjectForm = () => {
     ui.projectForm.reset();
     fields.projectId.value = '';
+    if (fields.projectStatus) fields.projectStatus.value = 'Not Started';
     selectedProjectAssignments = [];
     selectedProjectPhases = [];
     selectedProjectMilestones = [];
@@ -2588,6 +2653,7 @@ if (!isBrowserRuntime) {
     modalTempConsultantIds = [];
     updateAssignedConsultantsSummary();
     rebuildProjectSelects();
+    if (fields.projectStatus) resetSelect('projectStatus', fields.projectStatus);
     rebuildProjectPlanningSelects();
     setProjectFormMode('edit');
     updateProjectMembersPanel();
@@ -2690,8 +2756,13 @@ if (!isBrowserRuntime) {
 
   ui.showProjectFormBtn.addEventListener('click', () => { resetProjectForm(); showManageProjectPanel(); });
   ui.backToProjectsBtn.addEventListener('click', showProjectsPanel);
+  ui.projectSummaryBackBtn?.addEventListener('click', showProjectsPanel);
+  ui.projectSaveBtnHeader?.addEventListener('click', () => ui.projectForm.requestSubmit());
+  ui.projectSwitchEditBtnHeader?.addEventListener('click', () => setProjectFormMode('edit'));
   fields.startDate.addEventListener('change', updateProjectMembersPanel);
+  fields.startDate.addEventListener('change', updateProjectStatusUi);
   fields.endDate.addEventListener('change', updateProjectMembersPanel);
+  fields.endDate.addEventListener('change', updateProjectStatusUi);
   fields.clientBusinessPartnerId.addEventListener('change', () => {
     rebuildProjectSelects({
       managerId: fields.managerId.value,
@@ -2701,6 +2772,7 @@ if (!isBrowserRuntime) {
       deliveryPartnerBusinessPartnerId: fields.deliveryPartnerBusinessPartnerId.value,
       deliveryPartnerContactIds: selectedIds(fields.deliveryPartnerContactIds)
     });
+    updateProjectSummaryHeader();
   });
   fields.deliveryPartnerBusinessPartnerId.addEventListener('change', () => {
     rebuildProjectSelects({
@@ -2712,7 +2784,8 @@ if (!isBrowserRuntime) {
       deliveryPartnerContactIds: []
     });
   });
-  fields.projectName.addEventListener('input', updateProjectTimelineExpandUi);
+  fields.projectName.addEventListener('input', () => { updateProjectTimelineExpandUi(); updateProjectSummaryHeader(); });
+  fields.projectStatus?.addEventListener('change', updateProjectStatusUi);
   ui.toggleProjectTimelineExpandBtn?.addEventListener('click', () => {
     isProjectTimelineExpanded = !isProjectTimelineExpanded;
     showProjectPhaseForm = false;
@@ -3079,6 +3152,7 @@ if (!isBrowserRuntime) {
     fields.projectId.value = project.id;
     fields.projectName.value = project.projectName;
     fields.projectType.value = project.projectType || '';
+    if (fields.projectStatus) fields.projectStatus.value = project.projectStatus || 'Not Started';
     fields.managerId.value = project.managerConsultantId || '';
     fields.clientBusinessPartnerId.value = project.clientBusinessPartnerId || '';
     fields.deliveryPartnerBusinessPartnerId.value = project.deliveryPartnerBusinessPartnerId || '';

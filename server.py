@@ -24,6 +24,7 @@ DEFAULT_ROLES = [
 DEFAULT_AREAS = ['TM (Transport Management)', 'EWM (Extended Warehouse Management)', 'YL (Yard Logistics)']
 DEFAULT_DAY_OFF_TYPES = ['Vacation', 'PTO']
 DEFAULT_PROJECT_TYPES = ['Time Material', 'Fixed Price', 'Milestone Billing', 'Non-Billable']
+ALLOWED_PROJECT_STATUSES = {'Not Started', 'In Progress', 'Delayed', 'Completed'}
 
 
 def get_connection():
@@ -319,6 +320,7 @@ def init_db():
 
     ensure_column(conn, 'projects', 'manager_consultant_id', 'manager_consultant_id INTEGER')
     ensure_column(conn, 'projects', 'project_type', 'project_type TEXT')
+    ensure_column(conn, 'projects', 'project_status', 'project_status TEXT')
     ensure_column(conn, 'projects', 'client_business_partner_id', 'client_business_partner_id INTEGER REFERENCES business_partners(id) ON DELETE SET NULL')
     ensure_column(conn, 'projects', 'delivery_partner_business_partner_id', 'delivery_partner_business_partner_id INTEGER REFERENCES business_partners(id) ON DELETE SET NULL')
     ensure_column(conn, 'project_consultants', 'project_role', 'project_role TEXT')
@@ -487,6 +489,11 @@ class VPMHandler(SimpleHTTPRequestHandler):
         except (TypeError, ValueError):
           return f'{key} must include only numeric ids'
       payload[key] = sorted(set(normalized_ids))
+
+    project_status = str(payload.get('projectStatus', '')).strip()
+    if project_status and project_status not in ALLOWED_PROJECT_STATUSES:
+      return 'projectStatus must be one of: Not Started, In Progress, Delayed, Completed'
+    payload['projectStatus'] = project_status
 
     type_exists = conn.execute('SELECT 1 FROM project_types WHERE name = ? LIMIT 1', (payload['projectType'],)).fetchone()
     if not type_exists:
@@ -961,7 +968,7 @@ class VPMHandler(SimpleHTTPRequestHandler):
     rows = conn.execute(
       '''
       SELECT p.id, p.project_name, p.client_name, p.client_contact, p.start_date, p.end_date,
-             p.project_type, p.manager_consultant_id, p.client_business_partner_id, p.delivery_partner_business_partner_id, c.name AS manager_name
+             p.project_type, p.project_status, p.manager_consultant_id, p.client_business_partner_id, p.delivery_partner_business_partner_id, c.name AS manager_name
       FROM projects p
       LEFT JOIN consultants c ON c.id = p.manager_consultant_id
       ORDER BY p.created_at DESC, p.id DESC
@@ -1019,6 +1026,7 @@ class VPMHandler(SimpleHTTPRequestHandler):
         'startDate': row['start_date'],
         'endDate': row['end_date'],
         'projectType': row['project_type'],
+        'projectStatus': row['project_status'],
         'managerConsultantId': row['manager_consultant_id'],
         'managerName': row['manager_name'],
         'projectPhases': [
@@ -1330,10 +1338,10 @@ class VPMHandler(SimpleHTTPRequestHandler):
         manager_name = self._consultant_name(conn, payload['managerConsultantId'])
         cursor = conn.execute(
           '''
-          INSERT INTO projects (project_name, client_name, project_lead, client_contact, start_date, end_date, manager_consultant_id, project_type, client_business_partner_id, delivery_partner_business_partner_id)
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          INSERT INTO projects (project_name, client_name, project_lead, client_contact, start_date, end_date, manager_consultant_id, project_type, project_status, client_business_partner_id, delivery_partner_business_partner_id)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
           ''',
-          (payload['projectName'], '', manager_name or 'Manager', '', payload['startDate'], payload['endDate'], payload['managerConsultantId'], payload['projectType'], payload['clientBusinessPartnerId'], payload['deliveryPartnerBusinessPartnerId'])
+          (payload['projectName'], '', manager_name or 'Manager', '', payload['startDate'], payload['endDate'], payload['managerConsultantId'], payload['projectType'], payload['projectStatus'], payload['clientBusinessPartnerId'], payload['deliveryPartnerBusinessPartnerId'])
         )
         project_id = cursor.lastrowid
         for item in payload['consultantAssignments']:
@@ -1725,10 +1733,10 @@ class VPMHandler(SimpleHTTPRequestHandler):
         cursor = conn.execute(
           '''
           UPDATE projects
-          SET project_name = ?, client_name = ?, project_lead = ?, client_contact = ?, start_date = ?, end_date = ?, manager_consultant_id = ?, project_type = ?, client_business_partner_id = ?, delivery_partner_business_partner_id = ?
+          SET project_name = ?, client_name = ?, project_lead = ?, client_contact = ?, start_date = ?, end_date = ?, manager_consultant_id = ?, project_type = ?, project_status = ?, client_business_partner_id = ?, delivery_partner_business_partner_id = ?
           WHERE id = ?
           ''',
-          (payload['projectName'], '', manager_name or 'Manager', '', payload['startDate'], payload['endDate'], payload['managerConsultantId'], payload['projectType'], payload['clientBusinessPartnerId'], payload['deliveryPartnerBusinessPartnerId'], project_id)
+          (payload['projectName'], '', manager_name or 'Manager', '', payload['startDate'], payload['endDate'], payload['managerConsultantId'], payload['projectType'], payload['projectStatus'], payload['clientBusinessPartnerId'], payload['deliveryPartnerBusinessPartnerId'], project_id)
         )
         if cursor.rowcount == 0:
           self._send_json({'error': 'Project not found'}, HTTPStatus.NOT_FOUND)

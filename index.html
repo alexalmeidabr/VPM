@@ -49,11 +49,25 @@
 
             <div class="card" id="project-form-card" hidden>
               <div class="card-content">
-                <div class="section-header">
+                <div class="section-header" id="project-form-basic-header">
                   <div class="title-with-action">
                     <span class="card-title" id="project-form-title">Manage Project</span>
+                  </div>
+                  <div class="title-with-action">
                     <button class="btn waves-effect waves-light" type="submit" form="project-form" id="project-save-btn" aria-label="Save Project"><i class="material-icons">save</i></button>
                     <button class="btn-flat" type="button" id="project-switch-edit-btn" aria-label="Switch to edit mode" hidden><i class="material-icons">edit</i></button>
+                  </div>
+                  <button class="btn-flat" type="button" id="project-summary-back-btn">Back to Projects</button>
+                </div>
+                <div id="project-summary-header" class="project-summary-header" hidden>
+                  <div>
+                    <h5 id="project-summary-name">Project</h5>
+                    <div class="grey-text" id="project-summary-client">Client: —</div>
+                  </div>
+                  <div class="project-summary-actions">
+                    <span id="project-summary-status" class="status-badge status-not-started">Not Started</span>
+                    <button class="btn waves-effect waves-light" type="submit" form="project-form" id="project-save-btn-header" aria-label="Save Project"><i class="material-icons">save</i></button>
+                    <button class="btn-flat" type="button" id="project-switch-edit-btn-header" aria-label="Switch to edit mode" hidden><i class="material-icons">edit</i></button>
                   </div>
                   <button class="btn-flat" type="button" id="back-to-projects-btn">Back to Projects</button>
                 </div>
@@ -64,6 +78,7 @@
                   <div class="input-field"><select id="client-contact-ids" multiple></select><label for="client-contact-ids">Client Contacts</label></div>
                   <div class="input-field"><select id="project-type" required><option value="" disabled selected>Select type</option></select><label for="project-type">Type</label></div>
                   <div class="input-field"><select id="manager-consultant-id" required></select><label for="manager-consultant-id">Manager</label></div>
+                  <div class="input-field" id="project-status-field-wrap"><select id="project-status"><option value="Not Started">Not Started</option><option value="In Progress">In Progress</option><option value="Delayed">Delayed</option><option value="Completed">Completed</option></select><label for="project-status">Project Status</label></div>
                   <div class="input-field"><select id="delivery-partner-business-partner-id"></select><label for="delivery-partner-business-partner-id">Delivery Partner (Optional)</label></div>
                   <div class="input-field"><select id="delivery-partner-contact-ids" multiple></select><label for="delivery-partner-contact-ids">Delivery Partner Contacts</label></div>
                   <div class="row date-row">
