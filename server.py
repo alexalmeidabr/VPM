@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 import json
 import mimetypes
+import re
 import sqlite3
 import uuid
 from datetime import datetime, timedelta
@@ -10,7 +11,6 @@ from pathlib import Path
 from urllib.error import URLError
 from urllib.parse import parse_qs, quote, urlparse
 from urllib.request import urlopen
-import cgi
 
 try:
   import holidays as pyholidays
@@ -1096,23 +1096,95 @@ class VPMHandler(SimpleHTTPRequestHandler):
       for row in rows
     ]
 
+  def _read_request_body(self):
+    length_raw = self.headers.get('Content-Length', '')
+    try:
+      content_length = int(length_raw or '0')
+    except ValueError as error:
+      raise ValueError('Invalid Content-Length header') from error
+    if content_length <= 0:
+      raise ValueError('Request body is required')
+    return self.rfile.read(content_length)
+
+  def _extract_boundary(self, content_type):
+    content_type_value = str(content_type or '').strip()
+    if not content_type_value.lower().startswith('multipart/form-data'):
+      raise ValueError('Content-Type must be multipart/form-data')
+    match = re.search(r'boundary=(?:"([^"]+)"|([^;]+))', content_type_value, re.IGNORECASE)
+    boundary = (match.group(1) if match and match.group(1) is not None else (match.group(2) if match else '')).strip()
+    if not boundary:
+      raise ValueError('multipart/form-data boundary is missing')
+    return boundary.encode('utf-8')
+
+  def _parse_content_disposition(self, header_value):
+    value = str(header_value or '').strip()
+    if not value:
+      return {}
+    parts = [item.strip() for item in value.split(';') if item.strip()]
+    if not parts:
+      return {}
+    metadata = {'type': parts[0].lower()}
+    for item in parts[1:]:
+      if '=' not in item:
+        continue
+      key, raw_value = item.split('=', 1)
+      key = key.strip().lower()
+      parsed_value = raw_value.strip().strip('"')
+      metadata[key] = parsed_value
+    return metadata
+
+  def _parse_multipart_form_data(self, content_type, raw_body):
+    boundary = self._extract_boundary(content_type)
+    delimiter = b'--' + boundary
+    if delimiter not in raw_body:
+      raise ValueError('Malformed multipart payload: boundary not found in body')
+    parts = []
+    segments = raw_body.split(delimiter)
+    for segment in segments[1:]:
+      if segment in (b'', b'--', b'--\r\n'):
+        continue
+      if segment.startswith(b'\r\n'):
+        segment = segment[2:]
+      if segment.endswith(b'--\r\n'):
+        segment = segment[:-4]
+      elif segment.endswith(b'--'):
+        segment = segment[:-2]
+      if segment.endswith(b'\r\n'):
+        segment = segment[:-2]
+      header_blob, separator, body = segment.partition(b'\r\n\r\n')
+      if not separator:
+        raise ValueError('Malformed multipart payload: part headers are incomplete')
+      headers = {}
+      for header_line in header_blob.split(b'\r\n'):
+        line = header_line.decode('utf-8', errors='replace')
+        if ':' not in line:
+          continue
+        key, header_value = line.split(':', 1)
+        headers[key.strip().lower()] = header_value.strip()
+      disposition = self._parse_content_disposition(headers.get('content-disposition', ''))
+      parts.append({
+        'headers': headers,
+        'name': disposition.get('name', ''),
+        'filename': disposition.get('filename', ''),
+        'data': body
+      })
+    if not parts:
+      raise ValueError('Multipart request did not include any form parts')
+    return parts
+
   def _read_upload_file(self):
-    form = cgi.FieldStorage(
-      fp=self.rfile,
-      headers=self.headers,
-      environ={
-        'REQUEST_METHOD': 'POST',
-        'CONTENT_TYPE': self.headers.get('Content-Type', '')
-      }
-    )
-    file_item = form['file'] if 'file' in form else None
-    if not file_item or not getattr(file_item, 'filename', ''):
-      return None, None
-    original_filename = Path(str(file_item.filename)).name
-    file_data = file_item.file.read()
-    if not original_filename or file_data is None:
-      return None, None
-    return original_filename, file_data
+    raw_body = self._read_request_body()
+    parts = self._parse_multipart_form_data(self.headers.get('Content-Type', ''), raw_body)
+    file_part = next((part for part in parts if part.get('name') == 'file'), None)
+    if not file_part:
+      raise ValueError('No "file" form part found in multipart request')
+    original_filename = Path(str(file_part.get('filename') or '')).name
+    if not original_filename:
+      raise ValueError('Uploaded file must include a filename')
+    file_data = file_part.get('data', b'')
+    if not isinstance(file_data, (bytes, bytearray)):
+      raise ValueError('Uploaded file payload is invalid')
+    return original_filename, bytes(file_data)
 
   def _allocation_simulation_payload_error(self, payload, require_state=False):
     if 'name' in payload:
@@ -1399,9 +1471,10 @@ class VPMHandler(SimpleHTTPRequestHandler):
         if not self._ids_exist(conn, 'projects', [files_project_id]):
           self._send_json({'error': 'Project not found'}, HTTPStatus.NOT_FOUND)
           return
-      original_filename, file_data = self._read_upload_file()
-      if not original_filename or file_data is None:
-        self._send_json({'error': 'file upload is required (multipart/form-data, field name "file")'}, HTTPStatus.BAD_REQUEST)
+      try:
+        original_filename, file_data = self._read_upload_file()
+      except ValueError as error:
+        self._send_json({'error': str(error)}, HTTPStatus.BAD_REQUEST)
         return
       suffix = Path(original_filename).suffix[:20]
       stored_filename = f'{files_project_id}-{datetime.utcnow().strftime("%Y%m%d%H%M%S")}-{uuid.uuid4().hex}{suffix}'
