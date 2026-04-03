@@ -2159,14 +2159,18 @@ if (!isBrowserRuntime) {
     const createMemberCard = (member, consultant) => {
       const wrapper = document.createElement('div');
       wrapper.className = 'member-card';
+      const roleLabel = member.projectRole || '—';
+      const commentText = String(member.comments || '').trim();
       wrapper.innerHTML = `
         <div class="member-header">
-          <div>
-            <strong>${consultant?.name || 'Unknown Consultant'}</strong>
-            <div class="member-meta">Project Role: ${member.projectRole || '—'}</div>
+          <div class="member-body">
+            <div class="member-title-row">
+              <strong>${consultant?.name || 'Unknown Consultant'}</strong>
+              <span class="member-role-chip">${roleLabel}</span>
+            </div>
+            <div class="member-meta member-kpi-row"><span>Allocation: ${Number(member.allocation ?? 100)}%</span><span>Billable: ${member.billable === false ? 'No' : 'Yes'}</span></div>
             <div class="member-meta">Dates: ${formatDate(member.startDate)} - ${formatDate(member.endDate)}</div>
-            <div class="member-meta">Allocation: ${Number(member.allocation ?? 100)}%</div>
-            <div class="member-meta">Billable: ${member.billable === false ? 'No' : 'Yes'}</div>
+            ${commentText ? `<div class="member-meta">Comments: ${commentText}</div>` : ''}
           </div>
           <div>
             <button class="btn-flat teal-text" data-action="view-member" data-id="${member.consultantId}"><i class="material-icons tiny">visibility</i></button>
