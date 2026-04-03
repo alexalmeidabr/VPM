@@ -462,6 +462,7 @@ if (!isBrowserRuntime) {
 
     const showTeamInMain = isSavedProject && activeTab === 'team';
     const showTimelineInMain = isSavedProject && activeTab === 'timeline';
+    document.body.classList.toggle('workspace-timeline-tab-active', showTimelineInMain);
     if (showTeamInMain) movePanelToHost(ui.projectMembersCard, ui.projectTeamTabHost);
     else movePanelToHost(ui.projectMembersCard, projectMembersDefaultParent);
 
