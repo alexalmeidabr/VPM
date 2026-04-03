@@ -471,6 +471,7 @@ if (!isBrowserRuntime) {
         isProjectTimelineExpanded = true;
         updateProjectTimelineExpandUi();
       }
+      refreshProjectTimeline();
     } else {
       movePanelToHost(ui.projectTimelinePanel, projectTimelineDefaultParent);
       if (isProjectTimelineExpanded) collapseProjectTimeline();
