@@ -170,10 +170,10 @@
               <div class="card-content">
                 <div class="section-header">
                   <div class="title-with-action">
-                    <span class="card-title">Project Members</span>
-                    <span class="grey-text" id="assigned-consultants-summary">No consultants assigned yet.</span>
+                    <span class="card-title">Project Positions</span>
+                    <span class="grey-text" id="assigned-consultants-summary">No project positions yet.</span>
                   </div>
-                  <button class="btn waves-effect waves-light" type="button" id="open-consultant-modal-btn">Add Consultant</button>
+                  <button class="btn waves-effect waves-light" type="button" id="open-consultant-modal-btn">Add Position</button>
                 </div>
                 <div id="project-members-list" class="project-members-list"></div>
               </div>
@@ -460,9 +460,10 @@
 
     <div id="consultant-assignment-modal" class="modal">
       <div class="modal-content">
-        <h5>Add Consultants</h5>
+        <h5>Add Project Position</h5>
         <div class="input-field"><select id="consultant-area-filter-modal"><option value="" selected disabled>Select area</option></select><label for="consultant-area-filter-modal">Area</label></div>
         <div class="input-field"><select id="project-role-modal" required><option value="" selected disabled>Select project role</option></select><label for="project-role-modal">Project Role</label></div>
+        <div class="input-field"><select id="project-position-status-modal"><option value="Open" selected>Open</option><option value="Proposed">Proposed</option><option value="Approved">Approved</option><option value="Assigned">Assigned</option><option value="Closed">Closed</option></select><label for="project-position-status-modal">Position Status</label></div>
         <div class="row date-row">
           <div class="input-field col s12 m6"><input id="member-start-date-modal" type="date" /><label class="active" for="member-start-date-modal">Start Date</label></div>
           <div class="input-field col s12 m6"><input id="member-end-date-modal" type="date" /><label class="active" for="member-end-date-modal">End Date</label></div>

@@ -313,6 +313,23 @@ def init_db():
         FOREIGN KEY (consultant_id) REFERENCES consultants(id) ON DELETE CASCADE
       );
 
+      CREATE TABLE IF NOT EXISTS project_positions (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        project_id INTEGER NOT NULL,
+        consultant_id INTEGER,
+        area_id INTEGER,
+        project_role TEXT NOT NULL,
+        start_date TEXT,
+        end_date TEXT,
+        allocation REAL NOT NULL DEFAULT 100,
+        billable INTEGER NOT NULL DEFAULT 1,
+        comments TEXT,
+        status TEXT NOT NULL DEFAULT 'Open',
+        FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE,
+        FOREIGN KEY (consultant_id) REFERENCES consultants(id) ON DELETE SET NULL,
+        FOREIGN KEY (area_id) REFERENCES areas(id) ON DELETE SET NULL
+      );
+
       CREATE TABLE IF NOT EXISTS allocation_simulations (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         name TEXT NOT NULL,
@@ -346,6 +363,21 @@ def init_db():
     ensure_column(conn, 'consultant_availability', 'type', 'type TEXT')
     ensure_column(conn, 'consultants', 'holiday_location_id', 'holiday_location_id INTEGER REFERENCES holiday_locations(id) ON DELETE SET NULL')
     ensure_column(conn, 'consultants', 'start_date', 'start_date TEXT')
+    conn.execute(
+      '''
+      INSERT INTO project_positions (project_id, consultant_id, project_role, start_date, end_date, billable, status)
+      SELECT pc.project_id, pc.consultant_id, COALESCE(NULLIF(TRIM(pc.project_role), ''), 'Project Position'), pc.start_date, pc.end_date, COALESCE(pc.billable, 1), 'Assigned'
+      FROM project_consultants pc
+      WHERE NOT EXISTS (
+        SELECT 1 FROM project_positions pp
+        WHERE pp.project_id = pc.project_id
+          AND COALESCE(pp.consultant_id, 0) = COALESCE(pc.consultant_id, 0)
+          AND COALESCE(pp.project_role, '') = COALESCE(pc.project_role, '')
+          AND COALESCE(pp.start_date, '') = COALESCE(pc.start_date, '')
+          AND COALESCE(pp.end_date, '') = COALESCE(pc.end_date, '')
+      )
+      '''
+    )
     seed_defaults(conn)
 
 
@@ -529,38 +561,68 @@ class VPMHandler(SimpleHTTPRequestHandler):
     except (TypeError, ValueError):
       return 'managerConsultantId must be numeric'
 
-    assignments = payload.get('consultantAssignments', [])
-    if not isinstance(assignments, list):
-      return 'consultantAssignments must be a list'
+    positions = payload.get('projectPositions', payload.get('consultantAssignments', []))
+    if not isinstance(positions, list):
+      return 'projectPositions must be a list'
 
-    normalized = []
-    for assignment in assignments:
-      if not isinstance(assignment, dict):
-        return 'consultantAssignments items must be objects'
-      role = str(assignment.get('projectRole', '')).strip()
+    allowed_position_statuses = {'Open', 'Proposed', 'Approved', 'Assigned', 'Closed'}
+    normalized_positions = []
+    normalized_assignments = []
+    for position in positions:
+      if not isinstance(position, dict):
+        return 'projectPositions items must be objects'
+      role = str(position.get('projectRole', '')).strip()
       if not role:
-        return 'projectRole is required for each project consultant'
-      start = str(assignment.get('startDate', '')).strip()
-      end = str(assignment.get('endDate', '')).strip()
+        return 'projectRole is required for each project position'
+      start = str(position.get('startDate', '')).strip()
+      end = str(position.get('endDate', '')).strip()
       if start and end and start > end:
-        return 'project member startDate cannot be after endDate'
+        return 'project position startDate cannot be after endDate'
       if not self._valid_iso_date(start) or not self._valid_iso_date(end):
-        return 'project member dates must be YYYY-MM-DD'
+        return 'project position dates must be YYYY-MM-DD'
       start, end = self._normalize_assignment_weekdays(start, end)
       if start and end and start > end:
-        return 'project member assignment only covers weekends; choose a range that includes at least one weekday'
-      try:
-        consultant_id = int(assignment.get('consultantId'))
-      except (TypeError, ValueError):
-        return 'consultantId must be numeric for each project consultant'
-      billable = assignment.get('billable', True)
+        return 'project position date range must include at least one weekday'
+      consultant_raw = position.get('consultantId')
+      consultant_id = None
+      if consultant_raw not in (None, '', 0):
+        try:
+          consultant_id = int(consultant_raw)
+        except (TypeError, ValueError):
+          return 'consultantId must be numeric when provided'
+      billable = position.get('billable', True)
       if isinstance(billable, str):
         billable = billable.strip().lower() not in ('false', '0', 'no', 'off', '')
       else:
         billable = bool(billable)
-      normalized.append({'consultantId': consultant_id, 'projectRole': role, 'startDate': start, 'endDate': end, 'billable': billable})
+      status = str(position.get('status', '')).strip() or ('Assigned' if consultant_id else 'Open')
+      if status not in allowed_position_statuses:
+        return 'project position status must be one of: Open, Proposed, Approved, Assigned, Closed'
+      area_raw = position.get('areaId')
+      area_id = None
+      if area_raw not in (None, '', 0):
+        try:
+          area_id = int(area_raw)
+        except (TypeError, ValueError):
+          return 'areaId must be numeric when provided'
+      normalized_position = {
+        'id': str(position.get('id', '')).strip(),
+        'consultantId': consultant_id,
+        'areaId': area_id,
+        'projectRole': role,
+        'startDate': start,
+        'endDate': end,
+        'allocation': float(position.get('allocation', 100) or 100),
+        'billable': billable,
+        'comments': str(position.get('comments', '')).strip(),
+        'status': status
+      }
+      normalized_positions.append(normalized_position)
+      if consultant_id is not None:
+        normalized_assignments.append({'consultantId': consultant_id, 'projectRole': role, 'startDate': start, 'endDate': end, 'billable': billable})
 
-    payload['consultantAssignments'] = normalized
+    payload['projectPositions'] = normalized_positions
+    payload['consultantAssignments'] = normalized_assignments
 
     phases = payload.get('projectPhases', [])
     milestones = payload.get('projectMilestones', [])
@@ -1000,12 +1062,13 @@ class VPMHandler(SimpleHTTPRequestHandler):
 
     projects = []
     for row in rows:
-      members = conn.execute(
+      positions = conn.execute(
         '''
-        SELECT pc.consultant_id, pc.project_role, pc.start_date, pc.end_date, pc.billable, c.name AS consultant_name
-        FROM project_consultants pc
-        JOIN consultants c ON c.id = pc.consultant_id
-        WHERE pc.project_id = ? ORDER BY c.name
+        SELECT pp.id, pp.consultant_id, pp.area_id, pp.project_role, pp.start_date, pp.end_date, pp.allocation, pp.billable, pp.comments, pp.status, c.name AS consultant_name
+        FROM project_positions pp
+        LEFT JOIN consultants c ON c.id = pp.consultant_id
+        WHERE pp.project_id = ?
+        ORDER BY pp.id
         ''',
         (row['id'],)
       ).fetchall()
@@ -1060,16 +1123,34 @@ class VPMHandler(SimpleHTTPRequestHandler):
           {'id': str(m['id']), 'phaseId': str(m['phase_id']) if m['phase_id'] is not None else '', 'name': m['name'], 'startDate': m['start_date'], 'endDate': m['end_date']}
           for m in milestones
         ],
+        'projectPositions': [
+          {
+            'id': m['id'],
+            'consultantId': m['consultant_id'],
+            'consultantName': m['consultant_name'],
+            'areaId': m['area_id'],
+            'projectRole': m['project_role'] or 'Project Position',
+            'startDate': m['start_date'] or '',
+            'endDate': m['end_date'] or '',
+            'allocation': m['allocation'] if m['allocation'] is not None else 100,
+            'billable': bool(m['billable']) if m['billable'] is not None else True,
+            'comments': m['comments'] or '',
+            'status': m['status'] or ('Assigned' if m['consultant_id'] else 'Open')
+          }
+          for m in positions
+        ],
         'consultantAssignments': [
           {
             'consultantId': m['consultant_id'],
             'consultantName': m['consultant_name'],
-            'projectRole': m['project_role'] or 'Project Member',
+            'projectRole': m['project_role'] or 'Project Position',
             'startDate': m['start_date'] or '',
             'endDate': m['end_date'] or '',
-            'billable': bool(m['billable']) if m['billable'] is not None else True
+            'allocation': m['allocation'] if m['allocation'] is not None else 100,
+            'billable': bool(m['billable']) if m['billable'] is not None else True,
+            'comments': m['comments'] or ''
           }
-          for m in members
+          for m in positions if m['consultant_id'] is not None
         ]
       })
     return projects
@@ -1542,6 +1623,11 @@ class VPMHandler(SimpleHTTPRequestHandler):
             'INSERT INTO project_consultants (project_id, consultant_id, project_role, start_date, end_date, billable) VALUES (?, ?, ?, ?, ?, ?)',
             (project_id, item['consultantId'], item['projectRole'], item['startDate'], item['endDate'], 1 if item.get('billable', True) else 0)
           )
+        for item in payload.get('projectPositions', []):
+          conn.execute(
+            'INSERT INTO project_positions (project_id, consultant_id, area_id, project_role, start_date, end_date, allocation, billable, comments, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+            (project_id, item.get('consultantId'), item.get('areaId'), item['projectRole'], item['startDate'], item['endDate'], item.get('allocation', 100), 1 if item.get('billable', True) else 0, item.get('comments', ''), item.get('status', 'Open'))
+          )
         phase_id_map = {}
         for phase in payload['projectPhases']:
           cursor_phase = conn.execute(
@@ -1935,6 +2021,7 @@ class VPMHandler(SimpleHTTPRequestHandler):
           self._send_json({'error': 'Project not found'}, HTTPStatus.NOT_FOUND)
           return
         conn.execute('DELETE FROM project_consultants WHERE project_id = ?', (project_id,))
+        conn.execute('DELETE FROM project_positions WHERE project_id = ?', (project_id,))
         conn.execute('DELETE FROM project_milestones WHERE project_id = ?', (project_id,))
         conn.execute('DELETE FROM project_phases WHERE project_id = ?', (project_id,))
         conn.execute('DELETE FROM project_client_contacts WHERE project_id = ?', (project_id,))
@@ -1943,6 +2030,11 @@ class VPMHandler(SimpleHTTPRequestHandler):
           conn.execute(
             'INSERT INTO project_consultants (project_id, consultant_id, project_role, start_date, end_date, billable) VALUES (?, ?, ?, ?, ?, ?)',
             (project_id, item['consultantId'], item['projectRole'], item['startDate'], item['endDate'], 1 if item.get('billable', True) else 0)
+          )
+        for item in payload.get('projectPositions', []):
+          conn.execute(
+            'INSERT INTO project_positions (project_id, consultant_id, area_id, project_role, start_date, end_date, allocation, billable, comments, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+            (project_id, item.get('consultantId'), item.get('areaId'), item['projectRole'], item['startDate'], item['endDate'], item.get('allocation', 100), 1 if item.get('billable', True) else 0, item.get('comments', ''), item.get('status', 'Open'))
           )
         phase_id_map = {}
         for phase in payload['projectPhases']:

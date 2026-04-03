@@ -40,6 +40,12 @@ body { min-height: 100vh; }
 .member-title-row { display: flex; align-items: center; gap: 0.4rem; flex-wrap: wrap; }
 .member-role-chip { font-size: 0.78rem; color: #455a64; background: #eceff1; border-radius: 999px; padding: 0.05rem 0.45rem; }
 .member-kpi-row { display: inline-flex; gap: 0.8rem; margin-top: 0.1rem; }
+.position-status-badge { display: inline-flex; align-items: center; border-radius: 999px; font-size: 0.72rem; font-weight: 600; padding: 0.05rem 0.45rem; }
+.position-status-open { background: #ffebee; color: #c62828; }
+.position-status-proposed { background: #fff8e1; color: #f9a825; }
+.position-status-approved { background: #e8f5e9; color: #2e7d32; }
+.position-status-assigned { background: #e3f2fd; color: #1565c0; }
+.position-status-closed { background: #eceff1; color: #546e7a; }
 .project-summary-header {
   display: flex;
   align-items: center;

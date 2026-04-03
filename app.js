@@ -82,6 +82,7 @@ if (!isBrowserRuntime) {
     consultantAssignmentModal: document.getElementById('consultant-assignment-modal'),
     consultantAreaFilterModal: document.getElementById('consultant-area-filter-modal'),
     projectRoleModal: document.getElementById('project-role-modal'),
+    projectPositionStatusModal: document.getElementById('project-position-status-modal'),
     memberStartDateModal: document.getElementById('member-start-date-modal'),
     memberEndDateModal: document.getElementById('member-end-date-modal'),
     memberAllocationModal: document.getElementById('member-allocation-modal'),
@@ -375,8 +376,26 @@ if (!isBrowserRuntime) {
   };
 
   const managerCandidates = () => consultants.filter((consultant) => consultant.companyRole === 'Project Manager');
+  const positionStatusValues = ['Open', 'Proposed', 'Approved', 'Assigned', 'Closed'];
+  const positionStatusClassByValue = (status) => ({
+    Open: 'position-status-open',
+    Proposed: 'position-status-proposed',
+    Approved: 'position-status-approved',
+    Assigned: 'position-status-assigned',
+    Closed: 'position-status-closed'
+  }[status] || 'position-status-open');
+  const getProjectPositionDisplayStatus = (position) => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const endDate = position?.endDate ? new Date(`${position.endDate}T00:00:00`) : null;
+    if (endDate && endDate < today) return 'Closed';
+    const status = String(position?.status || '').trim();
+    return positionStatusValues.includes(status) ? status : (position?.consultantId ? 'Assigned' : 'Open');
+  };
   const managerConsultantIdFromAssignments = () => {
-    const managerMember = selectedProjectAssignments.find((item) => item.projectRole === 'Project Manager');
+    const managerMember = selectedProjectAssignments.find((item) => item.projectRole === 'Project Manager'
+      && item.consultantId
+      && getProjectPositionDisplayStatus(item) === 'Assigned');
     return managerMember ? Number(managerMember.consultantId) : 0;
   };
   const syncManagerFieldWithAssignments = () => {
@@ -404,7 +423,27 @@ if (!isBrowserRuntime) {
     managerConsultantId: managerConsultantIdFromAssignments(),
     startDate: fields.startDate.value,
     endDate: fields.endDate.value,
-    consultantAssignments: selectedProjectAssignments,
+    projectPositions: selectedProjectAssignments.map((item) => ({
+      id: item.positionId || null,
+      consultantId: item.consultantId ? Number(item.consultantId) : null,
+      areaId: item.areaId ? Number(item.areaId) : null,
+      projectRole: item.projectRole || 'Project Position',
+      startDate: item.startDate || '',
+      endDate: item.endDate || '',
+      allocation: Number(item.allocation ?? 100),
+      billable: item.billable !== false,
+      comments: item.comments || '',
+      status: item.status || (item.consultantId ? 'Assigned' : 'Open')
+    })),
+    consultantAssignments: selectedProjectAssignments.filter((item) => item.consultantId).map((item) => ({
+      consultantId: Number(item.consultantId),
+      projectRole: item.projectRole || 'Project Position',
+      startDate: item.startDate || '',
+      endDate: item.endDate || '',
+      allocation: Number(item.allocation ?? 100),
+      billable: item.billable !== false,
+      comments: item.comments || ''
+    })),
     projectPhases: selectedProjectPhases,
     projectMilestones: selectedProjectMilestones
   });
@@ -1686,7 +1725,12 @@ if (!isBrowserRuntime) {
 
       members.forEach((member) => {
         const consultant = findConsultantById(member.consultantId);
-        const areaNames = (consultant?.areaNames || []).length ? consultant.areaNames : (consultant?.areaIds || []).map(areaNameById).filter(Boolean);
+        const fallbackAreaName = member.areaId ? areaNameById(member.areaId) : '';
+        const areaNames = (consultant?.areaNames || []).length
+          ? consultant.areaNames
+          : ((consultant?.areaIds || []).map(areaNameById).filter(Boolean).length
+            ? (consultant?.areaIds || []).map(areaNameById).filter(Boolean)
+            : [fallbackAreaName || 'Open Positions']);
         const lowerAreas = areaNames.map((name) => String(name).trim().toLowerCase());
 
         if (member.projectRole === 'Project Manager' || lowerAreas.includes(managementLabel.toLowerCase())) {
@@ -1713,7 +1757,7 @@ if (!isBrowserRuntime) {
       merged.forEach((member) => {
         const consultant = findConsultantById(member.consultantId);
         container.appendChild(createTimelineRow({
-          label: consultant ? consultant.name : `Consultant ${member.consultantId}`,
+          label: consultant ? consultant.name : `Open Position – ${member.projectRole || 'Project Position'}`,
           startDate: parseIsoDate(member.startDate) || projectStart,
           endDate: parseIsoDate(member.endDate) || projectEnd,
           consultant,
@@ -1758,7 +1802,7 @@ if (!isBrowserRuntime) {
 
       group.members.forEach(({ member, consultant }) => {
         panel.appendChild(createTimelineRow({
-          label: consultant ? consultant.name : `Consultant ${member.consultantId}`,
+          label: consultant ? consultant.name : `Open Position – ${member.projectRole || 'Project Position'}`,
           startDate: parseIsoDate(member.startDate) || projectStart,
           endDate: parseIsoDate(member.endDate) || projectEnd,
           consultant,
@@ -2062,8 +2106,8 @@ if (!isBrowserRuntime) {
 
   const updateAssignedConsultantsSummary = () => {
     ui.assignedConsultantsSummary.textContent = selectedProjectAssignments.length
-      ? `${selectedProjectAssignments.length} consultant${selectedProjectAssignments.length === 1 ? '' : 's'} assigned`
-      : 'No consultants assigned yet.';
+      ? `${selectedProjectAssignments.length} position${selectedProjectAssignments.length === 1 ? '' : 's'} configured`
+      : 'No project positions yet.';
   };
 
   const rebuildProjectSelects = ({ managerId = '', projectType = '', clientBusinessPartnerId = '', clientContactIds = [], deliveryPartnerBusinessPartnerId = '', deliveryPartnerContactIds = [] } = {}) => {
@@ -2133,8 +2177,13 @@ if (!isBrowserRuntime) {
     areas.forEach((area) => ui.consultantAreaFilterModal.add(new Option(area.name, area.id, false, Number(modalSelectedAreaId) === Number(area.id))));
     ui.projectRoleModal.innerHTML = '<option value="" selected disabled>Select project role</option>';
     roles.forEach((role) => ui.projectRoleModal.add(new Option(role.name, role.name)));
+    if (ui.projectPositionStatusModal) {
+      ui.projectPositionStatusModal.innerHTML = '';
+      positionStatusValues.forEach((status) => ui.projectPositionStatusModal.add(new Option(status, status, false, status === 'Open')));
+    }
     resetSelect('assignmentArea', ui.consultantAreaFilterModal);
     resetSelect('assignmentRole', ui.projectRoleModal);
+    if (ui.projectPositionStatusModal) resetSelect('assignmentPositionStatus', ui.projectPositionStatusModal);
   };
 
   const rebuildMemberRoleSelect = (roleName) => {
@@ -2145,7 +2194,7 @@ if (!isBrowserRuntime) {
 
   const renderConsultantPickerList = () => {
     if (!modalSelectedAreaId) {
-      ui.consultantPickerList.innerHTML = '<p class="grey-text">Select an area to view consultants.</p>';
+      ui.consultantPickerList.innerHTML = '<p class="grey-text">Select an area to view consultants or save as an open position.</p>';
       return;
     }
     const areaId = Number(modalSelectedAreaId);
@@ -2154,11 +2203,18 @@ if (!isBrowserRuntime) {
       const matchesArea = (consultant.areaIds || []).map(Number).includes(areaId);
       return matchesArea && !assignedIds.has(Number(consultant.id));
     });
+    ui.consultantPickerList.innerHTML = '';
+    const openOption = document.createElement('p');
+    openOption.className = 'consultant-picker-item';
+    openOption.innerHTML = `<label><input type="radio" name="project-consultant-choice" data-consultant-id="" ${modalTempConsultantIds.length ? '' : 'checked'} /><span>Open Position (no consultant assigned)</span></label>`;
+    ui.consultantPickerList.appendChild(openOption);
     if (!candidates.length) {
-      ui.consultantPickerList.innerHTML = '<p class="grey-text">No unassigned consultants available in this area.</p>';
+      const info = document.createElement('p');
+      info.className = 'grey-text';
+      info.textContent = 'No available consultants in this area right now.';
+      ui.consultantPickerList.appendChild(info);
       return;
     }
-    ui.consultantPickerList.innerHTML = '';
     candidates.forEach((consultant) => {
       const item = document.createElement('p');
       item.className = 'consultant-picker-item';
@@ -2173,7 +2229,7 @@ if (!isBrowserRuntime) {
     const allMembers = [...selectedProjectAssignments];
 
     if (!allMembers.length) {
-      ui.projectMembersList.innerHTML = '<p class="grey-text">No consultants assigned yet.</p>';
+      ui.projectMembersList.innerHTML = '<p class="grey-text">No project positions yet.</p>';
       refreshProjectTimeline();
       return;
     }
@@ -2183,20 +2239,23 @@ if (!isBrowserRuntime) {
       wrapper.className = 'member-card';
       const roleLabel = member.projectRole || '—';
       const commentText = String(member.comments || '').trim();
+      const displayStatus = getProjectPositionDisplayStatus(member);
+      const consultantLabel = consultant?.name || 'Open Position';
       wrapper.innerHTML = `
         <div class="member-header">
           <div class="member-body">
             <div class="member-title-row">
-              <strong>${consultant?.name || 'Unknown Consultant'}</strong>
+              <strong>${consultantLabel}</strong>
               <span class="member-role-chip">${roleLabel}</span>
+              <span class="position-status-badge ${positionStatusClassByValue(displayStatus)}">${displayStatus}</span>
             </div>
             <div class="member-meta member-kpi-row"><span>Allocation: ${Number(member.allocation ?? 100)}%</span><span>Billable: ${member.billable === false ? 'No' : 'Yes'}</span></div>
             <div class="member-meta">Dates: ${formatDate(member.startDate)} - ${formatDate(member.endDate)}</div>
             ${commentText ? `<div class="member-meta">Comments: ${commentText}</div>` : ''}
           </div>
           <div>
-            <button class="btn-flat teal-text" data-action="view-member" data-id="${member.consultantId}"><i class="material-icons tiny">visibility</i></button>
-            <button class="btn-flat blue-text" data-action="edit-member" data-id="${member.consultantId}"><i class="material-icons tiny">edit</i></button><button class="btn-flat red-text" data-action="remove-member" data-id="${member.consultantId}"><i class="material-icons tiny">delete</i></button>
+            <button class="btn-flat teal-text" data-action="view-member" data-position-id="${member.positionId}"><i class="material-icons tiny">visibility</i></button>
+            <button class="btn-flat blue-text" data-action="edit-member" data-position-id="${member.positionId}"><i class="material-icons tiny">edit</i></button><button class="btn-flat red-text" data-action="remove-member" data-position-id="${member.positionId}"><i class="material-icons tiny">delete</i></button>
           </div>
         </div>
       `;
@@ -2211,7 +2270,7 @@ if (!isBrowserRuntime) {
     };
     const dynamicBuckets = new Map();
     const pushUnique = (bucket, member, consultant) => {
-      const id = Number(member.consultantId);
+      const id = member.consultantId ? `consultant-${Number(member.consultantId)}` : `position-${String(member.positionId || Math.random())}`;
       if (bucket.ids.has(id)) return;
       bucket.ids.add(id);
       bucket.members.push({ member, consultant });
@@ -3120,6 +3179,7 @@ if (!isBrowserRuntime) {
     modalTempConsultantIds = [];
     modalSelectedAreaId = '';
     ui.projectRoleModal.value = '';
+    if (ui.projectPositionStatusModal) ui.projectPositionStatusModal.value = 'Open';
     ui.memberStartDateModal.value = fields.startDate.value;
     ui.memberEndDateModal.value = fields.endDate.value;
     ui.memberAllocationModal.value = '100';
@@ -3137,6 +3197,10 @@ if (!isBrowserRuntime) {
   ui.consultantPickerList.addEventListener('change', (event) => {
     const option = event.target.closest('input[type="radio"][data-consultant-id]');
     if (!option) return;
+    if (!option.dataset.consultantId) {
+      modalTempConsultantIds = [];
+      return;
+    }
     const id = Number(option.dataset.consultantId);
     modalTempConsultantIds = Number.isNaN(id) ? [] : [id];
   });
@@ -3144,7 +3208,6 @@ if (!isBrowserRuntime) {
   ui.saveConsultantAssignmentsBtn.addEventListener('click', async () => {
     const role = ui.projectRoleModal.value;
     if (!role) { toast('Project Role is required', 'red darken-1'); return; }
-    if (modalTempConsultantIds.length !== 1) { toast('Select exactly one consultant', 'red darken-1'); return; }
     const start = ui.memberStartDateModal.value;
     const end = ui.memberEndDateModal.value;
     if (start && end && start > end) { toast('Start date cannot be after end date', 'red darken-1'); return; }
@@ -3154,15 +3217,19 @@ if (!isBrowserRuntime) {
       return;
     }
 
-    const selectedConsultantId = Number(modalTempConsultantIds[0]);
+    const selectedConsultantId = modalTempConsultantIds.length ? Number(modalTempConsultantIds[0]) : null;
+    const selectedStatus = ui.projectPositionStatusModal?.value || (selectedConsultantId ? 'Assigned' : 'Open');
     selectedProjectAssignments.push({
+      positionId: `${Date.now()}-${Math.random()}`,
       consultantId: selectedConsultantId,
+      areaId: modalSelectedAreaId ? Number(modalSelectedAreaId) : null,
       projectRole: role,
       startDate: start,
       endDate: end,
       allocation,
       billable: ui.memberBillableModal ? ui.memberBillableModal.checked : true,
-      comments: ''
+      comments: '',
+      status: selectedStatus
     });
 
     try {
@@ -3176,27 +3243,22 @@ if (!isBrowserRuntime) {
       updateAssignedConsultantsSummary();
       updateProjectMembersPanel();
       modals.consultantAssignment?.close();
-      toast(fields.projectId.value ? 'Project member saved' : 'Project member added', 'teal darken-1');
+      toast(fields.projectId.value ? 'Project position saved' : 'Project position added', 'teal darken-1');
     } catch (error) {
-      toast(error.message || 'Failed to save project member', 'red darken-1');
+      toast(error.message || 'Failed to save project position', 'red darken-1');
     }
   });
 
   ui.projectMembersList.addEventListener('click', async (event) => {
     const button = event.target.closest('button[data-action]');
     if (!button) return;
-    const consultantId = Number(button.dataset.id);
-    const member = selectedProjectAssignments.find((item) => Number(item.consultantId) === consultantId) || {
-      consultantId,
-      projectRole: 'Project Manager',
-      startDate: fields.startDate.value,
-      endDate: fields.endDate.value,
-      allocation: 100,
-      comments: ''
-    };
+    const positionId = String(button.dataset.positionId || '');
+    const member = selectedProjectAssignments.find((item) => String(item.positionId) === positionId);
+    if (!member) return;
+    const consultantId = member.consultantId ? Number(member.consultantId) : 0;
 
     if (button.dataset.action === 'remove-member') {
-      selectedProjectAssignments = selectedProjectAssignments.filter((item) => Number(item.consultantId) !== consultantId);
+      selectedProjectAssignments = selectedProjectAssignments.filter((item) => String(item.positionId) !== positionId);
       try {
         if (fields.projectId.value) {
           const payload = buildProjectPayload();
@@ -3207,23 +3269,23 @@ if (!isBrowserRuntime) {
         }
         updateAssignedConsultantsSummary();
         updateProjectMembersPanel();
-        toast('Project member removed', 'orange darken-2');
+        toast('Project position removed', 'orange darken-2');
       } catch (error) {
-        toast(error.message || 'Failed to remove project member', 'red darken-1');
+        toast(error.message || 'Failed to remove project position', 'red darken-1');
       }
       return;
     }
 
     const readOnly = button.dataset.action === 'view-member';
-    ui.memberModalTitle.textContent = readOnly ? 'View Project Member' : 'Edit Project Member';
-    ui.memberEditConsultantId.value = consultantId;
-    ui.memberNameModal.value = consultantNameById(consultantId);
+    ui.memberModalTitle.textContent = readOnly ? 'View Project Position' : 'Edit Project Position';
+    ui.memberEditConsultantId.value = positionId;
+    ui.memberNameModal.value = consultantId ? consultantNameById(consultantId) : 'Open Position';
     ui.memberAllocationEdit.value = Number(member.allocation ?? 100);
     if (ui.memberBillableEdit) ui.memberBillableEdit.checked = member.billable !== false;
     ui.memberCommentsEdit.value = member.comments || '';
     ui.memberStartDateEdit.value = member.startDate || '';
     ui.memberEndDateEdit.value = member.endDate || '';
-    rebuildMemberRoleSelect(member.projectRole || 'Project Member');
+    rebuildMemberRoleSelect(member.projectRole || 'Project Position');
 
     ui.memberProjectRoleModal.disabled = readOnly;
     ui.memberAllocationEdit.disabled = readOnly;
@@ -3238,8 +3300,8 @@ if (!isBrowserRuntime) {
   });
 
   ui.saveMemberDetailsBtn.addEventListener('click', async () => {
-    const consultantId = Number(ui.memberEditConsultantId.value);
-    const item = selectedProjectAssignments.find((member) => Number(member.consultantId) === consultantId);
+    const positionId = String(ui.memberEditConsultantId.value || '');
+    const item = selectedProjectAssignments.find((member) => String(member.positionId) === positionId);
     if (!item) { modals.memberDetails?.close(); return; }
     if (ui.memberStartDateEdit.value && ui.memberEndDateEdit.value && ui.memberStartDateEdit.value > ui.memberEndDateEdit.value) {
       toast('Start date cannot be after end date', 'red darken-1');
@@ -3268,9 +3330,9 @@ if (!isBrowserRuntime) {
       }
       updateProjectMembersPanel();
       modals.memberDetails?.close();
-      toast('Project member updated', 'teal darken-1');
+      toast('Project position updated', 'teal darken-1');
     } catch (error) {
-      toast(error.message || 'Failed to save project member', 'red darken-1');
+      toast(error.message || 'Failed to save project position', 'red darken-1');
     }
   });
 
@@ -3400,14 +3462,18 @@ if (!isBrowserRuntime) {
     fields.deliveryPartnerBusinessPartnerId.value = project.deliveryPartnerBusinessPartnerId || '';
     fields.startDate.value = project.startDate;
     fields.endDate.value = project.endDate;
-    selectedProjectAssignments = (project.consultantAssignments || []).map((item) => ({
-      consultantId: Number(item.consultantId),
-      projectRole: item.projectRole || 'Project Member',
+    const projectPositions = project.projectPositions || project.consultantAssignments || [];
+    selectedProjectAssignments = projectPositions.map((item) => ({
+      positionId: String(item.id || `${Date.now()}-${Math.random()}`),
+      consultantId: item.consultantId ? Number(item.consultantId) : null,
+      areaId: item.areaId ? Number(item.areaId) : null,
+      projectRole: item.projectRole || 'Project Position',
       startDate: item.startDate || '',
       endDate: item.endDate || '',
       allocation: Number(item.allocation ?? 100),
       billable: item.billable !== false,
-      comments: item.comments || ''
+      comments: item.comments || '',
+      status: item.status || (item.consultantId ? 'Assigned' : 'Open')
     }));
     selectedProjectPhases = (project.projectPhases || []).map((item) => ({ id: String(item.id || Date.now() + Math.random()), name: item.name || '', startDate: item.startDate || '', endDate: item.endDate || '' }));
     selectedProjectMilestones = (project.projectMilestones || []).map((item) => ({ id: String(item.id || Date.now() + Math.random()), phaseId: item.phaseId ? String(item.phaseId) : '', name: item.name || '', startDate: item.startDate || '', endDate: item.endDate || '' }));
@@ -3415,13 +3481,15 @@ if (!isBrowserRuntime) {
 
     if (project.managerConsultantId && !selectedProjectAssignments.some((item) => item.projectRole === 'Project Manager')) {
       selectedProjectAssignments.unshift({
+        positionId: `${Date.now()}-pm`,
         consultantId: Number(project.managerConsultantId),
         projectRole: 'Project Manager',
         startDate: project.startDate,
         endDate: project.endDate,
         allocation: 100,
         billable: true,
-        comments: ''
+        comments: '',
+        status: 'Assigned'
       });
     }
 
