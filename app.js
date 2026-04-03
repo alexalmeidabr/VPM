@@ -2348,6 +2348,9 @@ if (!isBrowserRuntime) {
       const displayStatus = getProjectPositionDisplayStatus(member);
       const consultantLabel = consultant?.name || 'Open Position';
       const canEditPosition = projectViewMode !== 'view';
+      const hasDailyRate = member.dailyRate !== null && member.dailyRate !== undefined && member.dailyRate !== '';
+      const showDailyRate = shouldShowPositionRateFields({ billable: member.billable !== false }) && hasDailyRate;
+      const dailyRateLabel = showDailyRate ? formatPositionDailyRate(member.dailyRate, member.dailyRateCurrency) : '';
       wrapper.innerHTML = `
         <div class="member-header">
           <div class="member-body">
@@ -2356,14 +2359,14 @@ if (!isBrowserRuntime) {
               <span class="member-role-chip">${roleLabel}</span>
               <span class="position-status-badge ${positionStatusClassByValue(displayStatus)}">${displayStatus}</span>
             </div>
-            <div class="member-meta member-kpi-row"><span>Allocation: ${Number(member.allocation ?? 100)}%</span><span>Billable: ${member.billable === false ? 'No' : 'Yes'}</span></div>
+            <div class="member-meta member-kpi-row"><span>Allocation: ${Number(member.allocation ?? 100)}%</span><span>Billable: ${member.billable === false ? 'No' : 'Yes'}</span>${showDailyRate ? `<span>Daily Rate: ${dailyRateLabel}</span>` : ''}</div>
             <div class="member-meta">Dates: ${formatDate(member.startDate)} - ${formatDate(member.endDate)}</div>
             ${commentText ? `<div class="member-meta">Comments: ${commentText}</div>` : ''}
           </div>
           <div>
-            <button class="btn-flat teal-text" data-action="view-member" data-position-id="${member.positionId}"><i class="material-icons tiny">visibility</i></button>
-            ${canEditPosition ? `<button class="btn-flat blue-text" data-action="edit-member" data-position-id="${member.positionId}"><i class="material-icons tiny">edit</i></button>` : ''}
-            <button class="btn-flat red-text" data-action="remove-member" data-position-id="${member.positionId}"><i class="material-icons tiny">delete</i></button>
+            <button type="button" class="btn-flat teal-text" data-action="view-member" data-position-id="${member.positionId}"><i class="material-icons tiny">visibility</i></button>
+            ${canEditPosition ? `<button type="button" class="btn-flat blue-text" data-action="edit-member" data-position-id="${member.positionId}"><i class="material-icons tiny">edit</i></button>` : ''}
+            <button type="button" class="btn-flat red-text" data-action="remove-member" data-position-id="${member.positionId}"><i class="material-icons tiny">delete</i></button>
           </div>
         </div>
       `;
