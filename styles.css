@@ -19,10 +19,11 @@ body { min-height: 100vh; }
 .table-container { overflow-x: auto; }
 .projects-table-container { overflow-x: auto; }
 .projects-table-container table { width: 100%; min-width: 980px; }
-.projects-table-container thead th:last-child { text-align: right; padding-right: 0.8rem; }
-.projects-table-container .actions-cell { white-space: nowrap; text-align: right; }
-.projects-table-container tbody .actions-cell { padding-right: 0.8rem; }
-.projects-table-container .actions-cell .btn-flat { padding: 0 0.3rem; min-width: 1.8rem; margin: 0 0 0 0.1rem; }
+.projects-table-container thead th:last-child { text-align: center; width: 110px; }
+.projects-table-container .actions-cell { white-space: nowrap; text-align: center; width: 110px; }
+.projects-table-container tbody .actions-cell { padding-left: 0.25rem; padding-right: 0.25rem; }
+.projects-table-container .actions-group { display: inline-flex; align-items: center; justify-content: center; gap: 0.05rem; }
+.projects-table-container .actions-cell .btn-flat { padding: 0 0.3rem; min-width: 1.8rem; margin: 0; }
 .empty-message { margin-top: 1.5rem; }
 .date-row { margin-bottom: 0; }
 .chip { margin: 0; }

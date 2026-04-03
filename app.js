@@ -2275,9 +2275,11 @@ if (!isBrowserRuntime) {
         <td>${delivery?.companyName || '—'}</td>
         <td><span class="chip date-chip">${formatDate(project.startDate)} → ${formatDate(project.endDate)}</span></td>
         <td class="actions-cell">
-          <button class="btn-flat teal-text" data-action="view-project" data-id="${project.id}"><i class="material-icons tiny">visibility</i></button>
-          <button class="btn-flat blue-text" data-action="edit-project" data-id="${project.id}"><i class="material-icons tiny">edit</i></button>
-          <button class="btn-flat red-text" data-action="delete-project" data-id="${project.id}"><i class="material-icons tiny">delete</i></button>
+          <div class="actions-group">
+            <button class="btn-flat teal-text" data-action="view-project" data-id="${project.id}"><i class="material-icons tiny">visibility</i></button>
+            <button class="btn-flat blue-text" data-action="edit-project" data-id="${project.id}"><i class="material-icons tiny">edit</i></button>
+            <button class="btn-flat red-text" data-action="delete-project" data-id="${project.id}"><i class="material-icons tiny">delete</i></button>
+          </div>
         </td>
       `;
       ui.projectsBody.appendChild(row);
