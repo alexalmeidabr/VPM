@@ -26,6 +26,7 @@ if (!isBrowserRuntime) {
     projectCount: document.getElementById('project-count'),
     projectsEmptyState: document.getElementById('projects-empty-state'),
     projectsPanelCard: document.getElementById('projects-panel-card'),
+    projectMainColumn: document.getElementById('project-main-column'),
     showProjectFormBtn: document.getElementById('show-project-form-btn'),
     projectFormCard: document.getElementById('project-form-card'),
     projectForm: document.getElementById('project-form'),
@@ -454,6 +455,11 @@ if (!isBrowserRuntime) {
     const isOverviewTab = activeTab === 'overview';
     const isTeamTab = isSavedProject && activeTab === 'team';
     const isTimelineTab = isSavedProject && activeTab === 'timeline';
+    document.body.classList.toggle('workspace-timeline-wide', isTimelineTab);
+    if (ui.projectMainColumn) {
+      ui.projectMainColumn.classList.toggle('l8', !isTimelineTab);
+      ui.projectMainColumn.classList.toggle('l12', isTimelineTab);
+    }
     ui.projectWorkspaceTabs?.querySelectorAll('[data-workspace-tab]').forEach((tabButton) => {
       tabButton.classList.toggle('active', tabButton.dataset.workspaceTab === activeTab);
     });
