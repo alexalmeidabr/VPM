@@ -659,6 +659,13 @@ if (!isBrowserRuntime) {
   const businessPartnerTypeName = (id) => businessPartnerTypeById(id)?.name || '—';
   const consultantNameById = (id) => findConsultantById(id)?.name || '—';
   const areaNameById = (id) => areas.find((area) => Number(area.id) === Number(id))?.name || '—';
+  const projectPositionAreaLabel = (position) => {
+    if (position?.areaId) {
+      const areaName = areaNameById(position.areaId);
+      if (areaName && areaName !== '—') return areaName;
+    }
+    return 'Unassigned';
+  };
   const roleNameById = (id) => roles.find((role) => Number(role.id) === Number(id))?.name || '—';
   const formatDate = (value) => (value ? new Date(value).toLocaleDateString() : '—');
   const formatSalary = (value) => Number(value).toLocaleString('en-IE', { style: 'currency', currency: 'EUR' });
@@ -1709,13 +1716,7 @@ if (!isBrowserRuntime) {
     };
 
     const buildAreaGroups = (members) => {
-      const tmAreaName = 'TM (Transport Management)';
-      const managementLabel = 'Management';
-      const buckets = {
-        management: { label: managementLabel, members: [], ids: new Set() },
-        tm: { label: tmAreaName, members: [], ids: new Set() }
-      };
-      const dynamicBuckets = new Map();
+      const buckets = new Map();
       const pushUnique = (bucket, member, consultant) => {
         const id = member.consultantId ? `consultant-${Number(member.consultantId)}` : `position-${String(member.positionId || Math.random())}`;
         if (bucket.ids.has(id)) return;
@@ -1725,29 +1726,17 @@ if (!isBrowserRuntime) {
 
       members.forEach((member) => {
         const consultant = findConsultantById(member.consultantId);
-        const fallbackAreaName = member.areaId ? areaNameById(member.areaId) : '';
-        const areaNames = (consultant?.areaNames || []).length
-          ? consultant.areaNames
-          : ((consultant?.areaIds || []).map(areaNameById).filter(Boolean).length
-            ? (consultant?.areaIds || []).map(areaNameById).filter(Boolean)
-            : [fallbackAreaName || 'Open Positions']);
-        const lowerAreas = areaNames.map((name) => String(name).trim().toLowerCase());
-
-        if (member.projectRole === 'Project Manager' || lowerAreas.includes(managementLabel.toLowerCase())) {
-          pushUnique(buckets.management, member, consultant);
-        }
-        if (areaNames.includes(tmAreaName)) {
-          pushUnique(buckets.tm, member, consultant);
-        }
-        areaNames.forEach((name) => {
-          const normalized = String(name).trim().toLowerCase();
-          if (!normalized || normalized == tmAreaName.toLowerCase() || normalized === managementLabel.toLowerCase()) return;
-          if (!dynamicBuckets.has(name)) dynamicBuckets.set(name, { label: name, members: [], ids: new Set() });
-          pushUnique(dynamicBuckets.get(name), member, consultant);
-        });
+        const areaLabel = projectPositionAreaLabel(member);
+        if (!buckets.has(areaLabel)) buckets.set(areaLabel, { label: areaLabel, members: [], ids: new Set() });
+        pushUnique(buckets.get(areaLabel), member, consultant);
       });
 
-      return [buckets.management, buckets.tm, ...Array.from(dynamicBuckets.values()).sort((a, b) => a.label.localeCompare(b.label))]
+      return Array.from(buckets.values())
+        .sort((a, b) => {
+          if (a.label === 'Unassigned') return 1;
+          if (b.label === 'Unassigned') return -1;
+          return a.label.localeCompare(b.label);
+        })
         .filter((group) => group.members.length);
     };
 
@@ -2262,13 +2251,7 @@ if (!isBrowserRuntime) {
       return wrapper;
     };
 
-    const tmAreaName = 'TM (Transport Management)';
-    const managementLabel = 'Management';
-    const buckets = {
-      management: { label: managementLabel, members: [], ids: new Set() },
-      tm: { label: tmAreaName, members: [], ids: new Set() }
-    };
-    const dynamicBuckets = new Map();
+    const buckets = new Map();
     const pushUnique = (bucket, member, consultant) => {
       const id = member.consultantId ? `consultant-${Number(member.consultantId)}` : `position-${String(member.positionId || Math.random())}`;
       if (bucket.ids.has(id)) return;
@@ -2278,29 +2261,17 @@ if (!isBrowserRuntime) {
 
     allMembers.forEach((member) => {
       const consultant = findConsultantById(member.consultantId);
-      const fallbackAreaName = member.areaId ? areaNameById(member.areaId) : '';
-      const areaNames = (consultant?.areaNames || []).length
-        ? consultant.areaNames
-        : ((consultant?.areaIds || []).map(areaNameById).filter(Boolean).length
-          ? (consultant?.areaIds || []).map(areaNameById).filter(Boolean)
-          : [fallbackAreaName || 'Open Positions']);
-      const lowerAreas = areaNames.map((name) => String(name).trim().toLowerCase());
-
-      if (member.projectRole === 'Project Manager' || lowerAreas.includes(managementLabel.toLowerCase())) {
-        pushUnique(buckets.management, member, consultant);
-      }
-      if (areaNames.includes(tmAreaName)) {
-        pushUnique(buckets.tm, member, consultant);
-      }
-      areaNames.forEach((name) => {
-        const normalized = String(name).trim().toLowerCase();
-        if (!normalized || normalized === tmAreaName.toLowerCase() || normalized === managementLabel.toLowerCase()) return;
-        if (!dynamicBuckets.has(name)) dynamicBuckets.set(name, { label: name, members: [], ids: new Set() });
-        pushUnique(dynamicBuckets.get(name), member, consultant);
-      });
+      const areaLabel = projectPositionAreaLabel(member);
+      if (!buckets.has(areaLabel)) buckets.set(areaLabel, { label: areaLabel, members: [], ids: new Set() });
+      pushUnique(buckets.get(areaLabel), member, consultant);
     });
 
-    const orderedGroups = [buckets.management, buckets.tm, ...Array.from(dynamicBuckets.values()).sort((a, b) => a.label.localeCompare(b.label))]
+    const orderedGroups = Array.from(buckets.values())
+      .sort((a, b) => {
+        if (a.label === 'Unassigned') return 1;
+        if (b.label === 'Unassigned') return -1;
+        return a.label.localeCompare(b.label);
+      })
       .filter((group) => group.members.length);
 
     orderedGroups.forEach((group) => {
