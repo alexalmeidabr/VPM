@@ -2297,6 +2297,7 @@ if (!isBrowserRuntime) {
       const commentText = String(member.comments || '').trim();
       const displayStatus = getProjectPositionDisplayStatus(member);
       const consultantLabel = consultant?.name || 'Open Position';
+      const canEditPosition = projectViewMode !== 'view';
       wrapper.innerHTML = `
         <div class="member-header">
           <div class="member-body">
@@ -2311,7 +2312,8 @@ if (!isBrowserRuntime) {
           </div>
           <div>
             <button class="btn-flat teal-text" data-action="view-member" data-position-id="${member.positionId}"><i class="material-icons tiny">visibility</i></button>
-            <button class="btn-flat blue-text" data-action="edit-member" data-position-id="${member.positionId}"><i class="material-icons tiny">edit</i></button><button class="btn-flat red-text" data-action="remove-member" data-position-id="${member.positionId}"><i class="material-icons tiny">delete</i></button>
+            ${canEditPosition ? `<button class="btn-flat blue-text" data-action="edit-member" data-position-id="${member.positionId}"><i class="material-icons tiny">edit</i></button>` : ''}
+            <button class="btn-flat red-text" data-action="remove-member" data-position-id="${member.positionId}"><i class="material-icons tiny">delete</i></button>
           </div>
         </div>
       `;
@@ -3311,6 +3313,10 @@ if (!isBrowserRuntime) {
       } catch (error) {
         toast(error.message || 'Failed to remove project position', 'red darken-1');
       }
+      return;
+    }
+    if (button.dataset.action === 'edit-member' && projectViewMode === 'view') {
+      toast('Switch project to Edit mode to modify project positions', 'blue-grey darken-2');
       return;
     }
 
