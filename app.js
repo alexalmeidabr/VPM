@@ -2246,7 +2246,7 @@ if (!isBrowserRuntime) {
     const normalized = String(selectedCurrency || 'EUR').trim().toUpperCase() || 'EUR';
     target.innerHTML = '';
     positionDailyRateCurrencies.forEach((code) => target.add(new Option(code, code, false, code === normalized)));
-    resetSelect('positionRateCurrency', target);
+    resetSelect(target.id || 'positionRateCurrency', target);
   };
 
   const updatePositionRateVisibilityForAdd = () => {
