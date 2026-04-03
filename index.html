@@ -470,6 +470,10 @@
         </div>
         <div class="input-field"><input id="member-allocation-modal" type="number" min="0" max="100" step="1" value="100" /><label class="active" for="member-allocation-modal">Allocation (%)</label></div>
         <p><label><input id="member-billable-modal" type="checkbox" checked /><span>Billable</span></label></p>
+        <div id="member-daily-rate-row-modal" hidden>
+          <div class="input-field"><input id="member-daily-rate-modal" type="number" min="0" step="0.01" /><label class="active" for="member-daily-rate-modal">Daily Rate</label></div>
+          <div class="input-field"><select id="member-daily-rate-currency-modal"></select><label for="member-daily-rate-currency-modal">Daily Rate Currency</label></div>
+        </div>
         <div id="consultant-picker-list" class="consultant-picker-list"></div>
       </div>
       <div class="modal-footer"><button type="button" class="modal-close btn-flat">Cancel</button><button type="button" class="btn" id="save-consultant-assignments-btn">Apply</button></div>
@@ -484,6 +488,11 @@
         <div class="input-field"><select id="member-project-role-modal"></select><label for="member-project-role-modal">Project Role</label></div>
         <div class="input-field"><input id="member-allocation-edit" type="number" min="0" max="100" step="1" /><label class="active" for="member-allocation-edit">Allocation (%)</label></div>
         <p><label><input id="member-billable-edit" type="checkbox" /><span>Billable</span></label></p>
+        <div id="member-daily-rate-row-edit" hidden>
+          <div class="input-field"><input id="member-daily-rate-edit" type="number" min="0" step="0.01" /><label class="active" for="member-daily-rate-edit">Daily Rate</label></div>
+          <div class="input-field"><select id="member-daily-rate-currency-edit"></select><label for="member-daily-rate-currency-edit">Daily Rate Currency</label></div>
+          <p class="grey-text text-darken-1" id="member-daily-rate-display" hidden></p>
+        </div>
         <div class="input-field"><textarea id="member-comments-edit" class="materialize-textarea"></textarea><label class="active" for="member-comments-edit">Comments</label></div>
         <div class="row date-row">
           <div class="input-field col s12 m6"><input id="member-start-date-edit" type="date" /><label class="active" for="member-start-date-edit">Start Date</label></div>

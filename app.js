@@ -87,6 +87,9 @@ if (!isBrowserRuntime) {
     memberEndDateModal: document.getElementById('member-end-date-modal'),
     memberAllocationModal: document.getElementById('member-allocation-modal'),
     memberBillableModal: document.getElementById('member-billable-modal'),
+    memberDailyRateRowModal: document.getElementById('member-daily-rate-row-modal'),
+    memberDailyRateModal: document.getElementById('member-daily-rate-modal'),
+    memberDailyRateCurrencyModal: document.getElementById('member-daily-rate-currency-modal'),
     consultantPickerList: document.getElementById('consultant-picker-list'),
     saveConsultantAssignmentsBtn: document.getElementById('save-consultant-assignments-btn'),
 
@@ -99,6 +102,10 @@ if (!isBrowserRuntime) {
     memberProjectRoleModal: document.getElementById('member-project-role-modal'),
     memberAllocationEdit: document.getElementById('member-allocation-edit'),
     memberBillableEdit: document.getElementById('member-billable-edit'),
+    memberDailyRateRowEdit: document.getElementById('member-daily-rate-row-edit'),
+    memberDailyRateEdit: document.getElementById('member-daily-rate-edit'),
+    memberDailyRateCurrencyEdit: document.getElementById('member-daily-rate-currency-edit'),
+    memberDailyRateDisplay: document.getElementById('member-daily-rate-display'),
     memberCommentsEdit: document.getElementById('member-comments-edit'),
     memberStartDateEdit: document.getElementById('member-start-date-edit'),
     memberEndDateEdit: document.getElementById('member-end-date-edit'),
@@ -379,6 +386,7 @@ if (!isBrowserRuntime) {
 
   const managerCandidates = () => consultants.filter((consultant) => consultant.companyRole === 'Project Manager');
   const positionStatusValues = ['Open', 'Proposed', 'Approved', 'Assigned', 'Closed'];
+  const positionDailyRateCurrencies = ['EUR', 'USD', 'GBP', 'CHF'];
   const positionStatusClassByValue = (status) => ({
     Open: 'position-status-open',
     Proposed: 'position-status-proposed',
@@ -393,6 +401,18 @@ if (!isBrowserRuntime) {
     if (endDate && endDate < today) return 'Closed';
     const status = String(position?.status || '').trim();
     return positionStatusValues.includes(status) ? status : (position?.consultantId ? 'Assigned' : 'Open');
+  };
+  const isTimeMaterialProjectType = () => String(fields.projectType.value || '').trim().toLowerCase() === 'time material';
+  const shouldShowPositionRateFields = ({ billable }) => isTimeMaterialProjectType() && billable !== false;
+  const formatPositionDailyRate = (dailyRate, currency) => {
+    const amount = Number(dailyRate);
+    if (!Number.isFinite(amount)) return '—';
+    const code = String(currency || 'EUR').trim().toUpperCase() || 'EUR';
+    try {
+      return new Intl.NumberFormat('en-US', { style: 'currency', currency: code, minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(amount);
+    } catch (error) {
+      return `${code} ${amount.toFixed(2)}`;
+    }
   };
   const managerConsultantIdFromAssignments = () => {
     const managerMember = selectedProjectAssignments.find((item) => item.projectRole === 'Project Manager'
@@ -434,6 +454,10 @@ if (!isBrowserRuntime) {
       endDate: item.endDate || '',
       allocation: Number(item.allocation ?? 100),
       billable: item.billable !== false,
+      dailyRate: item.dailyRate === '' || item.dailyRate === null || item.dailyRate === undefined ? null : Number(item.dailyRate),
+      dailyRateCurrency: (item.dailyRate === '' || item.dailyRate === null || item.dailyRate === undefined)
+        ? null
+        : (item.dailyRateCurrency ? String(item.dailyRateCurrency).trim().toUpperCase() : null),
       comments: item.comments || '',
       status: item.status || (item.consultantId ? 'Assigned' : 'Open')
     })),
@@ -2217,6 +2241,32 @@ if (!isBrowserRuntime) {
     resetSelect('memberArea', ui.memberAreaModal);
   };
 
+  const rebuildPositionRateCurrencySelect = (target, selectedCurrency) => {
+    if (!target) return;
+    const normalized = String(selectedCurrency || 'EUR').trim().toUpperCase() || 'EUR';
+    target.innerHTML = '';
+    positionDailyRateCurrencies.forEach((code) => target.add(new Option(code, code, false, code === normalized)));
+    resetSelect('positionRateCurrency', target);
+  };
+
+  const updatePositionRateVisibilityForAdd = () => {
+    const billable = ui.memberBillableModal ? ui.memberBillableModal.checked : true;
+    const visible = shouldShowPositionRateFields({ billable });
+    if (ui.memberDailyRateRowModal) ui.memberDailyRateRowModal.hidden = !visible;
+  };
+
+  const updatePositionRateVisibilityForEdit = ({ readOnly = false } = {}) => {
+    const billable = ui.memberBillableEdit ? ui.memberBillableEdit.checked : true;
+    const visible = shouldShowPositionRateFields({ billable });
+    if (ui.memberDailyRateRowEdit) ui.memberDailyRateRowEdit.hidden = !visible;
+    if (ui.memberDailyRateDisplay) {
+      ui.memberDailyRateDisplay.hidden = !visible || !readOnly;
+      if (!ui.memberDailyRateDisplay.hidden) {
+        ui.memberDailyRateDisplay.textContent = `Daily Rate: ${formatPositionDailyRate(ui.memberDailyRateEdit?.value, ui.memberDailyRateCurrencyEdit?.value)}`;
+      }
+    }
+  };
+
   const rebuildMemberConsultantSelect = ({ areaId = null, consultantId = null, positionId = '' } = {}) => {
     if (!ui.memberConsultantModal) return;
     ui.memberConsultantModal.innerHTML = '';
@@ -3224,6 +3274,9 @@ if (!isBrowserRuntime) {
     ui.memberEndDateModal.value = fields.endDate.value;
     ui.memberAllocationModal.value = '100';
     if (ui.memberBillableModal) ui.memberBillableModal.checked = true;
+    if (ui.memberDailyRateModal) ui.memberDailyRateModal.value = '';
+    rebuildPositionRateCurrencySelect(ui.memberDailyRateCurrencyModal, 'EUR');
+    updatePositionRateVisibilityForAdd();
     rebuildAssignmentModalSelects();
     renderConsultantPickerList();
     modals.consultantAssignment?.open();
@@ -3259,6 +3312,7 @@ if (!isBrowserRuntime) {
 
     const selectedConsultantId = modalTempConsultantIds.length ? Number(modalTempConsultantIds[0]) : null;
     const selectedStatus = ui.projectPositionStatusModal?.value || (selectedConsultantId ? 'Assigned' : 'Open');
+    const dailyRateValue = ui.memberDailyRateModal?.value ? Number(ui.memberDailyRateModal.value) : null;
     selectedProjectAssignments.push({
       positionId: `${Date.now()}-${Math.random()}`,
       consultantId: selectedConsultantId,
@@ -3268,6 +3322,8 @@ if (!isBrowserRuntime) {
       endDate: end,
       allocation,
       billable: ui.memberBillableModal ? ui.memberBillableModal.checked : true,
+      dailyRate: dailyRateValue,
+      dailyRateCurrency: dailyRateValue !== null && ui.memberDailyRateCurrencyModal?.value ? String(ui.memberDailyRateCurrencyModal.value).trim().toUpperCase() : null,
       comments: '',
       status: selectedStatus
     });
@@ -3330,21 +3386,27 @@ if (!isBrowserRuntime) {
     ui.memberCommentsEdit.value = member.comments || '';
     ui.memberStartDateEdit.value = member.startDate || '';
     ui.memberEndDateEdit.value = member.endDate || '';
+    if (ui.memberDailyRateEdit) ui.memberDailyRateEdit.value = member.dailyRate ?? '';
+    rebuildPositionRateCurrencySelect(ui.memberDailyRateCurrencyEdit, member.dailyRateCurrency || 'EUR');
     rebuildMemberAreaSelect(member.areaId);
     rebuildMemberConsultantSelect({ areaId: member.areaId, consultantId, positionId });
     rebuildMemberRoleSelect(member.projectRole || 'Project Position');
+    updatePositionRateVisibilityForEdit({ readOnly });
 
     if (ui.memberAreaModal) ui.memberAreaModal.disabled = readOnly;
     if (ui.memberConsultantModal) ui.memberConsultantModal.disabled = readOnly;
     ui.memberProjectRoleModal.disabled = readOnly;
     ui.memberAllocationEdit.disabled = readOnly;
     if (ui.memberBillableEdit) ui.memberBillableEdit.disabled = readOnly;
+    if (ui.memberDailyRateEdit) ui.memberDailyRateEdit.disabled = readOnly;
+    if (ui.memberDailyRateCurrencyEdit) ui.memberDailyRateCurrencyEdit.disabled = readOnly;
     ui.memberCommentsEdit.disabled = readOnly;
     ui.memberStartDateEdit.disabled = readOnly;
     ui.memberEndDateEdit.disabled = readOnly;
     ui.saveMemberDetailsBtn.hidden = readOnly;
     if (ui.memberAreaModal) resetSelect('memberArea', ui.memberAreaModal);
     if (ui.memberConsultantModal) resetSelect('memberConsultant', ui.memberConsultantModal);
+    if (ui.memberDailyRateCurrencyEdit) resetSelect('memberDailyRateCurrencyEdit', ui.memberDailyRateCurrencyEdit);
     resetSelect('memberRole', ui.memberProjectRoleModal);
     updateTextFields();
     modals.memberDetails?.open();
@@ -3358,6 +3420,20 @@ if (!isBrowserRuntime) {
       rebuildMemberConsultantSelect({ areaId: selectedAreaId, consultantId: selectedConsultantId, positionId });
     });
   }
+  if (ui.memberBillableModal) {
+    ui.memberBillableModal.addEventListener('change', updatePositionRateVisibilityForAdd);
+  }
+  if (ui.memberBillableEdit) {
+    ui.memberBillableEdit.addEventListener('change', () => {
+      const readOnly = ui.saveMemberDetailsBtn.hidden;
+      updatePositionRateVisibilityForEdit({ readOnly });
+    });
+  }
+  fields.projectType.addEventListener('change', () => {
+    updatePositionRateVisibilityForAdd();
+    const readOnly = ui.saveMemberDetailsBtn.hidden;
+    updatePositionRateVisibilityForEdit({ readOnly });
+  });
 
   ui.saveMemberDetailsBtn.addEventListener('click', async () => {
     const positionId = String(ui.memberEditConsultantId.value || '');
@@ -3383,6 +3459,8 @@ if (!isBrowserRuntime) {
     }
     item.allocation = allocation;
     item.billable = ui.memberBillableEdit ? ui.memberBillableEdit.checked : true;
+    item.dailyRate = ui.memberDailyRateEdit?.value ? Number(ui.memberDailyRateEdit.value) : null;
+    item.dailyRateCurrency = item.dailyRate !== null && ui.memberDailyRateCurrencyEdit?.value ? String(ui.memberDailyRateCurrencyEdit.value).trim().toUpperCase() : null;
     item.comments = ui.memberCommentsEdit.value.trim();
     item.startDate = ui.memberStartDateEdit.value;
     item.endDate = ui.memberEndDateEdit.value;
@@ -3539,6 +3617,8 @@ if (!isBrowserRuntime) {
       endDate: item.endDate || '',
       allocation: Number(item.allocation ?? 100),
       billable: item.billable !== false,
+      dailyRate: item.dailyRate === '' || item.dailyRate === null || item.dailyRate === undefined ? null : Number(item.dailyRate),
+      dailyRateCurrency: item.dailyRateCurrency ? String(item.dailyRateCurrency).trim().toUpperCase() : null,
       comments: item.comments || '',
       status: item.status || (item.consultantId ? 'Assigned' : 'Open')
     }));
@@ -3555,6 +3635,8 @@ if (!isBrowserRuntime) {
         endDate: project.endDate,
         allocation: 100,
         billable: true,
+        dailyRate: null,
+        dailyRateCurrency: null,
         comments: '',
         status: 'Assigned'
       });

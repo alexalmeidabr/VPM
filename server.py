@@ -323,6 +323,8 @@ def init_db():
         end_date TEXT,
         allocation REAL NOT NULL DEFAULT 100,
         billable INTEGER NOT NULL DEFAULT 1,
+        daily_rate REAL,
+        daily_rate_currency TEXT,
         comments TEXT,
         status TEXT NOT NULL DEFAULT 'Open',
         FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE,
@@ -359,6 +361,8 @@ def init_db():
     ensure_column(conn, 'project_consultants', 'start_date', 'start_date TEXT')
     ensure_column(conn, 'project_consultants', 'end_date', 'end_date TEXT')
     ensure_column(conn, 'project_consultants', 'billable', 'billable INTEGER NOT NULL DEFAULT 1')
+    ensure_column(conn, 'project_positions', 'daily_rate', 'daily_rate REAL')
+    ensure_column(conn, 'project_positions', 'daily_rate_currency', 'daily_rate_currency TEXT')
     ensure_column(conn, 'consultant_availability', 'day_off_type_id', 'day_off_type_id INTEGER')
     ensure_column(conn, 'consultant_availability', 'type', 'type TEXT')
     ensure_column(conn, 'consultants', 'holiday_location_id', 'holiday_location_id INTEGER REFERENCES holiday_locations(id) ON DELETE SET NULL')
@@ -595,6 +599,16 @@ class VPMHandler(SimpleHTTPRequestHandler):
         billable = billable.strip().lower() not in ('false', '0', 'no', 'off', '')
       else:
         billable = bool(billable)
+      daily_rate_raw = position.get('dailyRate')
+      daily_rate = None
+      if daily_rate_raw not in (None, ''):
+        try:
+          daily_rate = float(daily_rate_raw)
+        except (TypeError, ValueError):
+          return 'dailyRate must be numeric when provided'
+        if daily_rate < 0:
+          return 'dailyRate cannot be negative'
+      daily_rate_currency = str(position.get('dailyRateCurrency', '')).strip().upper() or None
       status = str(position.get('status', '')).strip() or ('Assigned' if consultant_id else 'Open')
       if status not in allowed_position_statuses:
         return 'project position status must be one of: Open, Proposed, Approved, Assigned, Closed'
@@ -614,6 +628,8 @@ class VPMHandler(SimpleHTTPRequestHandler):
         'endDate': end,
         'allocation': float(position.get('allocation', 100) or 100),
         'billable': billable,
+        'dailyRate': daily_rate,
+        'dailyRateCurrency': daily_rate_currency,
         'comments': str(position.get('comments', '')).strip(),
         'status': status
       }
@@ -1064,7 +1080,7 @@ class VPMHandler(SimpleHTTPRequestHandler):
     for row in rows:
       positions = conn.execute(
         '''
-        SELECT pp.id, pp.consultant_id, pp.area_id, pp.project_role, pp.start_date, pp.end_date, pp.allocation, pp.billable, pp.comments, pp.status, c.name AS consultant_name
+        SELECT pp.id, pp.consultant_id, pp.area_id, pp.project_role, pp.start_date, pp.end_date, pp.allocation, pp.billable, pp.daily_rate, pp.daily_rate_currency, pp.comments, pp.status, c.name AS consultant_name
         FROM project_positions pp
         LEFT JOIN consultants c ON c.id = pp.consultant_id
         WHERE pp.project_id = ?
@@ -1134,6 +1150,8 @@ class VPMHandler(SimpleHTTPRequestHandler):
             'endDate': m['end_date'] or '',
             'allocation': m['allocation'] if m['allocation'] is not None else 100,
             'billable': bool(m['billable']) if m['billable'] is not None else True,
+            'dailyRate': m['daily_rate'],
+            'dailyRateCurrency': m['daily_rate_currency'],
             'comments': m['comments'] or '',
             'status': m['status'] or ('Assigned' if m['consultant_id'] else 'Open')
           }
@@ -1625,8 +1643,8 @@ class VPMHandler(SimpleHTTPRequestHandler):
           )
         for item in payload.get('projectPositions', []):
           conn.execute(
-            'INSERT INTO project_positions (project_id, consultant_id, area_id, project_role, start_date, end_date, allocation, billable, comments, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-            (project_id, item.get('consultantId'), item.get('areaId'), item['projectRole'], item['startDate'], item['endDate'], item.get('allocation', 100), 1 if item.get('billable', True) else 0, item.get('comments', ''), item.get('status', 'Open'))
+            'INSERT INTO project_positions (project_id, consultant_id, area_id, project_role, start_date, end_date, allocation, billable, daily_rate, daily_rate_currency, comments, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+            (project_id, item.get('consultantId'), item.get('areaId'), item['projectRole'], item['startDate'], item['endDate'], item.get('allocation', 100), 1 if item.get('billable', True) else 0, item.get('dailyRate'), item.get('dailyRateCurrency'), item.get('comments', ''), item.get('status', 'Open'))
           )
         phase_id_map = {}
         for phase in payload['projectPhases']:
@@ -2033,8 +2051,8 @@ class VPMHandler(SimpleHTTPRequestHandler):
           )
         for item in payload.get('projectPositions', []):
           conn.execute(
-            'INSERT INTO project_positions (project_id, consultant_id, area_id, project_role, start_date, end_date, allocation, billable, comments, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-            (project_id, item.get('consultantId'), item.get('areaId'), item['projectRole'], item['startDate'], item['endDate'], item.get('allocation', 100), 1 if item.get('billable', True) else 0, item.get('comments', ''), item.get('status', 'Open'))
+            'INSERT INTO project_positions (project_id, consultant_id, area_id, project_role, start_date, end_date, allocation, billable, daily_rate, daily_rate_currency, comments, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+            (project_id, item.get('consultantId'), item.get('areaId'), item['projectRole'], item['startDate'], item['endDate'], item.get('allocation', 100), 1 if item.get('billable', True) else 0, item.get('dailyRate'), item.get('dailyRateCurrency'), item.get('comments', ''), item.get('status', 'Open'))
           )
         phase_id_map = {}
         for phase in payload['projectPhases']:
