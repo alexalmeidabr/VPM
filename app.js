@@ -451,6 +451,9 @@ if (!isBrowserRuntime) {
     if (ui.projectWorkspaceTabs) ui.projectWorkspaceTabs.hidden = !isSavedProject || !manageProjectOpen;
 
     const activeTab = isSavedProject ? activeProjectWorkspaceTab : 'overview';
+    const isOverviewTab = activeTab === 'overview';
+    const isTeamTab = isSavedProject && activeTab === 'team';
+    const isTimelineTab = isSavedProject && activeTab === 'timeline';
     ui.projectWorkspaceTabs?.querySelectorAll('[data-workspace-tab]').forEach((tabButton) => {
       tabButton.classList.toggle('active', tabButton.dataset.workspaceTab === activeTab);
     });
@@ -460,13 +463,11 @@ if (!isBrowserRuntime) {
       panel.hidden = !shouldShow;
     });
 
-    const showTeamInMain = isSavedProject && activeTab === 'team';
-    const showTimelineInMain = isSavedProject && activeTab === 'timeline';
-    document.body.classList.toggle('workspace-timeline-tab-active', showTimelineInMain);
-    if (showTeamInMain) movePanelToHost(ui.projectMembersCard, ui.projectTeamTabHost);
+    document.body.classList.toggle('workspace-timeline-tab-active', isTimelineTab);
+    if (isTeamTab) movePanelToHost(ui.projectMembersCard, ui.projectTeamTabHost);
     else movePanelToHost(ui.projectMembersCard, projectMembersDefaultParent);
 
-    if (showTimelineInMain) {
+    if (isTimelineTab) {
       movePanelToHost(ui.projectTimelinePanel, ui.projectTimelineTabHost);
       if (!isProjectTimelineExpanded) {
         isProjectTimelineExpanded = true;
@@ -478,9 +479,9 @@ if (!isBrowserRuntime) {
       if (isProjectTimelineExpanded) collapseProjectTimeline();
     }
 
-    if (ui.projectMembersColumn) ui.projectMembersColumn.hidden = !manageProjectOpen || showTeamInMain;
-    if (ui.projectMembersCard) ui.projectMembersCard.hidden = !manageProjectOpen;
-    console.debug(`[projectWorkspace] context=${context} saved=${isSavedProject} activeTab=${activeTab} teamMain=${showTeamInMain} timelineMain=${showTimelineInMain}`);
+    if (ui.projectMembersColumn) ui.projectMembersColumn.hidden = !manageProjectOpen || !isOverviewTab;
+    if (ui.projectMembersCard) ui.projectMembersCard.hidden = !manageProjectOpen || (!isOverviewTab && !isTeamTab);
+    console.debug(`[projectWorkspace] context=${context} saved=${isSavedProject} activeTab=${activeTab} overviewTab=${isOverviewTab} teamMain=${isTeamTab} timelineMain=${isTimelineTab}`);
   };
 
   const statusClassByValue = (status) => ({
