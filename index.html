@@ -173,6 +173,7 @@
                     <span class="card-title">Project Positions</span>
                     <span class="grey-text" id="assigned-consultants-summary">No project positions yet.</span>
                   </div>
+                  <p id="show-closed-project-positions-row" class="project-members-toggle-row" hidden><label><input id="show-closed-project-positions-toggle" type="checkbox" /><span>Show Closed Positions</span></label></p>
                   <button class="btn waves-effect waves-light" type="button" id="open-consultant-modal-btn">Add Position</button>
                 </div>
                 <div id="project-members-list" class="project-members-list"></div>
@@ -469,7 +470,7 @@
           <div class="input-field col s12 m6"><input id="member-end-date-modal" type="date" /><label class="active" for="member-end-date-modal">End Date</label></div>
         </div>
         <div class="input-field"><input id="member-allocation-modal" type="number" min="0" max="100" step="1" value="100" /><label class="active" for="member-allocation-modal">Allocation (%)</label></div>
-        <p><label><input id="member-billable-modal" type="checkbox" checked /><span>Billable</span></label></p>
+        <p id="member-billable-row-modal"><label><input id="member-billable-modal" type="checkbox" checked /><span>Billable</span></label></p>
         <div id="member-daily-rate-row-modal" hidden>
           <div class="input-field"><input id="member-daily-rate-modal" type="number" min="0" step="0.01" /><label class="active" for="member-daily-rate-modal">Daily Rate</label></div>
           <div class="input-field"><select id="member-daily-rate-currency-modal"></select><label for="member-daily-rate-currency-modal">Daily Rate Currency</label></div>
@@ -488,7 +489,7 @@
         <div class="input-field"><select id="member-project-role-modal"></select><label for="member-project-role-modal">Project Role</label></div>
         <div class="input-field"><select id="member-position-status-edit"></select><label for="member-position-status-edit">Position Status</label></div>
         <div class="input-field"><input id="member-allocation-edit" type="number" min="0" max="100" step="1" /><label class="active" for="member-allocation-edit">Allocation (%)</label></div>
-        <p><label><input id="member-billable-edit" type="checkbox" /><span>Billable</span></label></p>
+        <p id="member-billable-row-edit"><label><input id="member-billable-edit" type="checkbox" /><span>Billable</span></label></p>
         <div id="member-daily-rate-row-edit" hidden>
           <div class="input-field"><input id="member-daily-rate-edit" type="number" min="0" step="0.01" /><label class="active" for="member-daily-rate-edit">Daily Rate</label></div>
           <div class="input-field"><select id="member-daily-rate-currency-edit"></select><label for="member-daily-rate-currency-edit">Daily Rate Currency</label></div>

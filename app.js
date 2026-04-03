@@ -55,6 +55,8 @@ if (!isBrowserRuntime) {
     projectSummaryBackBtn: document.getElementById('project-summary-back-btn'),
     openConsultantModalBtn: document.getElementById('open-consultant-modal-btn'),
     assignedConsultantsSummary: document.getElementById('assigned-consultants-summary'),
+    showClosedProjectPositionsRow: document.getElementById('show-closed-project-positions-row'),
+    showClosedProjectPositionsToggle: document.getElementById('show-closed-project-positions-toggle'),
     projectMembersList: document.getElementById('project-members-list'),
     projectMembersCard: document.getElementById('project-members-card'),
     projectTimelinePanel: document.getElementById('project-timeline-panel'),
@@ -86,6 +88,7 @@ if (!isBrowserRuntime) {
     memberStartDateModal: document.getElementById('member-start-date-modal'),
     memberEndDateModal: document.getElementById('member-end-date-modal'),
     memberAllocationModal: document.getElementById('member-allocation-modal'),
+    memberBillableRowModal: document.getElementById('member-billable-row-modal'),
     memberBillableModal: document.getElementById('member-billable-modal'),
     memberDailyRateRowModal: document.getElementById('member-daily-rate-row-modal'),
     memberDailyRateModal: document.getElementById('member-daily-rate-modal'),
@@ -102,6 +105,7 @@ if (!isBrowserRuntime) {
     memberProjectRoleModal: document.getElementById('member-project-role-modal'),
     memberPositionStatusEdit: document.getElementById('member-position-status-edit'),
     memberAllocationEdit: document.getElementById('member-allocation-edit'),
+    memberBillableRowEdit: document.getElementById('member-billable-row-edit'),
     memberBillableEdit: document.getElementById('member-billable-edit'),
     memberDailyRateRowEdit: document.getElementById('member-daily-rate-row-edit'),
     memberDailyRateEdit: document.getElementById('member-daily-rate-edit'),
@@ -304,6 +308,7 @@ if (!isBrowserRuntime) {
   let showProjectPhaseForm = false;
   let showProjectMilestoneForm = false;
   let editingProjectPhaseId = null;
+  let showClosedProjectPositions = false;
   let allocationSimulations = [];
   let allocationState = null;
   let timesheetMonths = [];
@@ -2144,9 +2149,9 @@ if (!isBrowserRuntime) {
   };
 
   const updateAssignedConsultantsSummary = () => {
-    ui.assignedConsultantsSummary.textContent = selectedProjectAssignments.length
-      ? `${selectedProjectAssignments.length} position${selectedProjectAssignments.length === 1 ? '' : 's'} configured`
-      : 'No project positions yet.';
+    const assignedCount = selectedProjectAssignments
+      .filter((item) => getProjectPositionDisplayStatus(item) === 'Assigned').length;
+    ui.assignedConsultantsSummary.textContent = `${assignedCount} position${assignedCount === 1 ? '' : 's'} assigned`;
   };
 
   const rebuildProjectSelects = ({ managerId = '', projectType = '', clientBusinessPartnerId = '', clientContactIds = [], deliveryPartnerBusinessPartnerId = '', deliveryPartnerContactIds = [] } = {}) => {
@@ -2259,14 +2264,20 @@ if (!isBrowserRuntime) {
   };
 
   const updatePositionRateVisibilityForAdd = () => {
+    const showBillable = isTimeMaterialProjectType();
+    if (ui.memberBillableRowModal) ui.memberBillableRowModal.hidden = !showBillable;
+    if (!showBillable && ui.memberBillableModal) ui.memberBillableModal.checked = false;
     const billable = ui.memberBillableModal ? ui.memberBillableModal.checked : true;
-    const visible = shouldShowPositionRateFields({ billable });
+    const visible = showBillable && shouldShowPositionRateFields({ billable });
     if (ui.memberDailyRateRowModal) ui.memberDailyRateRowModal.hidden = !visible;
   };
 
   const updatePositionRateVisibilityForEdit = ({ readOnly = false } = {}) => {
+    const showBillable = isTimeMaterialProjectType();
+    if (ui.memberBillableRowEdit) ui.memberBillableRowEdit.hidden = !showBillable;
+    if (!showBillable && ui.memberBillableEdit) ui.memberBillableEdit.checked = false;
     const billable = ui.memberBillableEdit ? ui.memberBillableEdit.checked : true;
-    const visible = shouldShowPositionRateFields({ billable });
+    const visible = showBillable && shouldShowPositionRateFields({ billable });
     if (ui.memberDailyRateRowEdit) ui.memberDailyRateRowEdit.hidden = !visible;
     if (ui.memberDailyRateDisplay) {
       ui.memberDailyRateDisplay.hidden = !visible || !readOnly;
@@ -2341,10 +2352,16 @@ if (!isBrowserRuntime) {
   const updateProjectMembersPanel = () => {
     ui.projectMembersList.innerHTML = '';
     syncManagerFieldWithAssignments();
-    const allMembers = [...selectedProjectAssignments];
+    const hasClosedPositions = selectedProjectAssignments.some((item) => getProjectPositionDisplayStatus(item) === 'Closed');
+    if (!hasClosedPositions) showClosedProjectPositions = false;
+    if (ui.showClosedProjectPositionsRow) ui.showClosedProjectPositionsRow.hidden = !hasClosedPositions;
+    if (ui.showClosedProjectPositionsToggle) ui.showClosedProjectPositionsToggle.checked = Boolean(showClosedProjectPositions);
+    const allMembers = showClosedProjectPositions
+      ? [...selectedProjectAssignments]
+      : selectedProjectAssignments.filter((item) => getProjectPositionDisplayStatus(item) !== 'Closed');
 
     if (!allMembers.length) {
-      ui.projectMembersList.innerHTML = '<p class="grey-text">No project positions yet.</p>';
+      ui.projectMembersList.innerHTML = `<p class="grey-text">${selectedProjectAssignments.length ? 'No project positions match the current filter.' : 'No project positions yet.'}</p>`;
       refreshProjectTimeline();
       return;
     }
@@ -2359,6 +2376,7 @@ if (!isBrowserRuntime) {
       const canEditPosition = projectViewMode !== 'view';
       const hasDailyRate = member.dailyRate !== null && member.dailyRate !== undefined && member.dailyRate !== '';
       const showDailyRate = shouldShowPositionRateFields({ billable: member.billable !== false }) && hasDailyRate;
+      const showBillable = isTimeMaterialProjectType();
       const dailyRateLabel = showDailyRate ? formatPositionDailyRate(member.dailyRate, member.dailyRateCurrency) : '';
       wrapper.innerHTML = `
         <div class="member-header">
@@ -2368,7 +2386,7 @@ if (!isBrowserRuntime) {
               <span class="member-role-chip">${roleLabel}</span>
               <span class="position-status-badge ${positionStatusClassByValue(displayStatus)}">${displayStatus}</span>
             </div>
-            <div class="member-meta member-kpi-row"><span>Allocation: ${Number(member.allocation ?? 100)}%</span><span>Billable: ${member.billable === false ? 'No' : 'Yes'}</span>${showDailyRate ? `<span>Daily Rate: ${dailyRateLabel}</span>` : ''}</div>
+            <div class="member-meta member-kpi-row"><span>Allocation: ${Number(member.allocation ?? 100)}%</span>${showBillable ? `<span>Billable: ${member.billable === false ? 'No' : 'Yes'}</span>` : ''}${showDailyRate ? `<span>Daily Rate: ${dailyRateLabel}</span>` : ''}</div>
             <div class="member-meta">Dates: ${formatDate(member.startDate)} - ${formatDate(member.endDate)}</div>
             ${commentText ? `<div class="member-meta">Comments: ${commentText}</div>` : ''}
           </div>
@@ -3008,6 +3026,8 @@ if (!isBrowserRuntime) {
     editingProjectPhaseId = null;
     modalSelectedAreaId = '';
     modalTempConsultantIds = [];
+    showClosedProjectPositions = false;
+    if (ui.showClosedProjectPositionsToggle) ui.showClosedProjectPositionsToggle.checked = false;
     activeProjectWorkspaceTab = 'overview';
     projectFiles = [];
     renderProjectFiles();
@@ -3443,10 +3463,17 @@ if (!isBrowserRuntime) {
       updatePositionRateVisibilityForEdit({ readOnly });
     });
   }
+  if (ui.showClosedProjectPositionsToggle) {
+    ui.showClosedProjectPositionsToggle.addEventListener('change', () => {
+      showClosedProjectPositions = Boolean(ui.showClosedProjectPositionsToggle.checked);
+      updateProjectMembersPanel();
+    });
+  }
   fields.projectType.addEventListener('change', () => {
     updatePositionRateVisibilityForAdd();
     const readOnly = ui.saveMemberDetailsBtn.hidden;
     updatePositionRateVisibilityForEdit({ readOnly });
+    updateProjectMembersPanel();
   });
 
   ui.saveMemberDetailsBtn.addEventListener('click', async () => {
@@ -3622,6 +3649,8 @@ if (!isBrowserRuntime) {
     fields.deliveryPartnerBusinessPartnerId.value = project.deliveryPartnerBusinessPartnerId || '';
     fields.startDate.value = project.startDate;
     fields.endDate.value = project.endDate;
+    showClosedProjectPositions = false;
+    if (ui.showClosedProjectPositionsToggle) ui.showClosedProjectPositionsToggle.checked = false;
     const projectPositions = project.projectPositions || project.consultantAssignments || [];
     selectedProjectAssignments = projectPositions.map((item) => ({
       positionId: String(item.id || `${Date.now()}-${Math.random()}`),
