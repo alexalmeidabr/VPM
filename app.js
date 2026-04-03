@@ -3501,12 +3501,30 @@ if (!isBrowserRuntime) {
     const loaded = {};
     const failed = [];
 
+    const extractCollection = (payload, preferredProp, fallback = []) => {
+      if (Array.isArray(payload)) return payload;
+      if (!payload || typeof payload !== 'object') return fallback;
+      if (Array.isArray(payload[preferredProp])) return payload[preferredProp];
+      if (Array.isArray(payload.items)) return payload.items;
+      if (Array.isArray(payload.data)) return payload.data;
+      return fallback;
+    };
+
     results.forEach((result, index) => {
       const endpoint = endpoints[index];
-      if (result.status === 'fulfilled') loaded[endpoint.key] = result.value?.[endpoint.prop] || endpoint.fallback;
-      else {
+      if (result.status === 'fulfilled') {
+        loaded[endpoint.key] = extractCollection(result.value, endpoint.prop, endpoint.fallback);
+        if (endpoint.key === 'projects') {
+          console.debug('[loadAll] raw /api/projects response', result.value);
+          console.debug('[loadAll] Array.isArray(projectsRes.projects)', Array.isArray(result.value?.projects));
+          console.debug('[loadAll] normalized projects length', loaded[endpoint.key].length);
+        }
+      } else {
         loaded[endpoint.key] = endpoint.fallback;
         failed.push(endpoint.path);
+        if (endpoint.key === 'projects') {
+          console.error('[loadAll] /api/projects request failed', result.reason);
+        }
       }
     });
 
@@ -3525,6 +3543,7 @@ if (!isBrowserRuntime) {
     allocationSimulations = loaded.allocationSimulations;
 
     renderProjects();
+    console.debug('[loadAll] empty state visible', projects.length === 0);
     renderConsultants();
     renderBusinessPartners();
     renderAdminLists();
