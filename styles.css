@@ -104,6 +104,18 @@ body { min-height: 100vh; }
 .revenue-summary-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 0.65rem; margin-bottom: 0.9rem; }
 .revenue-summary-card { border: 1px solid #d7e1e6; border-radius: 8px; padding: 0.55rem 0.7rem; background: #fafcfd; display: flex; flex-direction: column; gap: 0.2rem; }
 .revenue-summary-card strong { font-size: 1.05rem; color: #37474f; }
+.project-subtabs { display: flex; gap: 0.5rem; flex-wrap: wrap; margin-bottom: 0.75rem; }
+.project-subtab { border: 1px solid #cfd8dc; background: #fff; color: #455a64; border-radius: 999px; padding: 0.3rem 0.8rem; font-weight: 600; cursor: pointer; }
+.project-subtab.active { background: #00897b; border-color: #00897b; color: #fff; }
+.month-detail-card { margin-top: 0.8rem; border: 1px solid #d7e1e6; border-radius: 8px; padding: 0.65rem; background: #fcfefe; }
+.simple-pie-chart { display: flex; align-items: center; gap: 1rem; padding: 0.75rem; border: 1px solid #d7e1e6; border-radius: 8px; margin-bottom: 1rem; }
+.pie-chart-ring { width: 120px; height: 120px; border-radius: 50%; background: conic-gradient(#26a69a 0deg, #26a69a 180deg, #ff7043 180deg, #ff7043 360deg); position: relative; }
+.pie-chart-ring::after { content: ''; position: absolute; inset: 20px; border-radius: 50%; background: #fff; }
+.pie-chart-fill { display: none; }
+.pie-chart-legend { display: flex; flex-direction: column; gap: 0.3rem; color: #455a64; }
+.legend-dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 0.35rem; }
+.legend-dot.paid { background: #26a69a; }
+.legend-dot.outstanding { background: #ff7043; }
 #project-team-tab-host .sticky-members-panel {
   position: static;
   min-width: 0;

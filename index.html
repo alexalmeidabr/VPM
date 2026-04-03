@@ -141,49 +141,84 @@
                   <div id="project-workspace-revenue" class="project-workspace-panel" data-workspace-panel="revenue" hidden>
                     <div id="project-revenue-not-implemented" class="project-workspace-placeholder" hidden>Revenue Management V1 is not yet implemented for this project type.</div>
                     <div id="project-revenue-time-material" hidden>
-                      <div class="section-header">
-                        <h6>Revenue Forecast KPIs</h6>
+                      <div id="project-revenue-subtabs" class="project-subtabs">
+                        <button type="button" class="project-subtab active" data-revenue-subtab="invoices">Invoices</button>
+                        <button type="button" class="project-subtab" data-revenue-subtab="forecast">Forecast</button>
+                        <button type="button" class="project-subtab" data-revenue-subtab="actuals">Actuals</button>
                       </div>
-                      <div class="revenue-summary-grid">
-                        <div class="revenue-summary-card"><span class="grey-text">Total Contracted Revenue</span><strong id="revenue-total-contracted-value">€0.00</strong></div>
-                        <div class="revenue-summary-card"><span class="grey-text">Revenue This Month</span><strong id="revenue-this-month-value">€0.00</strong></div>
-                        <div class="revenue-summary-card"><span class="grey-text">Revenue Next 3 Months</span><strong id="revenue-next-3-months-value">€0.00</strong></div>
-                        <div class="revenue-summary-card"><span class="grey-text">Total Forecast Until Project End</span><strong id="revenue-forecast-total-value">€0.00</strong></div>
+                      <div id="project-revenue-subtab-invoices" data-revenue-subtab-panel="invoices">
+                        <div class="section-header">
+                          <h6>Invoices</h6>
+                          <button class="btn waves-effect waves-light" type="button" id="add-invoice-btn">Add Invoice</button>
+                        </div>
+                        <div class="table-container">
+                          <table class="striped responsive-table">
+                            <thead>
+                              <tr><th>Invoice Ref</th><th>Period</th><th>Invoice Date</th><th>Due Date</th><th>Amount</th><th>Paid Amount</th><th>Status</th><th>Actions</th></tr>
+                            </thead>
+                            <tbody id="project-revenue-invoices-body"></tbody>
+                          </table>
+                        </div>
+                        <p class="grey-text text-darken-1 empty-message" id="project-revenue-invoices-empty">No invoices yet.</p>
                       </div>
-                      <div class="section-header">
-                        <h6>Monthly Forecast Breakdown</h6>
+                      <div id="project-revenue-subtab-forecast" data-revenue-subtab-panel="forecast" hidden>
+                        <div class="section-header">
+                          <h6>Revenue Forecast KPIs</h6>
+                        </div>
+                        <div class="revenue-summary-grid">
+                          <div class="revenue-summary-card"><span class="grey-text">Total Contracted Revenue</span><strong id="revenue-total-contracted-value">€0.00</strong></div>
+                          <div class="revenue-summary-card"><span class="grey-text">Revenue This Month</span><strong id="revenue-this-month-value">€0.00</strong></div>
+                          <div class="revenue-summary-card"><span class="grey-text">Revenue Next 3 Months</span><strong id="revenue-next-3-months-value">€0.00</strong></div>
+                          <div class="revenue-summary-card"><span class="grey-text">Total Forecast Until Project End</span><strong id="revenue-forecast-total-value">€0.00</strong></div>
+                        </div>
+                        <div class="section-header">
+                          <h6>Monthly Forecast Breakdown</h6>
+                        </div>
+                        <div class="table-container">
+                          <table class="striped responsive-table">
+                            <thead>
+                              <tr><th>Month</th><th>Billable Days</th><th>Revenue</th><th>Positions</th><th>Consultants</th><th>Details</th></tr>
+                            </thead>
+                            <tbody id="project-revenue-forecast-body"></tbody>
+                          </table>
+                        </div>
+                        <p class="grey-text text-darken-1 empty-message" id="project-revenue-forecast-empty">No forecast rows available.</p>
+                        <div id="project-revenue-forecast-detail" class="month-detail-card" hidden>
+                          <div class="section-header">
+                            <h6 id="project-revenue-forecast-detail-title">Forecast Month Details</h6>
+                          </div>
+                          <div class="table-container">
+                            <table class="striped responsive-table">
+                              <thead>
+                                <tr><th>Position</th><th>Consultant</th><th>Allocation %</th><th>Daily Rate</th><th>Billable Days</th><th>Revenue</th></tr>
+                              </thead>
+                              <tbody id="project-revenue-forecast-detail-body"></tbody>
+                            </table>
+                          </div>
+                          <p class="grey-text text-darken-1 empty-message" id="project-revenue-forecast-detail-empty">No month details available.</p>
+                        </div>
                       </div>
-                      <div class="table-container">
-                        <table class="striped responsive-table">
-                          <thead>
-                            <tr><th>Month</th><th>Position</th><th>Consultant</th><th>Allocation %</th><th>Daily Rate</th><th>Billable Days</th><th>Revenue</th></tr>
-                          </thead>
-                          <tbody id="project-revenue-forecast-body"></tbody>
-                        </table>
+                      <div id="project-revenue-subtab-actuals" data-revenue-subtab-panel="actuals" hidden>
+                        <div class="section-header">
+                          <h6>Revenue Actuals</h6>
+                        </div>
+                        <div class="revenue-summary-grid">
+                          <div class="revenue-summary-card"><span class="grey-text">Total Invoiced</span><strong id="revenue-invoiced-value">€0.00</strong></div>
+                          <div class="revenue-summary-card"><span class="grey-text">Total Paid</span><strong id="revenue-paid-value">€0.00</strong></div>
+                          <div class="revenue-summary-card"><span class="grey-text">Outstanding</span><strong id="revenue-outstanding-value">€0.00</strong></div>
+                          <div class="revenue-summary-card"><span class="grey-text">Unbilled Forecast</span><strong id="revenue-unbilled-value">€0.00</strong></div>
+                        </div>
+                        <div class="section-header">
+                          <h6>Paid vs Outstanding</h6>
+                        </div>
+                        <div id="revenue-actuals-chart" class="simple-pie-chart">
+                          <div class="pie-chart-ring"><div id="revenue-actuals-chart-fill" class="pie-chart-fill"></div></div>
+                          <div class="pie-chart-legend">
+                            <div><span class="legend-dot paid"></span>Paid: <strong id="revenue-actuals-paid-label">€0.00</strong></div>
+                            <div><span class="legend-dot outstanding"></span>Outstanding: <strong id="revenue-actuals-outstanding-label">€0.00</strong></div>
+                          </div>
+                        </div>
                       </div>
-                      <p class="grey-text text-darken-1 empty-message" id="project-revenue-forecast-empty">No forecast rows available.</p>
-                      <div class="section-header">
-                        <h6>Revenue Actuals</h6>
-                      </div>
-                      <div class="revenue-summary-grid">
-                        <div class="revenue-summary-card"><span class="grey-text">Total Invoiced</span><strong id="revenue-invoiced-value">€0.00</strong></div>
-                        <div class="revenue-summary-card"><span class="grey-text">Total Paid</span><strong id="revenue-paid-value">€0.00</strong></div>
-                        <div class="revenue-summary-card"><span class="grey-text">Outstanding</span><strong id="revenue-outstanding-value">€0.00</strong></div>
-                        <div class="revenue-summary-card"><span class="grey-text">Unbilled Forecast</span><strong id="revenue-unbilled-value">€0.00</strong></div>
-                      </div>
-                      <div class="section-header">
-                        <h6>Invoices</h6>
-                        <button class="btn waves-effect waves-light" type="button" id="add-invoice-btn">Add Invoice</button>
-                      </div>
-                      <div class="table-container">
-                        <table class="striped responsive-table">
-                          <thead>
-                            <tr><th>Invoice Ref</th><th>Period</th><th>Invoice Date</th><th>Due Date</th><th>Amount</th><th>Paid Amount</th><th>Status</th><th>Actions</th></tr>
-                          </thead>
-                          <tbody id="project-revenue-invoices-body"></tbody>
-                        </table>
-                      </div>
-                      <p class="grey-text text-darken-1 empty-message" id="project-revenue-invoices-empty">No invoices yet.</p>
                     </div>
                   </div>
                   <div id="project-workspace-profitability" class="project-workspace-panel" data-workspace-panel="profitability" hidden>
@@ -200,12 +235,24 @@
                       <div class="table-container">
                         <table class="striped responsive-table">
                           <thead>
-                            <tr><th>Month</th><th>Position</th><th>Consultant</th><th>Allocation %</th><th>Revenue</th><th>Internal Cost</th><th>Gross Margin</th><th>Margin %</th></tr>
+                            <tr><th>Month</th><th>Revenue</th><th>Internal Cost</th><th>Gross Margin</th><th>Margin %</th><th>Details</th></tr>
                           </thead>
                           <tbody id="project-profitability-body"></tbody>
                         </table>
                       </div>
                       <p class="grey-text text-darken-1 empty-message" id="project-profitability-empty">No profitability rows available.</p>
+                      <div id="project-profitability-detail" class="month-detail-card" hidden>
+                        <div class="section-header"><h6 id="project-profitability-detail-title">Profitability Month Details</h6></div>
+                        <div class="table-container">
+                          <table class="striped responsive-table">
+                            <thead>
+                              <tr><th>Position</th><th>Consultant</th><th>Allocation %</th><th>Revenue</th><th>Internal Cost</th><th>Gross Margin</th><th>Margin %</th></tr>
+                            </thead>
+                            <tbody id="project-profitability-detail-body"></tbody>
+                          </table>
+                        </div>
+                        <p class="grey-text text-darken-1 empty-message" id="project-profitability-detail-empty">No month details available.</p>
+                      </div>
                     </div>
                   </div>
                   <div id="project-workspace-files" class="project-workspace-panel" data-workspace-panel="files" hidden>

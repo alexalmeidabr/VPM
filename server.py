@@ -1530,6 +1530,19 @@ class VPMHandler(SimpleHTTPRequestHandler):
   def get_project_revenue_summary(self, conn, project_id):
     forecast_payload = self.calculate_time_material_revenue_forecast(conn, project_id)
     forecast = float(forecast_payload['summary']['totalForecastRevenueUntilProjectEnd'])
+    actuals = self.calculate_revenue_actuals_summary(conn, project_id)
+    return {
+      'totalContractedRevenue': forecast_payload['summary']['totalContractedRevenue'],
+      'revenueThisMonth': forecast_payload['summary']['revenueThisMonth'],
+      'revenueNext3Months': forecast_payload['summary']['revenueNext3Months'],
+      'totalForecastRevenueUntilProjectEnd': forecast_payload['summary']['totalForecastRevenueUntilProjectEnd'],
+      'invoicedAmount': actuals['totalInvoiced'],
+      'paidAmount': actuals['totalPaid'],
+      'outstandingAmount': actuals['outstanding'],
+      'unbilledForecast': forecast - actuals['totalInvoiced']
+    }
+
+  def calculate_revenue_actuals_summary(self, conn, project_id):
     invoiced_row = conn.execute('SELECT COALESCE(SUM(amount), 0) AS total FROM invoices WHERE project_id = ?', (project_id,)).fetchone()
     invoiced = float(invoiced_row['total'] if invoiced_row and invoiced_row['total'] is not None else 0.0)
     paid_row = conn.execute(
@@ -1542,15 +1555,33 @@ class VPMHandler(SimpleHTTPRequestHandler):
       (project_id,)
     ).fetchone()
     paid = float(paid_row['total'] if paid_row and paid_row['total'] is not None else 0.0)
+    outstanding = max(invoiced - paid, 0.0)
+    return {
+      'totalInvoiced': invoiced,
+      'totalPaid': paid,
+      'outstanding': outstanding
+    }
+
+  def get_revenue_actuals_summary(self, conn, project_id):
+    actuals = self.calculate_revenue_actuals_summary(conn, project_id)
+    return {
+      'totalInvoiced': actuals['totalInvoiced'],
+      'totalPaid': actuals['totalPaid'],
+      'outstanding': actuals['outstanding'],
+      'chart': [
+        {'label': 'Paid', 'value': actuals['totalPaid']},
+        {'label': 'Outstanding', 'value': actuals['outstanding']}
+      ]
+    }
+
+  def get_revenue_forecast_summary(self, conn, project_id):
+    forecast_payload = self.calculate_time_material_revenue_forecast(conn, project_id)
     return {
       'totalContractedRevenue': forecast_payload['summary']['totalContractedRevenue'],
       'revenueThisMonth': forecast_payload['summary']['revenueThisMonth'],
       'revenueNext3Months': forecast_payload['summary']['revenueNext3Months'],
       'totalForecastRevenueUntilProjectEnd': forecast_payload['summary']['totalForecastRevenueUntilProjectEnd'],
-      'invoicedAmount': invoiced,
-      'paidAmount': paid,
-      'outstandingAmount': invoiced - paid,
-      'unbilledForecast': forecast - invoiced
+      'unbilledForecast': max(float(forecast_payload['summary']['totalForecastRevenueUntilProjectEnd']) - self.calculate_revenue_actuals_summary(conn, project_id)['totalInvoiced'], 0.0)
     }
 
   def iterate_months_between(self, start_date, end_date):
@@ -1640,6 +1671,41 @@ class VPMHandler(SimpleHTTPRequestHandler):
       'rows': monthly_rows
     }
 
+  def get_revenue_forecast_monthly(self, conn, project_id):
+    revenue_payload = self.calculate_time_material_revenue_forecast(conn, project_id)
+    monthly = {}
+    for row in revenue_payload['rows']:
+      month = row['month']
+      entry = monthly.setdefault(month, {
+        'month': month,
+        'monthLabel': row['monthLabel'],
+        'billableDays': 0.0,
+        'revenue': 0.0,
+        'positionsCount': 0,
+        'consultantsCount': 0,
+        '_positions': set(),
+        '_consultants': set()
+      })
+      entry['billableDays'] += float(row['billableDays'] or 0.0)
+      entry['revenue'] += float(row['revenue'] or 0.0)
+      entry['_positions'].add(row['positionId'])
+      if row['consultantId']:
+        entry['_consultants'].add(row['consultantId'])
+    rows = []
+    for month in sorted(monthly.keys()):
+      entry = monthly[month]
+      entry['positionsCount'] = len(entry['_positions'])
+      entry['consultantsCount'] = len(entry['_consultants'])
+      entry.pop('_positions', None)
+      entry.pop('_consultants', None)
+      rows.append(entry)
+    return {'rows': rows}
+
+  def get_revenue_forecast_month_details(self, conn, project_id, month):
+    revenue_payload = self.calculate_time_material_revenue_forecast(conn, project_id)
+    rows = [row for row in revenue_payload['rows'] if str(row.get('month', '')) == str(month or '')]
+    return {'rows': rows}
+
   def calculate_time_material_profitability_forecast(self, conn, project_id):
     revenue_payload = self.calculate_time_material_revenue_forecast(conn, project_id)
     if not revenue_payload['rows']:
@@ -1668,6 +1734,34 @@ class VPMHandler(SimpleHTTPRequestHandler):
     total_margin = total_revenue - total_cost
     margin_percent_total = (total_margin / total_revenue * 100.0) if total_revenue else 0.0
     return {'summary': {'totalForecastRevenue': total_revenue, 'totalForecastCost': total_cost, 'totalForecastGrossMargin': total_margin, 'forecastMarginPercent': margin_percent_total}, 'rows': rows}
+
+  def get_profitability_monthly(self, conn, project_id):
+    profitability_payload = self.calculate_time_material_profitability_forecast(conn, project_id)
+    monthly = {}
+    for row in profitability_payload['rows']:
+      month = row['month']
+      entry = monthly.setdefault(month, {
+        'month': month,
+        'monthLabel': row['monthLabel'],
+        'revenue': 0.0,
+        'internalCost': 0.0,
+        'grossMargin': 0.0,
+        'marginPercent': 0.0
+      })
+      entry['revenue'] += float(row['revenue'] or 0.0)
+      entry['internalCost'] += float(row['internalCost'] or 0.0)
+      entry['grossMargin'] += float(row['grossMargin'] or 0.0)
+    rows = []
+    for month in sorted(monthly.keys()):
+      entry = monthly[month]
+      entry['marginPercent'] = (entry['grossMargin'] / entry['revenue'] * 100.0) if entry['revenue'] else 0.0
+      rows.append(entry)
+    return {'rows': rows}
+
+  def get_profitability_month_details(self, conn, project_id, month):
+    profitability_payload = self.calculate_time_material_profitability_forecast(conn, project_id)
+    rows = [row for row in profitability_payload['rows'] if str(row.get('month', '')) == str(month or '')]
+    return {'rows': rows}
 
   def _fetch_timesheet_detail(self, conn, consultant_id, month_start):
     row = self._ensure_monthly_timesheet(conn, consultant_id, month_start)
@@ -1698,8 +1792,14 @@ class VPMHandler(SimpleHTTPRequestHandler):
     path = self._path()
     query = self._query()
     revenue_summary_match = re.fullmatch(r'/api/projects/(\d+)/revenue-summary', path)
+    revenue_forecast_summary_match = re.fullmatch(r'/api/projects/(\d+)/revenue-forecast-summary', path)
+    revenue_forecast_monthly_match = re.fullmatch(r'/api/projects/(\d+)/revenue-forecast-monthly', path)
+    revenue_forecast_month_details_match = re.fullmatch(r'/api/projects/(\d+)/revenue-forecast-month-details', path)
+    revenue_actuals_summary_match = re.fullmatch(r'/api/projects/(\d+)/revenue-actuals-summary', path)
     revenue_forecast_breakdown_match = re.fullmatch(r'/api/projects/(\d+)/revenue-forecast-breakdown', path)
     profitability_summary_match = re.fullmatch(r'/api/projects/(\d+)/profitability-summary', path)
+    profitability_monthly_match = re.fullmatch(r'/api/projects/(\d+)/profitability-monthly', path)
+    profitability_month_details_match = re.fullmatch(r'/api/projects/(\d+)/profitability-month-details', path)
     profitability_breakdown_match = re.fullmatch(r'/api/projects/(\d+)/profitability-breakdown', path)
     project_invoices_match = re.fullmatch(r'/api/projects/(\d+)/invoices', path)
     invoice_payments_match = re.fullmatch(r'/api/invoices/(\d+)/payments', path)
@@ -1757,13 +1857,44 @@ class VPMHandler(SimpleHTTPRequestHandler):
           return
         self._send_json(self.get_project_revenue_summary(conn, project_id))
         return
+      if revenue_forecast_summary_match:
+        project_id = int(revenue_forecast_summary_match.group(1))
+        if not self._ids_exist(conn, 'projects', [project_id]):
+          self._send_json({'error': 'Project not found'}, HTTPStatus.NOT_FOUND)
+          return
+        self._send_json(self.get_revenue_forecast_summary(conn, project_id))
+        return
+      if revenue_forecast_monthly_match:
+        project_id = int(revenue_forecast_monthly_match.group(1))
+        if not self._ids_exist(conn, 'projects', [project_id]):
+          self._send_json({'error': 'Project not found'}, HTTPStatus.NOT_FOUND)
+          return
+        self._send_json(self.get_revenue_forecast_monthly(conn, project_id))
+        return
+      if revenue_forecast_month_details_match:
+        project_id = int(revenue_forecast_month_details_match.group(1))
+        month = str(query.get('month', [''])[0]).strip()
+        if not self._ids_exist(conn, 'projects', [project_id]):
+          self._send_json({'error': 'Project not found'}, HTTPStatus.NOT_FOUND)
+          return
+        if not re.fullmatch(r'\d{4}-\d{2}', month):
+          self._send_json({'error': 'month query parameter must be YYYY-MM'}, HTTPStatus.BAD_REQUEST)
+          return
+        self._send_json(self.get_revenue_forecast_month_details(conn, project_id, month))
+        return
+      if revenue_actuals_summary_match:
+        project_id = int(revenue_actuals_summary_match.group(1))
+        if not self._ids_exist(conn, 'projects', [project_id]):
+          self._send_json({'error': 'Project not found'}, HTTPStatus.NOT_FOUND)
+          return
+        self._send_json(self.get_revenue_actuals_summary(conn, project_id))
+        return
       if revenue_forecast_breakdown_match:
         project_id = int(revenue_forecast_breakdown_match.group(1))
         if not self._ids_exist(conn, 'projects', [project_id]):
           self._send_json({'error': 'Project not found'}, HTTPStatus.NOT_FOUND)
           return
-        payload = self.calculate_time_material_revenue_forecast(conn, project_id)
-        self._send_json({'rows': payload['rows']})
+        self._send_json(self.get_revenue_forecast_monthly(conn, project_id))
         return
       if profitability_summary_match:
         project_id = int(profitability_summary_match.group(1))
@@ -1773,13 +1904,30 @@ class VPMHandler(SimpleHTTPRequestHandler):
         payload = self.calculate_time_material_profitability_forecast(conn, project_id)
         self._send_json(payload['summary'])
         return
+      if profitability_monthly_match:
+        project_id = int(profitability_monthly_match.group(1))
+        if not self._ids_exist(conn, 'projects', [project_id]):
+          self._send_json({'error': 'Project not found'}, HTTPStatus.NOT_FOUND)
+          return
+        self._send_json(self.get_profitability_monthly(conn, project_id))
+        return
+      if profitability_month_details_match:
+        project_id = int(profitability_month_details_match.group(1))
+        month = str(query.get('month', [''])[0]).strip()
+        if not self._ids_exist(conn, 'projects', [project_id]):
+          self._send_json({'error': 'Project not found'}, HTTPStatus.NOT_FOUND)
+          return
+        if not re.fullmatch(r'\d{4}-\d{2}', month):
+          self._send_json({'error': 'month query parameter must be YYYY-MM'}, HTTPStatus.BAD_REQUEST)
+          return
+        self._send_json(self.get_profitability_month_details(conn, project_id, month))
+        return
       if profitability_breakdown_match:
         project_id = int(profitability_breakdown_match.group(1))
         if not self._ids_exist(conn, 'projects', [project_id]):
           self._send_json({'error': 'Project not found'}, HTTPStatus.NOT_FOUND)
           return
-        payload = self.calculate_time_material_profitability_forecast(conn, project_id)
-        self._send_json({'rows': payload['rows']})
+        self._send_json(self.get_profitability_monthly(conn, project_id))
         return
       if project_invoices_match:
         project_id = int(project_invoices_match.group(1))
