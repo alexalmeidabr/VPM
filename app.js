@@ -94,6 +94,7 @@ if (!isBrowserRuntime) {
     memberModalTitle: document.getElementById('member-modal-title'),
     memberEditConsultantId: document.getElementById('member-edit-consultant-id'),
     memberNameModal: document.getElementById('member-name-modal'),
+    memberAreaModal: document.getElementById('member-area-modal'),
     memberProjectRoleModal: document.getElementById('member-project-role-modal'),
     memberAllocationEdit: document.getElementById('member-allocation-edit'),
     memberBillableEdit: document.getElementById('member-billable-edit'),
@@ -2181,6 +2182,17 @@ if (!isBrowserRuntime) {
     resetSelect('memberRole', ui.memberProjectRoleModal);
   };
 
+  const rebuildMemberAreaSelect = (areaId) => {
+    if (!ui.memberAreaModal) return;
+    ui.memberAreaModal.innerHTML = '';
+    ui.memberAreaModal.add(new Option('Unassigned', '', false, !areaId));
+    areas.forEach((area) => {
+      const selected = areaId ? Number(area.id) === Number(areaId) : false;
+      ui.memberAreaModal.add(new Option(area.name, String(area.id), false, selected));
+    });
+    resetSelect('memberArea', ui.memberAreaModal);
+  };
+
   const renderConsultantPickerList = () => {
     if (!modalSelectedAreaId) {
       ui.consultantPickerList.innerHTML = '<p class="grey-text">Select an area to view consultants or save as an open position.</p>';
@@ -3261,8 +3273,10 @@ if (!isBrowserRuntime) {
     ui.memberCommentsEdit.value = member.comments || '';
     ui.memberStartDateEdit.value = member.startDate || '';
     ui.memberEndDateEdit.value = member.endDate || '';
+    rebuildMemberAreaSelect(member.areaId);
     rebuildMemberRoleSelect(member.projectRole || 'Project Position');
 
+    if (ui.memberAreaModal) ui.memberAreaModal.disabled = readOnly;
     ui.memberProjectRoleModal.disabled = readOnly;
     ui.memberAllocationEdit.disabled = readOnly;
     if (ui.memberBillableEdit) ui.memberBillableEdit.disabled = readOnly;
@@ -3270,6 +3284,7 @@ if (!isBrowserRuntime) {
     ui.memberStartDateEdit.disabled = readOnly;
     ui.memberEndDateEdit.disabled = readOnly;
     ui.saveMemberDetailsBtn.hidden = readOnly;
+    if (ui.memberAreaModal) resetSelect('memberArea', ui.memberAreaModal);
     resetSelect('memberRole', ui.memberProjectRoleModal);
     updateTextFields();
     modals.memberDetails?.open();
@@ -3290,6 +3305,7 @@ if (!isBrowserRuntime) {
     }
 
     item.projectRole = ui.memberProjectRoleModal.value;
+    item.areaId = ui.memberAreaModal?.value ? Number(ui.memberAreaModal.value) : null;
     item.allocation = allocation;
     item.billable = ui.memberBillableEdit ? ui.memberBillableEdit.checked : true;
     item.comments = ui.memberCommentsEdit.value.trim();
