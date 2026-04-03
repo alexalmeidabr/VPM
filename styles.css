@@ -17,7 +17,10 @@ body { min-height: 100vh; }
 .actions-cell .btn-flat { display: inline-flex; align-items: center; }
 .date-chip { white-space: nowrap; }
 .table-container { overflow-x: auto; }
-.projects-table-container { overflow-x: visible; }
+.projects-table-container { overflow-x: auto; }
+.projects-table-container table { width: 100%; min-width: 1180px; }
+.projects-table-container .actions-cell { white-space: nowrap; text-align: right; }
+.projects-table-container .actions-cell .btn-flat { padding: 0 0.3rem; min-width: 1.8rem; }
 .empty-message { margin-top: 1.5rem; }
 .date-row { margin-bottom: 0; }
 .chip { margin: 0; }
