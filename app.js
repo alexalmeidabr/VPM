@@ -91,6 +91,7 @@ if (!isBrowserRuntime) {
     saveConsultantAssignmentsBtn: document.getElementById('save-consultant-assignments-btn'),
 
     memberDetailsModal: document.getElementById('member-details-modal'),
+    memberDetailsContent: document.getElementById('member-details-content'),
     memberModalTitle: document.getElementById('member-modal-title'),
     memberEditConsultantId: document.getElementById('member-edit-consultant-id'),
     memberConsultantModal: document.getElementById('member-consultant-modal'),
@@ -3315,6 +3316,8 @@ if (!isBrowserRuntime) {
 
     const readOnly = button.dataset.action === 'view-member';
     ui.memberModalTitle.textContent = readOnly ? 'View Project Position' : 'Edit Project Position';
+    ui.memberDetailsContent?.classList.toggle('form-mode-view', readOnly);
+    ui.memberDetailsContent?.classList.toggle('form-mode-edit', !readOnly);
     ui.memberEditConsultantId.value = positionId;
     ui.memberAllocationEdit.value = Number(member.allocation ?? 100);
     if (ui.memberBillableEdit) ui.memberBillableEdit.checked = member.billable !== false;
