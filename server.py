@@ -1706,6 +1706,187 @@ class VPMHandler(SimpleHTTPRequestHandler):
     rows = [row for row in revenue_payload['rows'] if str(row.get('month', '')) == str(month or '')]
     return {'rows': rows}
 
+  def _count_weekdays_in_ranges(self, ranges):
+    covered = set()
+    for start_iso, end_iso in ranges:
+      if not start_iso or not end_iso:
+        continue
+      start = datetime.strptime(start_iso, '%Y-%m-%d').date()
+      end = datetime.strptime(end_iso, '%Y-%m-%d').date()
+      cursor = start
+      while cursor <= end:
+        if cursor.weekday() < 5:
+          covered.add(cursor.isoformat())
+        cursor += timedelta(days=1)
+    return len(covered)
+
+  def _consultant_days_off_between(self, conn, consultant_id, start_date, end_date):
+    rows = conn.execute(
+      '''
+      SELECT start_date, end_date
+      FROM consultant_availability
+      WHERE consultant_id = ?
+        AND start_date <= ?
+        AND end_date >= ?
+      ''',
+      (consultant_id, end_date, start_date)
+    ).fetchall()
+    ranges = []
+    for row in rows:
+      overlap_start = max(start_date, row['start_date'])
+      overlap_end = min(end_date, row['end_date'])
+      if overlap_end >= overlap_start:
+        ranges.append((overlap_start, overlap_end))
+    return self._count_weekdays_in_ranges(ranges)
+
+  def _fetch_monthly_project_timesheet_hours_by_consultant(self, conn, project_id, month_start):
+    month_from, month_to = self._month_range(month_start)
+    rows = conn.execute(
+      '''
+      SELECT t.consultant_id, COALESCE(SUM(e.hours), 0) AS total_hours
+      FROM monthly_timesheets t
+      JOIN monthly_timesheet_lines l ON l.timesheet_id = t.id
+      LEFT JOIN monthly_timesheet_entries e ON e.line_id = l.id
+      WHERE l.project_id = ?
+        AND t.month_start = ?
+        AND (e.entry_date IS NULL OR (e.entry_date >= ? AND e.entry_date <= ?))
+      GROUP BY t.consultant_id
+      ''',
+      (project_id, month_start, month_from, month_to)
+    ).fetchall()
+    return {int(row['consultant_id']): float(row['total_hours'] or 0.0) for row in rows if row['consultant_id'] is not None}
+
+  def _project_active_assigned_positions_for_month(self, conn, project_id, month_start, month_end):
+    rows = conn.execute(
+      '''
+      SELECT pp.id, pp.consultant_id, pp.project_role, pp.start_date, pp.end_date, pp.allocation, pp.billable, pp.daily_rate, pp.daily_rate_currency, c.name AS consultant_name
+      FROM project_positions pp
+      LEFT JOIN consultants c ON c.id = pp.consultant_id
+      WHERE pp.project_id = ?
+        AND pp.consultant_id IS NOT NULL
+        AND COALESCE(pp.start_date, ?) <= ?
+        AND COALESCE(pp.end_date, ?) >= ?
+      ORDER BY pp.id
+      ''',
+      (project_id, month_end, month_end, month_start, month_start)
+    ).fetchall()
+    return rows
+
+  def _calculate_project_timesheet_status_for_month(self, conn, project_id, month_start, month_end):
+    positions = self._project_active_assigned_positions_for_month(conn, project_id, month_start, month_end)
+    expected_consultants = {int(row['consultant_id']) for row in positions if row['consultant_id'] is not None}
+    if not expected_consultants:
+      return 'Not Started'
+    month_start_day = datetime.strptime(month_start, '%Y-%m-%d').date().replace(day=1).isoformat()
+    hours_map = self._fetch_monthly_project_timesheet_hours_by_consultant(conn, project_id, month_start_day)
+    submitted = sum(1 for consultant_id in expected_consultants if float(hours_map.get(consultant_id, 0.0)) > 0.0)
+    if submitted == 0:
+      return 'Not Started'
+    if submitted >= len(expected_consultants):
+      return 'Completed'
+    return 'Incompleted'
+
+  def _calculate_proposed_invoice_amount_for_month(self, conn, project_id, month_start, month_end):
+    month_start_day = datetime.strptime(month_start, '%Y-%m-%d').date().replace(day=1).isoformat()
+    positions = self._project_active_assigned_positions_for_month(conn, project_id, month_start, month_end)
+    billable_positions = [row for row in positions if bool(row['billable']) and row['daily_rate'] is not None]
+    if not billable_positions:
+      return {'amount': 0.0, 'currency': 'EUR'}
+
+    currency = next((str(row['daily_rate_currency'] or 'EUR') for row in billable_positions), 'EUR')
+    hours_map = self._fetch_monthly_project_timesheet_hours_by_consultant(conn, project_id, month_start_day)
+    has_timesheet_hours = any(float(hours_map.get(int(row['consultant_id']), 0.0)) > 0.0 for row in billable_positions if row['consultant_id'] is not None)
+
+    total = 0.0
+    if has_timesheet_hours:
+      by_consultant = {}
+      for row in billable_positions:
+        consultant_id = int(row['consultant_id'])
+        by_consultant.setdefault(consultant_id, []).append(row)
+      for consultant_id, consultant_positions in by_consultant.items():
+        hours = float(hours_map.get(consultant_id, 0.0))
+        if hours <= 0:
+          continue
+        days = hours / 8.0
+        split_days = days / max(len(consultant_positions), 1)
+        for position in consultant_positions:
+          total += split_days * float(position['daily_rate'])
+    else:
+      for position in billable_positions:
+        overlap_start = max(month_start, position['start_date'] or month_start)
+        overlap_end = min(month_end, position['end_date'] or month_end)
+        if overlap_end < overlap_start:
+          continue
+        working_days = self._working_days_between(overlap_start, overlap_end)
+        consultant_id = int(position['consultant_id']) if position['consultant_id'] is not None else None
+        if consultant_id is not None:
+          days_off = self._consultant_days_off_between(conn, consultant_id, overlap_start, overlap_end)
+          working_days = max(working_days - days_off, 0)
+        allocation = float(position['allocation'] if position['allocation'] is not None else 100.0)
+        billable_days = working_days * max(allocation, 0.0) / 100.0
+        total += billable_days * float(position['daily_rate'])
+    return {'amount': total, 'currency': currency}
+
+  def get_revenue_invoice_periods(self, conn, project_id):
+    project = conn.execute('SELECT start_date, end_date, project_type FROM projects WHERE id = ?', (project_id,)).fetchone()
+    if not project or not project['start_date']:
+      return {'periods': []}
+    start = datetime.strptime(project['start_date'], '%Y-%m-%d').date().replace(day=1)
+    today = datetime.utcnow().date().replace(day=1)
+    if project['end_date']:
+      project_end = datetime.strptime(project['end_date'], '%Y-%m-%d').date().replace(day=1)
+      end = min(today, project_end)
+    else:
+      end = today
+    if end < start:
+      return {'periods': []}
+
+    rows = []
+    cursor = end
+    while cursor >= start:
+      month_start = cursor
+      if cursor.month == 12:
+        next_month = cursor.replace(year=cursor.year + 1, month=1, day=1)
+      else:
+        next_month = cursor.replace(month=cursor.month + 1, day=1)
+      month_end = next_month - timedelta(days=1)
+      period_from = max(month_start.isoformat(), project['start_date'])
+      period_to = min(month_end.isoformat(), project['end_date'] or month_end.isoformat())
+      if period_to < period_from:
+        if cursor.month == 1:
+          cursor = cursor.replace(year=cursor.year - 1, month=12, day=1)
+        else:
+          cursor = cursor.replace(month=cursor.month - 1, day=1)
+        continue
+      status = self._calculate_project_timesheet_status_for_month(conn, project_id, period_from, period_to)
+      proposal = self._calculate_proposed_invoice_amount_for_month(conn, project_id, period_from, period_to)
+      invoice_summary = conn.execute(
+        '''
+        SELECT COUNT(*) AS invoice_count, COALESCE(SUM(amount), 0) AS billed_total
+        FROM invoices
+        WHERE project_id = ?
+          AND period_from <= ?
+          AND period_to >= ?
+        ''',
+        (project_id, period_to, period_from)
+      ).fetchone()
+      rows.append({
+        'month': month_start.strftime('%Y-%m'),
+        'monthLabel': month_start.strftime('%B %Y'),
+        'periodFrom': period_from,
+        'periodTo': period_to,
+        'timesheetStatus': status,
+        'proposedAmount': float(proposal['amount']),
+        'currency': proposal['currency'],
+        'invoiceCount': int(invoice_summary['invoice_count'] if invoice_summary else 0),
+        'invoicedTotal': float(invoice_summary['billed_total'] if invoice_summary else 0.0)
+      })
+      if cursor.month == 1:
+        cursor = cursor.replace(year=cursor.year - 1, month=12, day=1)
+      else:
+        cursor = cursor.replace(month=cursor.month - 1, day=1)
+    return {'periods': rows}
+
   def calculate_time_material_profitability_forecast(self, conn, project_id):
     revenue_payload = self.calculate_time_material_revenue_forecast(conn, project_id)
     if not revenue_payload['rows']:
@@ -1792,6 +1973,7 @@ class VPMHandler(SimpleHTTPRequestHandler):
     path = self._path()
     query = self._query()
     revenue_summary_match = re.fullmatch(r'/api/projects/(\d+)/revenue-summary', path)
+    revenue_invoice_periods_match = re.fullmatch(r'/api/projects/(\d+)/revenue/invoice-periods', path)
     revenue_forecast_summary_match = re.fullmatch(r'/api/projects/(\d+)/revenue-forecast-summary', path)
     revenue_forecast_monthly_match = re.fullmatch(r'/api/projects/(\d+)/revenue-forecast-monthly', path)
     revenue_forecast_month_details_match = re.fullmatch(r'/api/projects/(\d+)/revenue-forecast-month-details', path)
@@ -1856,6 +2038,13 @@ class VPMHandler(SimpleHTTPRequestHandler):
           self._send_json({'error': 'Project not found'}, HTTPStatus.NOT_FOUND)
           return
         self._send_json(self.get_project_revenue_summary(conn, project_id))
+        return
+      if revenue_invoice_periods_match:
+        project_id = int(revenue_invoice_periods_match.group(1))
+        if not self._ids_exist(conn, 'projects', [project_id]):
+          self._send_json({'error': 'Project not found'}, HTTPStatus.NOT_FOUND)
+          return
+        self._send_json(self.get_revenue_invoice_periods(conn, project_id))
         return
       if revenue_forecast_summary_match:
         project_id = int(revenue_forecast_summary_match.group(1))

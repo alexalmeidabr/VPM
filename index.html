@@ -148,18 +148,31 @@
                       </div>
                       <div id="project-revenue-subtab-invoices" data-revenue-subtab-panel="invoices">
                         <div class="section-header">
-                          <h6>Invoices</h6>
-                          <button class="btn waves-effect waves-light" type="button" id="add-invoice-btn">Add Invoice</button>
+                          <h6>Monthly Billing Periods</h6>
                         </div>
                         <div class="table-container">
                           <table class="striped responsive-table">
                             <thead>
-                              <tr><th>Invoice Ref</th><th>Period</th><th>Invoice Date</th><th>Due Date</th><th>Amount</th><th>Paid Amount</th><th>Status</th><th>Actions</th></tr>
+                              <tr><th>Month</th><th>Timesheet Status</th><th>Period</th><th>Proposed Amount</th><th>Invoices</th><th>Actions</th></tr>
                             </thead>
-                            <tbody id="project-revenue-invoices-body"></tbody>
+                            <tbody id="project-revenue-invoice-periods-body"></tbody>
                           </table>
                         </div>
-                        <p class="grey-text text-darken-1 empty-message" id="project-revenue-invoices-empty">No invoices yet.</p>
+                        <p class="grey-text text-darken-1 empty-message" id="project-revenue-invoice-periods-empty">No billing periods available.</p>
+                        <div id="project-revenue-month-invoices" class="month-detail-card" hidden>
+                          <div class="section-header">
+                            <h6 id="project-revenue-month-invoices-title">Invoices for Month</h6>
+                          </div>
+                          <div class="table-container">
+                            <table class="striped responsive-table">
+                              <thead>
+                                <tr><th>Invoice Ref</th><th>Period</th><th>Invoice Date</th><th>Due Date</th><th>Amount</th><th>Paid Amount</th><th>Status</th><th>Actions</th></tr>
+                              </thead>
+                              <tbody id="project-revenue-month-invoices-body"></tbody>
+                            </table>
+                          </div>
+                          <p class="grey-text text-darken-1 empty-message" id="project-revenue-month-invoices-empty">No invoices for this month yet.</p>
+                        </div>
                       </div>
                       <div id="project-revenue-subtab-forecast" data-revenue-subtab-panel="forecast" hidden>
                         <div class="section-header">

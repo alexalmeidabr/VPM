@@ -145,6 +145,9 @@ body { min-height: 100vh; }
 .legend-dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 0.35rem; }
 .legend-dot.paid { background: #26a69a; }
 .legend-dot.outstanding { background: #ff7043; }
+.status-timesheet-completed { background: #e8f5e9; color: #2e7d32; }
+.status-timesheet-incompleted { background: #fff8e1; color: #ef6c00; }
+.status-timesheet-not-started { background: #ffebee; color: #c62828; }
 #project-team-tab-host .sticky-members-panel {
   position: static;
   min-width: 0;

@@ -64,9 +64,12 @@ if (!isBrowserRuntime) {
     projectRevenueForecastDetailTitle: document.getElementById('project-revenue-forecast-detail-title'),
     projectRevenueForecastDetailBody: document.getElementById('project-revenue-forecast-detail-body'),
     projectRevenueForecastDetailEmpty: document.getElementById('project-revenue-forecast-detail-empty'),
-    addInvoiceBtn: document.getElementById('add-invoice-btn'),
-    projectRevenueInvoicesBody: document.getElementById('project-revenue-invoices-body'),
-    projectRevenueInvoicesEmpty: document.getElementById('project-revenue-invoices-empty'),
+    projectRevenueInvoicePeriodsBody: document.getElementById('project-revenue-invoice-periods-body'),
+    projectRevenueInvoicePeriodsEmpty: document.getElementById('project-revenue-invoice-periods-empty'),
+    projectRevenueMonthInvoices: document.getElementById('project-revenue-month-invoices'),
+    projectRevenueMonthInvoicesTitle: document.getElementById('project-revenue-month-invoices-title'),
+    projectRevenueMonthInvoicesBody: document.getElementById('project-revenue-month-invoices-body'),
+    projectRevenueMonthInvoicesEmpty: document.getElementById('project-revenue-month-invoices-empty'),
     projectProfitabilityNotImplemented: document.getElementById('project-profitability-not-implemented'),
     projectProfitabilityTimeMaterial: document.getElementById('project-profitability-time-material'),
     profitabilityRevenueValue: document.getElementById('profitability-revenue-value'),
@@ -366,6 +369,8 @@ if (!isBrowserRuntime) {
   let editingProjectPhaseId = null;
   let showClosedProjectPositions = false;
   let revenueInvoices = [];
+  let revenueInvoicePeriods = [];
+  let selectedInvoicePeriodMonth = '';
   let revenueSummary = null;
   let revenueActualsSummary = null;
   let revenueForecastBreakdown = [];
@@ -722,29 +727,70 @@ if (!isBrowserRuntime) {
     if (ui.projectProfitabilityDetailEmpty) ui.projectProfitabilityDetailEmpty.hidden = profitabilityDetails.length > 0;
   };
 
-  const renderRevenueInvoices = () => {
-    if (!ui.projectRevenueInvoicesBody) return;
-    ui.projectRevenueInvoicesBody.innerHTML = '';
-    ui.projectRevenueInvoicesEmpty.hidden = revenueInvoices.length > 0;
-    revenueInvoices.forEach((invoice) => {
+  const timesheetStatusClass = (status) => {
+    if (status === 'Completed') return 'status-timesheet-completed';
+    if (status === 'Incompleted') return 'status-timesheet-incompleted';
+    return 'status-timesheet-not-started';
+  };
+
+  const renderRevenueInvoicePeriods = () => {
+    if (!ui.projectRevenueInvoicePeriodsBody) return;
+    ui.projectRevenueInvoicePeriodsBody.innerHTML = '';
+    ui.projectRevenueInvoicePeriodsEmpty.hidden = revenueInvoicePeriods.length > 0;
+    revenueInvoicePeriods.forEach((period) => {
       const row = document.createElement('tr');
       row.innerHTML = `
-        <td>${invoice.invoiceRef || '—'}</td>
-        <td>${invoice.periodFrom} → ${invoice.periodTo}</td>
-        <td>${formatDate(invoice.invoiceDate)}</td>
-        <td>${invoice.dueDate ? formatDate(invoice.dueDate) : '—'}</td>
-        <td>${formatMoney(invoice.amount)}</td>
-        <td>${formatMoney(invoice.paidAmount)}</td>
-        <td><span class="status-badge">${invoice.status}</span></td>
+        <td>${period.monthLabel || period.month}</td>
+        <td><span class="status-badge ${timesheetStatusClass(period.timesheetStatus)}">${period.timesheetStatus || 'Not Started'}</span></td>
+        <td>${period.periodFrom} → ${period.periodTo}</td>
+        <td>${formatMoney(period.proposedAmount || 0, period.currency || 'EUR')}</td>
+        <td>${Number(period.invoiceCount || 0)} invoice(s) · ${formatMoney(period.invoicedTotal || 0, period.currency || 'EUR')}</td>
         <td>
-          <button type="button" class="btn-flat blue-text" data-action="edit-invoice" data-id="${invoice.id}" title="Edit"><i class="material-icons tiny">edit</i></button>
-          <button type="button" class="btn-flat teal-text" data-action="add-payment" data-id="${invoice.id}" title="Register Payment"><i class="material-icons tiny">payments</i></button>
-          <button type="button" class="btn-flat indigo-text" data-action="view-payments" data-id="${invoice.id}" title="View Payments"><i class="material-icons tiny">receipt_long</i></button>
-          <button type="button" class="btn-flat red-text" data-action="delete-invoice" data-id="${invoice.id}"><i class="material-icons tiny">delete</i></button>
+          <button type="button" class="btn waves-effect waves-light" data-action="add-invoice-period" data-month="${period.month}">Add Invoice</button>
+          ${Number(period.invoiceCount || 0) > 0 ? `<button type="button" class="btn-flat indigo-text" data-action="view-period-invoices" data-month="${period.month}">View Invoices</button>` : ''}
         </td>
       `;
-      ui.projectRevenueInvoicesBody.appendChild(row);
+      ui.projectRevenueInvoicePeriodsBody.appendChild(row);
     });
+  };
+
+  const renderRevenueMonthInvoices = () => {
+    if (!ui.projectRevenueMonthInvoices) return;
+    if (!selectedInvoicePeriodMonth) {
+      ui.projectRevenueMonthInvoices.hidden = true;
+      return;
+    }
+    const period = revenueInvoicePeriods.find((item) => item.month === selectedInvoicePeriodMonth);
+    const monthInvoices = revenueInvoices.filter((invoice) => {
+      const fromMonth = String(invoice.periodFrom || '').slice(0, 7);
+      const toMonth = String(invoice.periodTo || '').slice(0, 7);
+      return fromMonth <= selectedInvoicePeriodMonth && toMonth >= selectedInvoicePeriodMonth;
+    });
+    ui.projectRevenueMonthInvoices.hidden = false;
+    if (ui.projectRevenueMonthInvoicesTitle) ui.projectRevenueMonthInvoicesTitle.textContent = `Invoices for ${period?.monthLabel || selectedInvoicePeriodMonth}`;
+    if (ui.projectRevenueMonthInvoicesBody) {
+      ui.projectRevenueMonthInvoicesBody.innerHTML = '';
+      monthInvoices.forEach((invoice) => {
+        const row = document.createElement('tr');
+        row.innerHTML = `
+          <td>${invoice.invoiceRef || '—'}</td>
+          <td>${invoice.periodFrom} → ${invoice.periodTo}</td>
+          <td>${formatDate(invoice.invoiceDate)}</td>
+          <td>${invoice.dueDate ? formatDate(invoice.dueDate) : '—'}</td>
+          <td>${formatMoney(invoice.amount)}</td>
+          <td>${formatMoney(invoice.paidAmount)}</td>
+          <td><span class="status-badge">${invoice.status}</span></td>
+          <td>
+            <button type="button" class="btn-flat blue-text" data-action="edit-invoice" data-id="${invoice.id}" title="Edit"><i class="material-icons tiny">edit</i></button>
+            <button type="button" class="btn-flat teal-text" data-action="add-payment" data-id="${invoice.id}" title="Register Payment"><i class="material-icons tiny">payments</i></button>
+            <button type="button" class="btn-flat indigo-text" data-action="view-payments" data-id="${invoice.id}" title="View Payments"><i class="material-icons tiny">receipt_long</i></button>
+            <button type="button" class="btn-flat red-text" data-action="delete-invoice" data-id="${invoice.id}" title="Delete"><i class="material-icons tiny">delete</i></button>
+          </td>
+        `;
+        ui.projectRevenueMonthInvoicesBody.appendChild(row);
+      });
+    }
+    if (ui.projectRevenueMonthInvoicesEmpty) ui.projectRevenueMonthInvoicesEmpty.hidden = monthInvoices.length > 0;
   };
 
   const loadRevenueData = async (projectId) => {
@@ -752,6 +798,8 @@ if (!isBrowserRuntime) {
       revenueSummary = null;
       revenueActualsSummary = null;
       revenueInvoices = [];
+      revenueInvoicePeriods = [];
+      selectedInvoicePeriodMonth = '';
       revenueForecastBreakdown = [];
       selectedRevenueForecastMonth = '';
       revenueForecastDetails = [];
@@ -764,7 +812,8 @@ if (!isBrowserRuntime) {
       renderRevenueSubtabs();
       renderRevenueForecastBreakdown();
       renderRevenueForecastDetails();
-      renderRevenueInvoices();
+      renderRevenueInvoicePeriods();
+      renderRevenueMonthInvoices();
       renderProfitability();
       renderProfitabilityDetails();
       return;
@@ -773,10 +822,11 @@ if (!isBrowserRuntime) {
     revenueForecastDetails = [];
     selectedProfitabilityMonth = '';
     profitabilityDetails = [];
-    const [forecastSummaryPayload, actualsPayload, invoicesPayload, forecastPayload, profitabilitySummaryPayload, profitabilityBreakdownPayload] = await Promise.all([
+    const [forecastSummaryPayload, actualsPayload, invoicesPayload, invoicePeriodsPayload, forecastPayload, profitabilitySummaryPayload, profitabilityBreakdownPayload] = await Promise.all([
       request(`/api/projects/${projectId}/revenue-forecast-summary`),
       request(`/api/projects/${projectId}/revenue-actuals-summary`),
       request(`/api/projects/${projectId}/invoices`),
+      request(`/api/projects/${projectId}/revenue/invoice-periods`),
       request(`/api/projects/${projectId}/revenue-forecast-monthly`),
       request(`/api/projects/${projectId}/profitability-summary`),
       request(`/api/projects/${projectId}/profitability-monthly`)
@@ -784,6 +834,8 @@ if (!isBrowserRuntime) {
     revenueSummary = forecastSummaryPayload || null;
     revenueActualsSummary = actualsPayload || null;
     revenueInvoices = invoicesPayload?.invoices || [];
+    revenueInvoicePeriods = invoicePeriodsPayload?.periods || [];
+    if (selectedInvoicePeriodMonth && !revenueInvoicePeriods.some((item) => item.month === selectedInvoicePeriodMonth)) selectedInvoicePeriodMonth = '';
     revenueForecastBreakdown = forecastPayload?.rows || [];
     profitabilitySummary = profitabilitySummaryPayload || null;
     profitabilityBreakdown = profitabilityBreakdownPayload?.rows || [];
@@ -792,7 +844,8 @@ if (!isBrowserRuntime) {
     renderRevenueSubtabs();
     renderRevenueForecastBreakdown();
     renderRevenueForecastDetails();
-    renderRevenueInvoices();
+    renderRevenueInvoicePeriods();
+    renderRevenueMonthInvoices();
     renderProfitability();
     renderProfitabilityDetails();
   };
@@ -815,18 +868,18 @@ if (!isBrowserRuntime) {
     renderProfitabilityDetails();
   };
 
-  const resetInvoiceModal = (invoice = null) => {
+  const resetInvoiceModal = (invoice = null, defaults = null) => {
     if (!invoice) {
       ui.invoiceModalTitle.textContent = 'Add Invoice';
       ui.invoiceId.value = '';
       ui.invoiceRef.value = '';
-      ui.invoicePeriodFrom.value = fields.startDate.value || '';
-      ui.invoicePeriodTo.value = fields.endDate.value || '';
+      ui.invoicePeriodFrom.value = defaults?.periodFrom || fields.startDate.value || '';
+      ui.invoicePeriodTo.value = defaults?.periodTo || fields.endDate.value || '';
       ui.invoiceDate.value = new Date().toISOString().slice(0, 10);
       ui.invoiceDueDate.value = '';
-      ui.invoiceAmount.value = '';
+      ui.invoiceAmount.value = defaults?.amount != null ? Number(defaults.amount).toFixed(2) : '';
       ui.invoiceStatus.value = 'Draft';
-      ui.invoiceNotes.value = '';
+      ui.invoiceNotes.value = defaults?.notes || '';
     } else {
       ui.invoiceModalTitle.textContent = 'Edit Invoice';
       ui.invoiceId.value = invoice.id;
@@ -4065,12 +4118,6 @@ if (!isBrowserRuntime) {
     updateTextFields();
   });
 
-  ui.addInvoiceBtn?.addEventListener('click', () => {
-    if (!fields.projectId.value) return;
-    resetInvoiceModal(null);
-    modals.invoice?.open();
-  });
-
   ui.projectRevenueSubtabs?.forEach((button) => {
     button.addEventListener('click', () => {
       const next = button.dataset.revenueSubtab;
@@ -4106,7 +4153,34 @@ if (!isBrowserRuntime) {
     }
   });
 
-  ui.projectRevenueInvoicesBody?.addEventListener('click', async (event) => {
+  ui.projectRevenueInvoicePeriodsBody?.addEventListener('click', async (event) => {
+    const button = event.target.closest('button[data-action]');
+    if (!button) return;
+    const month = String(button.dataset.month || '').trim();
+    const period = revenueInvoicePeriods.find((item) => String(item.month) === month);
+    const projectId = Number(fields.projectId.value || 0);
+    if (!projectId || !period) return;
+
+    if (button.dataset.action === 'add-invoice-period') {
+      selectedInvoicePeriodMonth = month;
+      renderRevenueMonthInvoices();
+      resetInvoiceModal(null, {
+        periodFrom: period.periodFrom,
+        periodTo: period.periodTo,
+        amount: period.proposedAmount,
+        notes: `Auto-proposed for ${period.monthLabel || period.month}`
+      });
+      modals.invoice?.open();
+      return;
+    }
+    if (button.dataset.action === 'view-period-invoices') {
+      selectedInvoicePeriodMonth = month;
+      renderRevenueMonthInvoices();
+      return;
+    }
+  });
+
+  ui.projectRevenueMonthInvoicesBody?.addEventListener('click', async (event) => {
     const button = event.target.closest('button[data-action]');
     if (!button) return;
     const invoiceId = Number(button.dataset.id);
