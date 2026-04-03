@@ -93,7 +93,7 @@ if (!isBrowserRuntime) {
     memberDetailsModal: document.getElementById('member-details-modal'),
     memberModalTitle: document.getElementById('member-modal-title'),
     memberEditConsultantId: document.getElementById('member-edit-consultant-id'),
-    memberNameModal: document.getElementById('member-name-modal'),
+    memberConsultantModal: document.getElementById('member-consultant-modal'),
     memberAreaModal: document.getElementById('member-area-modal'),
     memberProjectRoleModal: document.getElementById('member-project-role-modal'),
     memberAllocationEdit: document.getElementById('member-allocation-edit'),
@@ -2216,6 +2216,37 @@ if (!isBrowserRuntime) {
     resetSelect('memberArea', ui.memberAreaModal);
   };
 
+  const rebuildMemberConsultantSelect = ({ areaId = null, consultantId = null, positionId = '' } = {}) => {
+    if (!ui.memberConsultantModal) return;
+    ui.memberConsultantModal.innerHTML = '';
+    ui.memberConsultantModal.add(new Option('Open Position (no consultant assigned)', '', false, !consultantId));
+
+    const blockedIds = new Set(
+      selectedProjectAssignments
+        .filter((entry) => String(entry.positionId) !== String(positionId) && entry.consultantId)
+        .map((entry) => Number(entry.consultantId))
+    );
+
+    const candidates = consultants.filter((consultant) => {
+      if (blockedIds.has(Number(consultant.id))) return false;
+      if (!areaId) return true;
+      return (consultant.areaIds || []).map(Number).includes(Number(areaId));
+    });
+
+    candidates
+      .sort((a, b) => String(a.name || '').localeCompare(String(b.name || '')))
+      .forEach((consultant) => {
+        const selected = consultantId ? Number(consultant.id) === Number(consultantId) : false;
+        ui.memberConsultantModal.add(new Option(consultant.name, String(consultant.id), false, selected));
+      });
+
+    if (consultantId && !candidates.some((consultant) => Number(consultant.id) === Number(consultantId))) {
+      ui.memberConsultantModal.value = '';
+    }
+
+    resetSelect('memberConsultant', ui.memberConsultantModal);
+  };
+
   const renderConsultantPickerList = () => {
     if (!modalSelectedAreaId) {
       ui.consultantPickerList.innerHTML = '<p class="grey-text">Select an area to view consultants or save as an open position.</p>';
@@ -3285,16 +3316,17 @@ if (!isBrowserRuntime) {
     const readOnly = button.dataset.action === 'view-member';
     ui.memberModalTitle.textContent = readOnly ? 'View Project Position' : 'Edit Project Position';
     ui.memberEditConsultantId.value = positionId;
-    ui.memberNameModal.value = consultantId ? consultantNameById(consultantId) : 'Open Position';
     ui.memberAllocationEdit.value = Number(member.allocation ?? 100);
     if (ui.memberBillableEdit) ui.memberBillableEdit.checked = member.billable !== false;
     ui.memberCommentsEdit.value = member.comments || '';
     ui.memberStartDateEdit.value = member.startDate || '';
     ui.memberEndDateEdit.value = member.endDate || '';
     rebuildMemberAreaSelect(member.areaId);
+    rebuildMemberConsultantSelect({ areaId: member.areaId, consultantId, positionId });
     rebuildMemberRoleSelect(member.projectRole || 'Project Position');
 
     if (ui.memberAreaModal) ui.memberAreaModal.disabled = readOnly;
+    if (ui.memberConsultantModal) ui.memberConsultantModal.disabled = readOnly;
     ui.memberProjectRoleModal.disabled = readOnly;
     ui.memberAllocationEdit.disabled = readOnly;
     if (ui.memberBillableEdit) ui.memberBillableEdit.disabled = readOnly;
@@ -3303,10 +3335,20 @@ if (!isBrowserRuntime) {
     ui.memberEndDateEdit.disabled = readOnly;
     ui.saveMemberDetailsBtn.hidden = readOnly;
     if (ui.memberAreaModal) resetSelect('memberArea', ui.memberAreaModal);
+    if (ui.memberConsultantModal) resetSelect('memberConsultant', ui.memberConsultantModal);
     resetSelect('memberRole', ui.memberProjectRoleModal);
     updateTextFields();
     modals.memberDetails?.open();
   });
+
+  if (ui.memberAreaModal) {
+    ui.memberAreaModal.addEventListener('change', () => {
+      const positionId = String(ui.memberEditConsultantId.value || '');
+      const selectedConsultantId = ui.memberConsultantModal?.value ? Number(ui.memberConsultantModal.value) : null;
+      const selectedAreaId = ui.memberAreaModal.value ? Number(ui.memberAreaModal.value) : null;
+      rebuildMemberConsultantSelect({ areaId: selectedAreaId, consultantId: selectedConsultantId, positionId });
+    });
+  }
 
   ui.saveMemberDetailsBtn.addEventListener('click', async () => {
     const positionId = String(ui.memberEditConsultantId.value || '');
@@ -3324,6 +3366,12 @@ if (!isBrowserRuntime) {
 
     item.projectRole = ui.memberProjectRoleModal.value;
     item.areaId = ui.memberAreaModal?.value ? Number(ui.memberAreaModal.value) : null;
+    item.consultantId = ui.memberConsultantModal?.value ? Number(ui.memberConsultantModal.value) : null;
+    if (item.consultantId && (!item.status || item.status === 'Open')) {
+      item.status = 'Assigned';
+    } else if (!item.consultantId && item.status === 'Assigned') {
+      item.status = 'Open';
+    }
     item.allocation = allocation;
     item.billable = ui.memberBillableEdit ? ui.memberBillableEdit.checked : true;
     item.comments = ui.memberCommentsEdit.value.trim();
