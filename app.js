@@ -667,6 +667,34 @@ if (!isBrowserRuntime) {
     }
     return 'Unassigned';
   };
+  const sortProjectPositionAreaGroups = (groups) => {
+    const normalized = (value) => String(value || '').trim().toLowerCase();
+    const preferredRanks = new Map([
+      ['management', 0],
+      ['tm (transport management)', 1],
+      ['ewm (extended warehouse management)', 2],
+      ['yl (yard logistics)', 3]
+    ]);
+    const developmentLabel = 'development';
+
+    return [...groups].sort((a, b) => {
+      const aLabel = normalized(a.label);
+      const bLabel = normalized(b.label);
+
+      const aIsDevelopment = aLabel === developmentLabel;
+      const bIsDevelopment = bLabel === developmentLabel;
+      if (aIsDevelopment && !bIsDevelopment) return 1;
+      if (!aIsDevelopment && bIsDevelopment) return -1;
+
+      const aRank = preferredRanks.has(aLabel) ? preferredRanks.get(aLabel) : null;
+      const bRank = preferredRanks.has(bLabel) ? preferredRanks.get(bLabel) : null;
+      if (aRank !== null && bRank !== null) return aRank - bRank;
+      if (aRank !== null) return -1;
+      if (bRank !== null) return 1;
+
+      return a.label.localeCompare(b.label);
+    });
+  };
   const roleNameById = (id) => roles.find((role) => Number(role.id) === Number(id))?.name || '—';
   const formatDate = (value) => (value ? new Date(value).toLocaleDateString() : '—');
   const formatSalary = (value) => Number(value).toLocaleString('en-IE', { style: 'currency', currency: 'EUR' });
@@ -1732,12 +1760,7 @@ if (!isBrowserRuntime) {
         pushUnique(buckets.get(areaLabel), member, consultant);
       });
 
-      return Array.from(buckets.values())
-        .sort((a, b) => {
-          if (a.label === 'Unassigned') return 1;
-          if (b.label === 'Unassigned') return -1;
-          return a.label.localeCompare(b.label);
-        })
+      return sortProjectPositionAreaGroups(Array.from(buckets.values()))
         .filter((group) => group.members.length);
     };
 
@@ -2278,12 +2301,7 @@ if (!isBrowserRuntime) {
       pushUnique(buckets.get(areaLabel), member, consultant);
     });
 
-    const orderedGroups = Array.from(buckets.values())
-      .sort((a, b) => {
-        if (a.label === 'Unassigned') return 1;
-        if (b.label === 'Unassigned') return -1;
-        return a.label.localeCompare(b.label);
-      })
+    const orderedGroups = sortProjectPositionAreaGroups(Array.from(buckets.values()))
       .filter((group) => group.members.length);
 
     orderedGroups.forEach((group) => {
