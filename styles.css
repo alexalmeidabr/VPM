@@ -101,6 +101,9 @@ body { min-height: 100vh; }
   color: #607d8b;
   background: #fafcfd;
 }
+.revenue-summary-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 0.65rem; margin-bottom: 0.9rem; }
+.revenue-summary-card { border: 1px solid #d7e1e6; border-radius: 8px; padding: 0.55rem 0.7rem; background: #fafcfd; display: flex; flex-direction: column; gap: 0.2rem; }
+.revenue-summary-card strong { font-size: 1.05rem; color: #37474f; }
 #project-team-tab-host .sticky-members-panel {
   position: static;
   min-width: 0;

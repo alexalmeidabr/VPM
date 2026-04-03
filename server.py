@@ -349,6 +349,35 @@ def init_db():
         uploaded_at TEXT DEFAULT CURRENT_TIMESTAMP,
         FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE
       );
+
+      CREATE TABLE IF NOT EXISTS invoices (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        project_id INTEGER NOT NULL,
+        position_id INTEGER,
+        invoice_ref TEXT,
+        period_from TEXT NOT NULL,
+        period_to TEXT NOT NULL,
+        invoice_date TEXT NOT NULL,
+        due_date TEXT,
+        amount REAL NOT NULL DEFAULT 0,
+        status TEXT NOT NULL DEFAULT 'Draft',
+        notes TEXT,
+        created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+        updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE,
+        FOREIGN KEY (position_id) REFERENCES project_positions(id) ON DELETE SET NULL
+      );
+
+      CREATE TABLE IF NOT EXISTS invoice_payments (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        invoice_id INTEGER NOT NULL,
+        payment_date TEXT NOT NULL,
+        amount REAL NOT NULL DEFAULT 0,
+        notes TEXT,
+        created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+        updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (invoice_id) REFERENCES invoices(id) ON DELETE CASCADE
+      );
       '''
     )
 
@@ -1421,6 +1450,105 @@ class VPMHandler(SimpleHTTPRequestHandler):
         cursor = cursor.replace(month=cursor.month + 1)
     return months
 
+  def _working_days_between(self, start_date, end_date):
+    if not start_date or not end_date:
+      return 0
+    start = datetime.strptime(start_date, '%Y-%m-%d').date()
+    end = datetime.strptime(end_date, '%Y-%m-%d').date()
+    if end < start:
+      return 0
+    days = 0
+    cursor = start
+    while cursor <= end:
+      if cursor.weekday() < 5:
+        days += 1
+      cursor += timedelta(days=1)
+    return days
+
+  def _position_forecast_amount(self, position, project_start, project_end):
+    daily_rate = position['daily_rate']
+    if daily_rate is None:
+      return 0.0
+    start = position['start_date'] or project_start
+    end = position['end_date'] or project_end
+    if not start or not end:
+      return 0.0
+    overlap_start = max(start, project_start)
+    overlap_end = min(end, project_end)
+    working_days = self._working_days_between(overlap_start, overlap_end)
+    allocation = float(position['allocation'] if position['allocation'] is not None else 100.0)
+    billable_days = working_days * max(allocation, 0.0) / 100.0
+    return billable_days * float(daily_rate)
+
+  def calculate_time_material_forecast(self, conn, project_id):
+    project = conn.execute('SELECT start_date, end_date, project_type FROM projects WHERE id = ?', (project_id,)).fetchone()
+    if not project:
+      return 0.0
+    if str(project['project_type'] or '').strip().lower() != 'time material':
+      return 0.0
+    project_start = project['start_date']
+    project_end = project['end_date']
+    if not project_start or not project_end:
+      return 0.0
+    rows = conn.execute(
+      '''
+      SELECT id, start_date, end_date, allocation, billable, daily_rate
+      FROM project_positions
+      WHERE project_id = ?
+      ''',
+      (project_id,)
+    ).fetchall()
+    total = 0.0
+    for row in rows:
+      if not bool(row['billable']):
+        continue
+      total += self._position_forecast_amount(row, project_start, project_end)
+    return float(total)
+
+  def calculate_invoice_paid_amount(self, conn, invoice_id):
+    row = conn.execute('SELECT COALESCE(SUM(amount), 0) AS total FROM invoice_payments WHERE invoice_id = ?', (invoice_id,)).fetchone()
+    return float(row['total'] if row and row['total'] is not None else 0.0)
+
+  def recalculate_invoice_status(self, conn, invoice_id):
+    invoice = conn.execute('SELECT id, amount, status FROM invoices WHERE id = ?', (invoice_id,)).fetchone()
+    if not invoice:
+      return None
+    paid_amount = self.calculate_invoice_paid_amount(conn, invoice_id)
+    base_status = str(invoice['status'] or 'Draft')
+    if base_status == 'Draft':
+      return {'status': 'Draft', 'paidAmount': paid_amount}
+    amount = float(invoice['amount'] if invoice['amount'] is not None else 0.0)
+    if paid_amount >= amount and amount > 0:
+      next_status = 'Paid'
+    elif paid_amount > 0:
+      next_status = 'Partially Paid'
+    else:
+      next_status = 'Issued'
+    conn.execute('UPDATE invoices SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?', (next_status, invoice_id))
+    return {'status': next_status, 'paidAmount': paid_amount}
+
+  def get_project_revenue_summary(self, conn, project_id):
+    forecast = self.calculate_time_material_forecast(conn, project_id)
+    invoiced_row = conn.execute('SELECT COALESCE(SUM(amount), 0) AS total FROM invoices WHERE project_id = ?', (project_id,)).fetchone()
+    invoiced = float(invoiced_row['total'] if invoiced_row and invoiced_row['total'] is not None else 0.0)
+    paid_row = conn.execute(
+      '''
+      SELECT COALESCE(SUM(p.amount), 0) AS total
+      FROM invoice_payments p
+      JOIN invoices i ON i.id = p.invoice_id
+      WHERE i.project_id = ?
+      ''',
+      (project_id,)
+    ).fetchone()
+    paid = float(paid_row['total'] if paid_row and paid_row['total'] is not None else 0.0)
+    return {
+      'forecastRevenue': forecast,
+      'invoicedAmount': invoiced,
+      'paidAmount': paid,
+      'outstandingAmount': invoiced - paid,
+      'unbilledAmount': forecast - invoiced
+    }
+
   def _fetch_timesheet_detail(self, conn, consultant_id, month_start):
     row = self._ensure_monthly_timesheet(conn, consultant_id, month_start)
     if not row:
@@ -1449,6 +1577,9 @@ class VPMHandler(SimpleHTTPRequestHandler):
   def do_GET(self):
     path = self._path()
     query = self._query()
+    revenue_summary_match = re.fullmatch(r'/api/projects/(\d+)/revenue-summary', path)
+    project_invoices_match = re.fullmatch(r'/api/projects/(\d+)/invoices', path)
+    invoice_payments_match = re.fullmatch(r'/api/invoices/(\d+)/payments', path)
     allocation_simulation_id = self._allocation_simulation_id()
     files_project_id, file_id, files_action = self._project_files_route()
     with get_connection() as conn:
@@ -1495,6 +1626,68 @@ class VPMHandler(SimpleHTTPRequestHandler):
         return
       if path == '/api/projects':
         self._send_json({'projects': self._fetch_projects(conn)})
+        return
+      if revenue_summary_match:
+        project_id = int(revenue_summary_match.group(1))
+        if not self._ids_exist(conn, 'projects', [project_id]):
+          self._send_json({'error': 'Project not found'}, HTTPStatus.NOT_FOUND)
+          return
+        self._send_json(self.get_project_revenue_summary(conn, project_id))
+        return
+      if project_invoices_match:
+        project_id = int(project_invoices_match.group(1))
+        if not self._ids_exist(conn, 'projects', [project_id]):
+          self._send_json({'error': 'Project not found'}, HTTPStatus.NOT_FOUND)
+          return
+        invoices = conn.execute(
+          '''
+          SELECT i.*
+          FROM invoices i
+          WHERE i.project_id = ?
+          ORDER BY i.invoice_date DESC, i.id DESC
+          ''',
+          (project_id,)
+        ).fetchall()
+        payload = []
+        for invoice in invoices:
+          paid_amount = self.calculate_invoice_paid_amount(conn, invoice['id'])
+          payload.append({
+            'id': invoice['id'],
+            'projectId': invoice['project_id'],
+            'positionId': invoice['position_id'],
+            'invoiceRef': invoice['invoice_ref'] or '',
+            'periodFrom': invoice['period_from'],
+            'periodTo': invoice['period_to'],
+            'invoiceDate': invoice['invoice_date'],
+            'dueDate': invoice['due_date'] or '',
+            'amount': float(invoice['amount'] if invoice['amount'] is not None else 0.0),
+            'paidAmount': paid_amount,
+            'status': invoice['status'] or 'Draft',
+            'notes': invoice['notes'] or ''
+          })
+        self._send_json({'invoices': payload})
+        return
+      if invoice_payments_match:
+        invoice_id = int(invoice_payments_match.group(1))
+        if not self._ids_exist(conn, 'invoices', [invoice_id]):
+          self._send_json({'error': 'Invoice not found'}, HTTPStatus.NOT_FOUND)
+          return
+        rows = conn.execute(
+          'SELECT id, invoice_id, payment_date, amount, notes, created_at, updated_at FROM invoice_payments WHERE invoice_id = ? ORDER BY payment_date DESC, id DESC',
+          (invoice_id,)
+        ).fetchall()
+        self._send_json({'payments': [
+          {
+            'id': row['id'],
+            'invoiceId': row['invoice_id'],
+            'paymentDate': row['payment_date'],
+            'amount': float(row['amount'] if row['amount'] is not None else 0.0),
+            'notes': row['notes'] or '',
+            'createdAt': row['created_at'],
+            'updatedAt': row['updated_at']
+          }
+          for row in rows
+        ]})
         return
       if path == '/api/consultants':
         self._send_json({'consultants': self._fetch_consultants(conn)})
@@ -1564,6 +1757,8 @@ class VPMHandler(SimpleHTTPRequestHandler):
 
   def do_POST(self):
     path = self._path()
+    project_invoices_match = re.fullmatch(r'/api/projects/(\d+)/invoices', path)
+    invoice_payments_match = re.fullmatch(r'/api/invoices/(\d+)/payments', path)
     files_project_id, _, files_action = self._project_files_route()
     if files_project_id is not None and files_action is None:
       with get_connection() as conn:
@@ -1594,6 +1789,90 @@ class VPMHandler(SimpleHTTPRequestHandler):
       payload = self._read_json()
     except json.JSONDecodeError:
       self._send_json({'error': 'Invalid JSON'}, HTTPStatus.BAD_REQUEST)
+      return
+
+    if project_invoices_match:
+      project_id = int(project_invoices_match.group(1))
+      invoice_ref = str(payload.get('invoiceRef', '')).strip()
+      period_from = str(payload.get('periodFrom', '')).strip()
+      period_to = str(payload.get('periodTo', '')).strip()
+      invoice_date = str(payload.get('invoiceDate', '')).strip()
+      due_date = str(payload.get('dueDate', '')).strip()
+      status = str(payload.get('status', 'Draft')).strip() or 'Draft'
+      notes = str(payload.get('notes', '')).strip()
+      try:
+        amount = float(payload.get('amount', 0) or 0)
+      except (TypeError, ValueError):
+        self._send_json({'error': 'amount must be numeric'}, HTTPStatus.BAD_REQUEST)
+        return
+      if amount < 0:
+        self._send_json({'error': 'amount cannot be negative'}, HTTPStatus.BAD_REQUEST)
+        return
+      if status not in {'Draft', 'Issued', 'Partially Paid', 'Paid'}:
+        self._send_json({'error': 'status must be one of: Draft, Issued, Partially Paid, Paid'}, HTTPStatus.BAD_REQUEST)
+        return
+      if not (self._valid_iso_date(period_from) and self._valid_iso_date(period_to) and self._valid_iso_date(invoice_date)):
+        self._send_json({'error': 'periodFrom, periodTo and invoiceDate must be YYYY-MM-DD'}, HTTPStatus.BAD_REQUEST)
+        return
+      if due_date and not self._valid_iso_date(due_date):
+        self._send_json({'error': 'dueDate must be YYYY-MM-DD when provided'}, HTTPStatus.BAD_REQUEST)
+        return
+      if period_from > period_to:
+        self._send_json({'error': 'periodFrom cannot be after periodTo'}, HTTPStatus.BAD_REQUEST)
+        return
+      position_id = payload.get('positionId')
+      if position_id not in (None, '', 0):
+        try:
+          position_id = int(position_id)
+        except (TypeError, ValueError):
+          self._send_json({'error': 'positionId must be numeric when provided'}, HTTPStatus.BAD_REQUEST)
+          return
+      else:
+        position_id = None
+      with get_connection() as conn:
+        if not self._ids_exist(conn, 'projects', [project_id]):
+          self._send_json({'error': 'Project not found'}, HTTPStatus.NOT_FOUND)
+          return
+        if position_id is not None:
+          row = conn.execute('SELECT 1 FROM project_positions WHERE id = ? AND project_id = ?', (position_id, project_id)).fetchone()
+          if not row:
+            self._send_json({'error': 'positionId is not part of this project'}, HTTPStatus.BAD_REQUEST)
+            return
+        cursor = conn.execute(
+          '''
+          INSERT INTO invoices (project_id, position_id, invoice_ref, period_from, period_to, invoice_date, due_date, amount, status, notes)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          ''',
+          (project_id, position_id, invoice_ref, period_from, period_to, invoice_date, due_date or None, amount, status, notes)
+        )
+      self._send_json({'id': cursor.lastrowid}, HTTPStatus.CREATED)
+      return
+
+    if invoice_payments_match:
+      invoice_id = int(invoice_payments_match.group(1))
+      payment_date = str(payload.get('paymentDate', '')).strip()
+      notes = str(payload.get('notes', '')).strip()
+      try:
+        amount = float(payload.get('amount', 0) or 0)
+      except (TypeError, ValueError):
+        self._send_json({'error': 'amount must be numeric'}, HTTPStatus.BAD_REQUEST)
+        return
+      if amount <= 0:
+        self._send_json({'error': 'amount must be greater than zero'}, HTTPStatus.BAD_REQUEST)
+        return
+      if not self._valid_iso_date(payment_date):
+        self._send_json({'error': 'paymentDate must be YYYY-MM-DD'}, HTTPStatus.BAD_REQUEST)
+        return
+      with get_connection() as conn:
+        if not self._ids_exist(conn, 'invoices', [invoice_id]):
+          self._send_json({'error': 'Invoice not found'}, HTTPStatus.NOT_FOUND)
+          return
+        cursor = conn.execute(
+          'INSERT INTO invoice_payments (invoice_id, payment_date, amount, notes) VALUES (?, ?, ?, ?)',
+          (invoice_id, payment_date, amount, notes)
+        )
+        self.recalculate_invoice_status(conn, invoice_id)
+      self._send_json({'id': cursor.lastrowid}, HTTPStatus.CREATED)
       return
 
     consultant_id, _ = self._availability_route()
@@ -1981,6 +2260,8 @@ class VPMHandler(SimpleHTTPRequestHandler):
 
   def do_PUT(self):
     path = self._path()
+    invoice_match = re.fullmatch(r'/api/invoices/(\d+)', path)
+    payment_match = re.fullmatch(r'/api/payments/(\d+)', path)
     project_id = self._resource_id('projects')
     consultant_id = self._resource_id('consultants')
     business_partner_id = self._resource_id('business-partners')
@@ -2010,6 +2291,94 @@ class VPMHandler(SimpleHTTPRequestHandler):
         self._send_json({'error': 'Monthly timesheet not found'}, HTTPStatus.NOT_FOUND)
         return
       self._send_json({'status': status})
+      return
+
+    if invoice_match:
+      invoice_id = int(invoice_match.group(1))
+      invoice_ref = str(payload.get('invoiceRef', '')).strip()
+      period_from = str(payload.get('periodFrom', '')).strip()
+      period_to = str(payload.get('periodTo', '')).strip()
+      invoice_date = str(payload.get('invoiceDate', '')).strip()
+      due_date = str(payload.get('dueDate', '')).strip()
+      status = str(payload.get('status', 'Draft')).strip() or 'Draft'
+      notes = str(payload.get('notes', '')).strip()
+      try:
+        amount = float(payload.get('amount', 0) or 0)
+      except (TypeError, ValueError):
+        self._send_json({'error': 'amount must be numeric'}, HTTPStatus.BAD_REQUEST)
+        return
+      if amount < 0:
+        self._send_json({'error': 'amount cannot be negative'}, HTTPStatus.BAD_REQUEST)
+        return
+      if status not in {'Draft', 'Issued', 'Partially Paid', 'Paid'}:
+        self._send_json({'error': 'status must be one of: Draft, Issued, Partially Paid, Paid'}, HTTPStatus.BAD_REQUEST)
+        return
+      if not (self._valid_iso_date(period_from) and self._valid_iso_date(period_to) and self._valid_iso_date(invoice_date)):
+        self._send_json({'error': 'periodFrom, periodTo and invoiceDate must be YYYY-MM-DD'}, HTTPStatus.BAD_REQUEST)
+        return
+      if due_date and not self._valid_iso_date(due_date):
+        self._send_json({'error': 'dueDate must be YYYY-MM-DD when provided'}, HTTPStatus.BAD_REQUEST)
+        return
+      if period_from > period_to:
+        self._send_json({'error': 'periodFrom cannot be after periodTo'}, HTTPStatus.BAD_REQUEST)
+        return
+      position_id = payload.get('positionId')
+      if position_id not in (None, '', 0):
+        try:
+          position_id = int(position_id)
+        except (TypeError, ValueError):
+          self._send_json({'error': 'positionId must be numeric when provided'}, HTTPStatus.BAD_REQUEST)
+          return
+      else:
+        position_id = None
+      with get_connection() as conn:
+        invoice = conn.execute('SELECT project_id FROM invoices WHERE id = ?', (invoice_id,)).fetchone()
+        if not invoice:
+          self._send_json({'error': 'Invoice not found'}, HTTPStatus.NOT_FOUND)
+          return
+        if position_id is not None:
+          row = conn.execute('SELECT 1 FROM project_positions WHERE id = ? AND project_id = ?', (position_id, invoice['project_id'])).fetchone()
+          if not row:
+            self._send_json({'error': 'positionId is not part of this project'}, HTTPStatus.BAD_REQUEST)
+            return
+        conn.execute(
+          '''
+          UPDATE invoices
+          SET position_id = ?, invoice_ref = ?, period_from = ?, period_to = ?, invoice_date = ?, due_date = ?, amount = ?, status = ?, notes = ?, updated_at = CURRENT_TIMESTAMP
+          WHERE id = ?
+          ''',
+          (position_id, invoice_ref, period_from, period_to, invoice_date, due_date or None, amount, status, notes, invoice_id)
+        )
+        self.recalculate_invoice_status(conn, invoice_id)
+      self._send_json({'status': 'updated'})
+      return
+
+    if payment_match:
+      payment_id = int(payment_match.group(1))
+      payment_date = str(payload.get('paymentDate', '')).strip()
+      notes = str(payload.get('notes', '')).strip()
+      try:
+        amount = float(payload.get('amount', 0) or 0)
+      except (TypeError, ValueError):
+        self._send_json({'error': 'amount must be numeric'}, HTTPStatus.BAD_REQUEST)
+        return
+      if amount <= 0:
+        self._send_json({'error': 'amount must be greater than zero'}, HTTPStatus.BAD_REQUEST)
+        return
+      if not self._valid_iso_date(payment_date):
+        self._send_json({'error': 'paymentDate must be YYYY-MM-DD'}, HTTPStatus.BAD_REQUEST)
+        return
+      with get_connection() as conn:
+        payment = conn.execute('SELECT invoice_id FROM invoice_payments WHERE id = ?', (payment_id,)).fetchone()
+        if not payment:
+          self._send_json({'error': 'Payment not found'}, HTTPStatus.NOT_FOUND)
+          return
+        conn.execute(
+          'UPDATE invoice_payments SET payment_date = ?, amount = ?, notes = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
+          (payment_date, amount, notes, payment_id)
+        )
+        self.recalculate_invoice_status(conn, payment['invoice_id'])
+      self._send_json({'status': 'updated'})
       return
 
     if project_id is not None:
@@ -2207,6 +2576,8 @@ class VPMHandler(SimpleHTTPRequestHandler):
   def do_DELETE(self):
     path = self._path()
     query = self._query()
+    invoice_match = re.fullmatch(r'/api/invoices/(\d+)', path)
+    payment_match = re.fullmatch(r'/api/payments/(\d+)', path)
     project_id = self._resource_id('projects')
     consultant_id = self._resource_id('consultants')
     role_id = self._resource_id('roles')
@@ -2217,6 +2588,28 @@ class VPMHandler(SimpleHTTPRequestHandler):
     business_partner_id = self._resource_id('business-partners')
     availability_consultant_id, availability_id = self._availability_route()
     allocation_simulation_id = self._allocation_simulation_id()
+
+    if invoice_match:
+      invoice_id = int(invoice_match.group(1))
+      with get_connection() as conn:
+        cursor = conn.execute('DELETE FROM invoices WHERE id = ?', (invoice_id,))
+      if cursor.rowcount == 0:
+        self._send_json({'error': 'Invoice not found'}, HTTPStatus.NOT_FOUND)
+        return
+      self._send_json({'status': 'deleted'})
+      return
+
+    if payment_match:
+      payment_id = int(payment_match.group(1))
+      with get_connection() as conn:
+        payment = conn.execute('SELECT invoice_id FROM invoice_payments WHERE id = ?', (payment_id,)).fetchone()
+        if not payment:
+          self._send_json({'error': 'Payment not found'}, HTTPStatus.NOT_FOUND)
+          return
+        conn.execute('DELETE FROM invoice_payments WHERE id = ?', (payment_id,))
+        self.recalculate_invoice_status(conn, payment['invoice_id'])
+      self._send_json({'status': 'deleted'})
+      return
 
     if availability_consultant_id is not None and availability_id is not None:
       with get_connection() as conn:

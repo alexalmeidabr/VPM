@@ -42,6 +42,15 @@ if (!isBrowserRuntime) {
     projectMembersColumn: document.getElementById('project-members-column'),
     projectTeamTabHost: document.getElementById('project-team-tab-host'),
     projectTimelineTabHost: document.getElementById('project-timeline-tab-host'),
+    projectRevenueNotImplemented: document.getElementById('project-revenue-not-implemented'),
+    projectRevenueTimeMaterial: document.getElementById('project-revenue-time-material'),
+    revenueForecastValue: document.getElementById('revenue-forecast-value'),
+    revenueInvoicedValue: document.getElementById('revenue-invoiced-value'),
+    revenuePaidValue: document.getElementById('revenue-paid-value'),
+    revenueOutstandingValue: document.getElementById('revenue-outstanding-value'),
+    addInvoiceBtn: document.getElementById('add-invoice-btn'),
+    projectRevenueInvoicesBody: document.getElementById('project-revenue-invoices-body'),
+    projectRevenueInvoicesEmpty: document.getElementById('project-revenue-invoices-empty'),
     projectUploadFileBtn: document.getElementById('project-upload-file-btn'),
     projectFileUploadInput: document.getElementById('project-file-upload-input'),
     projectFilesBody: document.getElementById('project-files-body'),
@@ -177,6 +186,25 @@ if (!isBrowserRuntime) {
     daysOffModal: document.getElementById('days-off-modal'),
     holidayLoadModal: document.getElementById('holiday-load-modal'),
     manualLineModal: document.getElementById('manual-line-modal'),
+    invoiceModal: document.getElementById('invoice-modal'),
+    invoiceModalTitle: document.getElementById('invoice-modal-title'),
+    invoiceId: document.getElementById('invoice-id'),
+    invoiceRef: document.getElementById('invoice-ref'),
+    invoicePeriodFrom: document.getElementById('invoice-period-from'),
+    invoicePeriodTo: document.getElementById('invoice-period-to'),
+    invoiceDate: document.getElementById('invoice-date'),
+    invoiceDueDate: document.getElementById('invoice-due-date'),
+    invoiceAmount: document.getElementById('invoice-amount'),
+    invoiceStatus: document.getElementById('invoice-status'),
+    invoiceNotes: document.getElementById('invoice-notes'),
+    saveInvoiceBtn: document.getElementById('save-invoice-btn'),
+    paymentModal: document.getElementById('payment-modal'),
+    paymentInvoiceId: document.getElementById('payment-invoice-id'),
+    paymentId: document.getElementById('payment-id'),
+    paymentDate: document.getElementById('payment-date'),
+    paymentAmount: document.getElementById('payment-amount'),
+    paymentNotes: document.getElementById('payment-notes'),
+    savePaymentBtn: document.getElementById('save-payment-btn'),
     availabilityType: document.getElementById('availability-type'),
     availabilityStartDate: document.getElementById('availability-start-date'),
     availabilityEndDate: document.getElementById('availability-end-date'),
@@ -309,6 +337,8 @@ if (!isBrowserRuntime) {
   let showProjectMilestoneForm = false;
   let editingProjectPhaseId = null;
   let showClosedProjectPositions = false;
+  let revenueInvoices = [];
+  let revenueSummary = null;
   let allocationSimulations = [];
   let allocationState = null;
   let timesheetMonths = [];
@@ -516,6 +546,102 @@ if (!isBrowserRuntime) {
     renderProjectFiles();
   };
 
+  const formatMoney = (value, currency = 'EUR') => {
+    const amount = Number(value || 0);
+    try {
+      return new Intl.NumberFormat('en-US', { style: 'currency', currency: String(currency || 'EUR').toUpperCase() }).format(amount);
+    } catch (error) {
+      return `${String(currency || 'EUR').toUpperCase()} ${amount.toFixed(2)}`;
+    }
+  };
+
+  const renderRevenueSummary = () => {
+    if (!ui.revenueForecastValue) return;
+    ui.revenueForecastValue.textContent = formatMoney(revenueSummary?.forecastRevenue || 0);
+    ui.revenueInvoicedValue.textContent = formatMoney(revenueSummary?.invoicedAmount || 0);
+    ui.revenuePaidValue.textContent = formatMoney(revenueSummary?.paidAmount || 0);
+    ui.revenueOutstandingValue.textContent = formatMoney(revenueSummary?.outstandingAmount || 0);
+  };
+
+  const renderRevenueInvoices = () => {
+    if (!ui.projectRevenueInvoicesBody) return;
+    ui.projectRevenueInvoicesBody.innerHTML = '';
+    ui.projectRevenueInvoicesEmpty.hidden = revenueInvoices.length > 0;
+    revenueInvoices.forEach((invoice) => {
+      const row = document.createElement('tr');
+      row.innerHTML = `
+        <td>${invoice.invoiceRef || '—'}</td>
+        <td>${invoice.periodFrom} → ${invoice.periodTo}</td>
+        <td>${formatDate(invoice.invoiceDate)}</td>
+        <td>${invoice.dueDate ? formatDate(invoice.dueDate) : '—'}</td>
+        <td>${formatMoney(invoice.amount)}</td>
+        <td>${formatMoney(invoice.paidAmount)}</td>
+        <td><span class="status-badge">${invoice.status}</span></td>
+        <td>
+          <button type="button" class="btn-flat blue-text" data-action="edit-invoice" data-id="${invoice.id}"><i class="material-icons tiny">edit</i></button>
+          <button type="button" class="btn-flat teal-text" data-action="add-payment" data-id="${invoice.id}"><i class="material-icons tiny">payments</i></button>
+          <button type="button" class="btn-flat red-text" data-action="delete-invoice" data-id="${invoice.id}"><i class="material-icons tiny">delete</i></button>
+        </td>
+      `;
+      ui.projectRevenueInvoicesBody.appendChild(row);
+    });
+  };
+
+  const loadRevenueData = async (projectId) => {
+    if (!projectId) {
+      revenueSummary = null;
+      revenueInvoices = [];
+      renderRevenueSummary();
+      renderRevenueInvoices();
+      return;
+    }
+    const [summary, invoicesPayload] = await Promise.all([
+      request(`/api/projects/${projectId}/revenue-summary`),
+      request(`/api/projects/${projectId}/invoices`)
+    ]);
+    revenueSummary = summary || null;
+    revenueInvoices = invoicesPayload?.invoices || [];
+    renderRevenueSummary();
+    renderRevenueInvoices();
+  };
+
+  const resetInvoiceModal = (invoice = null) => {
+    if (!invoice) {
+      ui.invoiceModalTitle.textContent = 'Add Invoice';
+      ui.invoiceId.value = '';
+      ui.invoiceRef.value = '';
+      ui.invoicePeriodFrom.value = fields.startDate.value || '';
+      ui.invoicePeriodTo.value = fields.endDate.value || '';
+      ui.invoiceDate.value = new Date().toISOString().slice(0, 10);
+      ui.invoiceDueDate.value = '';
+      ui.invoiceAmount.value = '';
+      ui.invoiceStatus.value = 'Draft';
+      ui.invoiceNotes.value = '';
+    } else {
+      ui.invoiceModalTitle.textContent = 'Edit Invoice';
+      ui.invoiceId.value = invoice.id;
+      ui.invoiceRef.value = invoice.invoiceRef || '';
+      ui.invoicePeriodFrom.value = invoice.periodFrom || '';
+      ui.invoicePeriodTo.value = invoice.periodTo || '';
+      ui.invoiceDate.value = invoice.invoiceDate || '';
+      ui.invoiceDueDate.value = invoice.dueDate || '';
+      ui.invoiceAmount.value = String(invoice.amount ?? '');
+      ui.invoiceStatus.value = invoice.status || 'Draft';
+      ui.invoiceNotes.value = invoice.notes || '';
+    }
+    resetSelect('invoiceStatus', ui.invoiceStatus);
+    updateTextFields();
+  };
+
+  const resetPaymentModal = (invoiceId) => {
+    ui.paymentInvoiceId.value = String(invoiceId || '');
+    ui.paymentId.value = '';
+    ui.paymentDate.value = new Date().toISOString().slice(0, 10);
+    ui.paymentAmount.value = '';
+    ui.paymentNotes.value = '';
+    updateTextFields();
+  };
+
   const updateProjectWorkspaceUi = (context = 'updateProjectWorkspaceUi') => {
     const isSavedProject = Boolean(fields.projectId.value);
     const manageProjectOpen = !ui.projectFormCard.hidden;
@@ -526,6 +652,7 @@ if (!isBrowserRuntime) {
     const isOverviewTab = activeTab === 'overview';
     const isTeamTab = isSavedProject && activeTab === 'team';
     const isTimelineTab = isSavedProject && activeTab === 'timeline';
+    const isRevenueTab = isSavedProject && activeTab === 'revenue';
     const showProjectsList = !ui.projectsPanelCard.hidden;
     const useWideMainColumn = showProjectsList || isTimelineTab;
     document.body.classList.toggle('workspace-timeline-wide', isTimelineTab);
@@ -560,6 +687,11 @@ if (!isBrowserRuntime) {
 
     if (ui.projectMembersColumn) ui.projectMembersColumn.hidden = !manageProjectOpen || !isOverviewTab;
     if (ui.projectMembersCard) ui.projectMembersCard.hidden = !manageProjectOpen || (!isOverviewTab && !isTeamTab);
+    if (isRevenueTab) {
+      const isTimeMaterial = isTimeMaterialProjectType();
+      if (ui.projectRevenueTimeMaterial) ui.projectRevenueTimeMaterial.hidden = !isTimeMaterial;
+      if (ui.projectRevenueNotImplemented) ui.projectRevenueNotImplemented.hidden = isTimeMaterial;
+    }
     console.debug(`[projectWorkspace] context=${context} saved=${isSavedProject} activeTab=${activeTab} overviewTab=${isOverviewTab} teamMain=${isTeamTab} timelineMain=${isTimelineTab}`);
   };
 
@@ -3030,6 +3162,10 @@ if (!isBrowserRuntime) {
     if (ui.showClosedProjectPositionsToggle) ui.showClosedProjectPositionsToggle.checked = false;
     activeProjectWorkspaceTab = 'overview';
     projectFiles = [];
+    revenueInvoices = [];
+    revenueSummary = null;
+    renderRevenueSummary();
+    renderRevenueInvoices();
     renderProjectFiles();
     updateAssignedConsultantsSummary();
     rebuildProjectSelects();
@@ -3707,8 +3843,104 @@ if (!isBrowserRuntime) {
     console.debug(`[ProjectMode:openProject] action=${button.dataset.action} targetMode=${targetMode} projectId=${project.id}`);
     setProjectFormMode(targetMode);
     await loadProjectFiles(project.id);
+    await loadRevenueData(project.id);
     applyProjectModeUi('openProject-final');
     updateTextFields();
+  });
+
+  ui.addInvoiceBtn?.addEventListener('click', () => {
+    if (!fields.projectId.value) return;
+    resetInvoiceModal(null);
+    modals.invoice?.open();
+  });
+
+  ui.projectRevenueInvoicesBody?.addEventListener('click', async (event) => {
+    const button = event.target.closest('button[data-action]');
+    if (!button) return;
+    const invoiceId = Number(button.dataset.id);
+    const invoice = revenueInvoices.find((item) => Number(item.id) === invoiceId);
+    if (!invoice) return;
+
+    if (button.dataset.action === 'edit-invoice') {
+      resetInvoiceModal(invoice);
+      modals.invoice?.open();
+      return;
+    }
+    if (button.dataset.action === 'add-payment') {
+      resetPaymentModal(invoiceId);
+      modals.payment?.open();
+      return;
+    }
+    if (button.dataset.action === 'delete-invoice') {
+      const confirmed = window.confirm(`Delete invoice "${invoice.invoiceRef || invoice.id}"?`);
+      if (!confirmed) return;
+      try {
+        await request(`/api/invoices/${invoiceId}`, { method: 'DELETE' });
+        await loadRevenueData(fields.projectId.value);
+        toast('Invoice deleted', 'orange darken-2');
+      } catch (error) {
+        toast(error.message || 'Failed to delete invoice', 'red darken-1');
+      }
+    }
+  });
+
+  ui.saveInvoiceBtn?.addEventListener('click', async () => {
+    const projectId = Number(fields.projectId.value);
+    if (!projectId) return;
+    const payload = {
+      invoiceRef: ui.invoiceRef.value.trim(),
+      periodFrom: ui.invoicePeriodFrom.value,
+      periodTo: ui.invoicePeriodTo.value,
+      invoiceDate: ui.invoiceDate.value,
+      dueDate: ui.invoiceDueDate.value,
+      amount: Number(ui.invoiceAmount.value || 0),
+      status: ui.invoiceStatus.value,
+      notes: ui.invoiceNotes.value.trim()
+    };
+    if (!payload.periodFrom || !payload.periodTo || !payload.invoiceDate) {
+      toast('Period and invoice date are required', 'red darken-1');
+      return;
+    }
+    try {
+      const invoiceId = Number(ui.invoiceId.value || 0);
+      await request(invoiceId ? `/api/invoices/${invoiceId}` : `/api/projects/${projectId}/invoices`, {
+        method: invoiceId ? 'PUT' : 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      modals.invoice?.close();
+      await loadRevenueData(projectId);
+      toast(invoiceId ? 'Invoice updated' : 'Invoice added', 'teal darken-1');
+    } catch (error) {
+      toast(error.message || 'Failed to save invoice', 'red darken-1');
+    }
+  });
+
+  ui.savePaymentBtn?.addEventListener('click', async () => {
+    const invoiceId = Number(ui.paymentInvoiceId.value || 0);
+    if (!invoiceId) return;
+    const payload = {
+      paymentDate: ui.paymentDate.value,
+      amount: Number(ui.paymentAmount.value || 0),
+      notes: ui.paymentNotes.value.trim()
+    };
+    if (!payload.paymentDate || !(payload.amount > 0)) {
+      toast('Payment date and amount are required', 'red darken-1');
+      return;
+    }
+    try {
+      const paymentId = Number(ui.paymentId.value || 0);
+      await request(paymentId ? `/api/payments/${paymentId}` : `/api/invoices/${invoiceId}/payments`, {
+        method: paymentId ? 'PUT' : 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      modals.payment?.close();
+      await loadRevenueData(fields.projectId.value);
+      toast('Payment saved', 'teal darken-1');
+    } catch (error) {
+      toast(error.message || 'Failed to save payment', 'red darken-1');
+    }
   });
 
   ui.consultantsBody.addEventListener('click', async (event) => {
@@ -4393,6 +4625,8 @@ if (!isBrowserRuntime) {
     modals.daysOff = M.Modal.init(ui.daysOffModal);
     modals.holidayLoad = M.Modal.init(ui.holidayLoadModal);
     modals.manualLine = M.Modal.init(ui.manualLineModal);
+    modals.invoice = M.Modal.init(ui.invoiceModal);
+    modals.payment = M.Modal.init(ui.paymentModal);
     modals.businessPartnerCommunication = M.Modal.init(ui.businessPartnerCommunicationModal);
   }
 

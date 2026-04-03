@@ -138,8 +138,32 @@
                   <div id="project-workspace-timeline" class="project-workspace-panel" data-workspace-panel="timeline" hidden>
                     <div id="project-timeline-tab-host"></div>
                   </div>
-                  <div id="project-workspace-revenue" class="project-workspace-panel project-workspace-placeholder" data-workspace-panel="revenue" hidden>
-                    Revenue view will be available later.
+                  <div id="project-workspace-revenue" class="project-workspace-panel" data-workspace-panel="revenue" hidden>
+                    <div id="project-revenue-not-implemented" class="project-workspace-placeholder" hidden>Revenue Management V1 is not yet implemented for this project type.</div>
+                    <div id="project-revenue-time-material" hidden>
+                      <div class="section-header">
+                        <h6>Revenue Summary</h6>
+                      </div>
+                      <div class="revenue-summary-grid">
+                        <div class="revenue-summary-card"><span class="grey-text">Forecast Revenue</span><strong id="revenue-forecast-value">€0.00</strong></div>
+                        <div class="revenue-summary-card"><span class="grey-text">Invoiced</span><strong id="revenue-invoiced-value">€0.00</strong></div>
+                        <div class="revenue-summary-card"><span class="grey-text">Paid</span><strong id="revenue-paid-value">€0.00</strong></div>
+                        <div class="revenue-summary-card"><span class="grey-text">Outstanding</span><strong id="revenue-outstanding-value">€0.00</strong></div>
+                      </div>
+                      <div class="section-header">
+                        <h6>Invoices</h6>
+                        <button class="btn waves-effect waves-light" type="button" id="add-invoice-btn">Add Invoice</button>
+                      </div>
+                      <div class="table-container">
+                        <table class="striped responsive-table">
+                          <thead>
+                            <tr><th>Invoice Ref</th><th>Period</th><th>Invoice Date</th><th>Due Date</th><th>Amount</th><th>Paid Amount</th><th>Status</th><th>Actions</th></tr>
+                          </thead>
+                          <tbody id="project-revenue-invoices-body"></tbody>
+                        </table>
+                      </div>
+                      <p class="grey-text text-darken-1 empty-message" id="project-revenue-invoices-empty">No invoices yet.</p>
+                    </div>
                   </div>
                   <div id="project-workspace-profitability" class="project-workspace-panel project-workspace-placeholder" data-workspace-panel="profitability" hidden>
                     Profitability view will be available later.
@@ -544,6 +568,38 @@
         </div>
       </div>
       <div class="modal-footer"><button type="button" class="modal-close btn-flat">Cancel</button><button type="button" class="btn" id="confirm-manual-line-btn">Add Line</button></div>
+    </div>
+
+    <div id="invoice-modal" class="modal">
+      <div class="modal-content">
+        <h5 id="invoice-modal-title">Add Invoice</h5>
+        <input type="hidden" id="invoice-id" />
+        <div class="input-field"><input id="invoice-ref" type="text" /><label class="active" for="invoice-ref">Invoice Ref</label></div>
+        <div class="row date-row">
+          <div class="input-field col s12 m6"><input id="invoice-period-from" type="date" /><label class="active" for="invoice-period-from">Period From</label></div>
+          <div class="input-field col s12 m6"><input id="invoice-period-to" type="date" /><label class="active" for="invoice-period-to">Period To</label></div>
+        </div>
+        <div class="row date-row">
+          <div class="input-field col s12 m6"><input id="invoice-date" type="date" /><label class="active" for="invoice-date">Invoice Date</label></div>
+          <div class="input-field col s12 m6"><input id="invoice-due-date" type="date" /><label class="active" for="invoice-due-date">Due Date</label></div>
+        </div>
+        <div class="input-field"><input id="invoice-amount" type="number" step="0.01" min="0" /><label class="active" for="invoice-amount">Amount</label></div>
+        <div class="input-field"><select id="invoice-status"><option value="Draft">Draft</option><option value="Issued">Issued</option><option value="Partially Paid">Partially Paid</option><option value="Paid">Paid</option></select><label for="invoice-status">Status</label></div>
+        <div class="input-field"><textarea id="invoice-notes" class="materialize-textarea"></textarea><label class="active" for="invoice-notes">Notes</label></div>
+      </div>
+      <div class="modal-footer"><button type="button" class="modal-close btn-flat">Cancel</button><button type="button" class="btn" id="save-invoice-btn">Save</button></div>
+    </div>
+
+    <div id="payment-modal" class="modal">
+      <div class="modal-content">
+        <h5>Register Payment</h5>
+        <input type="hidden" id="payment-invoice-id" />
+        <input type="hidden" id="payment-id" />
+        <div class="input-field"><input id="payment-date" type="date" /><label class="active" for="payment-date">Payment Date</label></div>
+        <div class="input-field"><input id="payment-amount" type="number" step="0.01" min="0" /><label class="active" for="payment-amount">Amount</label></div>
+        <div class="input-field"><textarea id="payment-notes" class="materialize-textarea"></textarea><label class="active" for="payment-notes">Notes</label></div>
+      </div>
+      <div class="modal-footer"><button type="button" class="modal-close btn-flat">Cancel</button><button type="button" class="btn" id="save-payment-btn">Save Payment</button></div>
     </div>
 
     <div id="business-partner-communication-modal" class="modal">
