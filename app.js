@@ -977,7 +977,8 @@ if (!isBrowserRuntime) {
     today.setHours(0, 0, 0, 0);
     const projectStart = startDate ? new Date(`${startDate}T00:00:00`) : null;
     if (projectStart && projectStart > today) return 'Not Started';
-    const phases = (projectPhases || []).filter((item) => item.startDate && item.endDate);
+    const phaseList = Array.isArray(projectPhases) ? projectPhases : [];
+    const phases = phaseList.filter((item) => item && item.startDate && item.endDate);
     if (phases.length) {
       const parsed = phases
         .map((phase) => ({
@@ -2837,33 +2838,38 @@ if (!isBrowserRuntime) {
   };
 
   const renderProjects = () => {
+    console.debug('[renderProjects] entered', { projectCount: projects.length });
     ui.projectsBody.innerHTML = '';
     projects.forEach((project) => {
-      const row = document.createElement('tr');
-      const client = findBusinessPartnerById(project.clientBusinessPartnerId);
-      const delivery = findBusinessPartnerById(project.deliveryPartnerBusinessPartnerId);
-      const displayStatus = deriveProjectDisplayStatusFromData({
-        startDate: project.startDate,
-        projectStatus: project.projectStatus || 'Not Started',
-        projectPhases: project.projectPhases || []
-      });
-      row.innerHTML = `
-        <td>${project.projectName}</td>
-        <td>${client?.companyName || '—'}</td>
-        <td><span class="status-badge ${statusClassByValue(displayStatus)}">${displayStatus}</span></td>
-        <td>${consultantNameById(project.managerConsultantId)}</td>
-        <td>${project.projectType || '—'}</td>
-        <td>${delivery?.companyName || '—'}</td>
-        <td><span class="chip date-chip">${formatDate(project.startDate)} → ${formatDate(project.endDate)}</span></td>
-        <td class="actions-cell">
-          <div class="actions-group">
-            <button class="btn-flat teal-text" data-action="view-project" data-id="${project.id}"><i class="material-icons tiny">visibility</i></button>
-            <button class="btn-flat blue-text" data-action="edit-project" data-id="${project.id}"><i class="material-icons tiny">edit</i></button>
-            <button class="btn-flat red-text" data-action="delete-project" data-id="${project.id}"><i class="material-icons tiny">delete</i></button>
-          </div>
-        </td>
-      `;
-      ui.projectsBody.appendChild(row);
+      try {
+        const row = document.createElement('tr');
+        const client = findBusinessPartnerById(project?.clientBusinessPartnerId);
+        const delivery = findBusinessPartnerById(project?.deliveryPartnerBusinessPartnerId);
+        const displayStatus = deriveProjectDisplayStatusFromData({
+          startDate: project?.startDate || '',
+          projectStatus: project?.projectStatus || 'Not Started',
+          projectPhases: Array.isArray(project?.projectPhases) ? project.projectPhases : []
+        });
+        row.innerHTML = `
+          <td>${project?.projectName || 'Untitled Project'}</td>
+          <td>${client?.companyName || '—'}</td>
+          <td><span class="status-badge ${statusClassByValue(displayStatus)}">${displayStatus}</span></td>
+          <td>${consultantNameById(project?.managerConsultantId)}</td>
+          <td>${project?.projectType || '—'}</td>
+          <td>${delivery?.companyName || '—'}</td>
+          <td><span class="chip date-chip">${formatDate(project?.startDate)} → ${formatDate(project?.endDate)}</span></td>
+          <td class="actions-cell">
+            <div class="actions-group">
+              <button class="btn-flat teal-text" data-action="view-project" data-id="${project?.id}"><i class="material-icons tiny">visibility</i></button>
+              <button class="btn-flat blue-text" data-action="edit-project" data-id="${project?.id}"><i class="material-icons tiny">edit</i></button>
+              <button class="btn-flat red-text" data-action="delete-project" data-id="${project?.id}"><i class="material-icons tiny">delete</i></button>
+            </div>
+          </td>
+        `;
+        ui.projectsBody.appendChild(row);
+      } catch (error) {
+        console.error('[renderProjects] failed for project row', { projectId: project?.id, error });
+      }
     });
     ui.projectCount.textContent = `${projects.length} project${projects.length === 1 ? '' : 's'} tracked`;
     ui.projectsEmptyState.hidden = projects.length > 0;
@@ -3504,7 +3510,9 @@ if (!isBrowserRuntime) {
       }
     });
 
-    projects = loaded.projects;
+    console.debug('[loadAll] /api/projects payload', loaded.projects);
+    projects = Array.isArray(loaded.projects) ? loaded.projects : [];
+    console.debug('[loadAll] projects loaded', { count: projects.length });
     consultants = loaded.consultants;
     timeTrackingConsultants = loaded.consultants;
     roles = loaded.roles;
