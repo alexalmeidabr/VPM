@@ -44,13 +44,27 @@ if (!isBrowserRuntime) {
     projectTimelineTabHost: document.getElementById('project-timeline-tab-host'),
     projectRevenueNotImplemented: document.getElementById('project-revenue-not-implemented'),
     projectRevenueTimeMaterial: document.getElementById('project-revenue-time-material'),
-    revenueForecastValue: document.getElementById('revenue-forecast-value'),
+    revenueTotalContractedValue: document.getElementById('revenue-total-contracted-value'),
+    revenueThisMonthValue: document.getElementById('revenue-this-month-value'),
+    revenueNext3MonthsValue: document.getElementById('revenue-next-3-months-value'),
+    revenueForecastTotalValue: document.getElementById('revenue-forecast-total-value'),
     revenueInvoicedValue: document.getElementById('revenue-invoiced-value'),
     revenuePaidValue: document.getElementById('revenue-paid-value'),
     revenueOutstandingValue: document.getElementById('revenue-outstanding-value'),
+    revenueUnbilledValue: document.getElementById('revenue-unbilled-value'),
+    projectRevenueForecastBody: document.getElementById('project-revenue-forecast-body'),
+    projectRevenueForecastEmpty: document.getElementById('project-revenue-forecast-empty'),
     addInvoiceBtn: document.getElementById('add-invoice-btn'),
     projectRevenueInvoicesBody: document.getElementById('project-revenue-invoices-body'),
     projectRevenueInvoicesEmpty: document.getElementById('project-revenue-invoices-empty'),
+    projectProfitabilityNotImplemented: document.getElementById('project-profitability-not-implemented'),
+    projectProfitabilityTimeMaterial: document.getElementById('project-profitability-time-material'),
+    profitabilityRevenueValue: document.getElementById('profitability-revenue-value'),
+    profitabilityCostValue: document.getElementById('profitability-cost-value'),
+    profitabilityMarginValue: document.getElementById('profitability-margin-value'),
+    profitabilityMarginPercentValue: document.getElementById('profitability-margin-percent-value'),
+    projectProfitabilityBody: document.getElementById('project-profitability-body'),
+    projectProfitabilityEmpty: document.getElementById('project-profitability-empty'),
     projectUploadFileBtn: document.getElementById('project-upload-file-btn'),
     projectFileUploadInput: document.getElementById('project-file-upload-input'),
     projectFilesBody: document.getElementById('project-files-body'),
@@ -339,6 +353,9 @@ if (!isBrowserRuntime) {
   let showClosedProjectPositions = false;
   let revenueInvoices = [];
   let revenueSummary = null;
+  let revenueForecastBreakdown = [];
+  let profitabilitySummary = null;
+  let profitabilityBreakdown = [];
   let allocationSimulations = [];
   let allocationState = null;
   let timesheetMonths = [];
@@ -556,11 +573,58 @@ if (!isBrowserRuntime) {
   };
 
   const renderRevenueSummary = () => {
-    if (!ui.revenueForecastValue) return;
-    ui.revenueForecastValue.textContent = formatMoney(revenueSummary?.forecastRevenue || 0);
+    if (!ui.revenueTotalContractedValue) return;
+    ui.revenueTotalContractedValue.textContent = formatMoney(revenueSummary?.totalContractedRevenue || 0);
+    ui.revenueThisMonthValue.textContent = formatMoney(revenueSummary?.revenueThisMonth || 0);
+    ui.revenueNext3MonthsValue.textContent = formatMoney(revenueSummary?.revenueNext3Months || 0);
+    ui.revenueForecastTotalValue.textContent = formatMoney(revenueSummary?.totalForecastRevenueUntilProjectEnd || 0);
     ui.revenueInvoicedValue.textContent = formatMoney(revenueSummary?.invoicedAmount || 0);
     ui.revenuePaidValue.textContent = formatMoney(revenueSummary?.paidAmount || 0);
     ui.revenueOutstandingValue.textContent = formatMoney(revenueSummary?.outstandingAmount || 0);
+    if (ui.revenueUnbilledValue) ui.revenueUnbilledValue.textContent = formatMoney(revenueSummary?.unbilledForecast || 0);
+  };
+
+  const renderRevenueForecastBreakdown = () => {
+    if (!ui.projectRevenueForecastBody) return;
+    ui.projectRevenueForecastBody.innerHTML = '';
+    ui.projectRevenueForecastEmpty.hidden = revenueForecastBreakdown.length > 0;
+    revenueForecastBreakdown.forEach((row) => {
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td>${row.monthLabel || row.month}</td>
+        <td>${row.positionName || 'Project Position'}</td>
+        <td>${row.consultantName || 'Open Position'}</td>
+        <td>${Number(row.allocationPercent ?? 100).toFixed(0)}%</td>
+        <td>${row.dailyRate != null ? formatMoney(row.dailyRate, row.dailyRateCurrency || 'EUR') : '—'}</td>
+        <td>${Number(row.billableDays || 0).toFixed(2)}</td>
+        <td>${formatMoney(row.revenue || 0, row.dailyRateCurrency || 'EUR')}</td>
+      `;
+      ui.projectRevenueForecastBody.appendChild(tr);
+    });
+  };
+
+  const renderProfitability = () => {
+    if (!ui.profitabilityRevenueValue) return;
+    ui.profitabilityRevenueValue.textContent = formatMoney(profitabilitySummary?.totalForecastRevenue || 0);
+    ui.profitabilityCostValue.textContent = formatMoney(profitabilitySummary?.totalForecastCost || 0);
+    ui.profitabilityMarginValue.textContent = formatMoney(profitabilitySummary?.totalForecastGrossMargin || 0);
+    ui.profitabilityMarginPercentValue.textContent = `${Number(profitabilitySummary?.forecastMarginPercent || 0).toFixed(2)}%`;
+    ui.projectProfitabilityBody.innerHTML = '';
+    ui.projectProfitabilityEmpty.hidden = profitabilityBreakdown.length > 0;
+    profitabilityBreakdown.forEach((row) => {
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td>${row.monthLabel || row.month}</td>
+        <td>${row.positionName || 'Project Position'}</td>
+        <td>${row.consultantName || 'Open Position'}</td>
+        <td>${Number(row.allocationPercent ?? 100).toFixed(0)}%</td>
+        <td>${formatMoney(row.revenue || 0, row.dailyRateCurrency || 'EUR')}</td>
+        <td>${formatMoney(row.internalCost || 0, row.dailyRateCurrency || 'EUR')}</td>
+        <td>${formatMoney(row.grossMargin || 0, row.dailyRateCurrency || 'EUR')}</td>
+        <td>${Number(row.marginPercent || 0).toFixed(2)}%</td>
+      `;
+      ui.projectProfitabilityBody.appendChild(tr);
+    });
   };
 
   const renderRevenueInvoices = () => {
@@ -591,18 +655,31 @@ if (!isBrowserRuntime) {
     if (!projectId) {
       revenueSummary = null;
       revenueInvoices = [];
+      revenueForecastBreakdown = [];
+      profitabilitySummary = null;
+      profitabilityBreakdown = [];
       renderRevenueSummary();
+      renderRevenueForecastBreakdown();
       renderRevenueInvoices();
+      renderProfitability();
       return;
     }
-    const [summary, invoicesPayload] = await Promise.all([
+    const [summary, invoicesPayload, forecastPayload, profitabilitySummaryPayload, profitabilityBreakdownPayload] = await Promise.all([
       request(`/api/projects/${projectId}/revenue-summary`),
-      request(`/api/projects/${projectId}/invoices`)
+      request(`/api/projects/${projectId}/invoices`),
+      request(`/api/projects/${projectId}/revenue-forecast-breakdown`),
+      request(`/api/projects/${projectId}/profitability-summary`),
+      request(`/api/projects/${projectId}/profitability-breakdown`)
     ]);
     revenueSummary = summary || null;
     revenueInvoices = invoicesPayload?.invoices || [];
+    revenueForecastBreakdown = forecastPayload?.rows || [];
+    profitabilitySummary = profitabilitySummaryPayload || null;
+    profitabilityBreakdown = profitabilityBreakdownPayload?.rows || [];
     renderRevenueSummary();
+    renderRevenueForecastBreakdown();
     renderRevenueInvoices();
+    renderProfitability();
   };
 
   const resetInvoiceModal = (invoice = null) => {
@@ -653,6 +730,7 @@ if (!isBrowserRuntime) {
     const isTeamTab = isSavedProject && activeTab === 'team';
     const isTimelineTab = isSavedProject && activeTab === 'timeline';
     const isRevenueTab = isSavedProject && activeTab === 'revenue';
+    const isProfitabilityTab = isSavedProject && activeTab === 'profitability';
     const showProjectsList = !ui.projectsPanelCard.hidden;
     const useWideMainColumn = showProjectsList || isTimelineTab;
     document.body.classList.toggle('workspace-timeline-wide', isTimelineTab);
@@ -691,6 +769,11 @@ if (!isBrowserRuntime) {
       const isTimeMaterial = isTimeMaterialProjectType();
       if (ui.projectRevenueTimeMaterial) ui.projectRevenueTimeMaterial.hidden = !isTimeMaterial;
       if (ui.projectRevenueNotImplemented) ui.projectRevenueNotImplemented.hidden = isTimeMaterial;
+    }
+    if (isProfitabilityTab) {
+      const isTimeMaterial = isTimeMaterialProjectType();
+      if (ui.projectProfitabilityTimeMaterial) ui.projectProfitabilityTimeMaterial.hidden = !isTimeMaterial;
+      if (ui.projectProfitabilityNotImplemented) ui.projectProfitabilityNotImplemented.hidden = isTimeMaterial;
     }
     console.debug(`[projectWorkspace] context=${context} saved=${isSavedProject} activeTab=${activeTab} overviewTab=${isOverviewTab} teamMain=${isTeamTab} timelineMain=${isTimelineTab}`);
   };

@@ -1528,7 +1528,8 @@ class VPMHandler(SimpleHTTPRequestHandler):
     return {'status': next_status, 'paidAmount': paid_amount}
 
   def get_project_revenue_summary(self, conn, project_id):
-    forecast = self.calculate_time_material_forecast(conn, project_id)
+    forecast_payload = self.calculate_time_material_revenue_forecast(conn, project_id)
+    forecast = float(forecast_payload['summary']['totalForecastRevenueUntilProjectEnd'])
     invoiced_row = conn.execute('SELECT COALESCE(SUM(amount), 0) AS total FROM invoices WHERE project_id = ?', (project_id,)).fetchone()
     invoiced = float(invoiced_row['total'] if invoiced_row and invoiced_row['total'] is not None else 0.0)
     paid_row = conn.execute(
@@ -1542,12 +1543,131 @@ class VPMHandler(SimpleHTTPRequestHandler):
     ).fetchone()
     paid = float(paid_row['total'] if paid_row and paid_row['total'] is not None else 0.0)
     return {
-      'forecastRevenue': forecast,
+      'totalContractedRevenue': forecast_payload['summary']['totalContractedRevenue'],
+      'revenueThisMonth': forecast_payload['summary']['revenueThisMonth'],
+      'revenueNext3Months': forecast_payload['summary']['revenueNext3Months'],
+      'totalForecastRevenueUntilProjectEnd': forecast_payload['summary']['totalForecastRevenueUntilProjectEnd'],
       'invoicedAmount': invoiced,
       'paidAmount': paid,
       'outstandingAmount': invoiced - paid,
-      'unbilledAmount': forecast - invoiced
+      'unbilledForecast': forecast - invoiced
     }
+
+  def iterate_months_between(self, start_date, end_date):
+    if not start_date or not end_date:
+      return []
+    start = datetime.strptime(start_date, '%Y-%m-%d').date().replace(day=1)
+    end = datetime.strptime(end_date, '%Y-%m-%d').date().replace(day=1)
+    months = []
+    cursor = start
+    while cursor <= end:
+      month_start = cursor
+      if cursor.month == 12:
+        next_month = cursor.replace(year=cursor.year + 1, month=1, day=1)
+      else:
+        next_month = cursor.replace(month=cursor.month + 1, day=1)
+      month_end = next_month - timedelta(days=1)
+      months.append((month_start, month_end))
+      cursor = next_month
+    return months
+
+  def calculate_time_material_revenue_forecast(self, conn, project_id):
+    project = conn.execute('SELECT id, start_date, end_date, project_type FROM projects WHERE id = ?', (project_id,)).fetchone()
+    if not project or str(project['project_type'] or '').strip().lower() != 'time material':
+      return {'summary': {'totalContractedRevenue': 0.0, 'revenueThisMonth': 0.0, 'revenueNext3Months': 0.0, 'totalForecastRevenueUntilProjectEnd': 0.0}, 'rows': []}
+    rows = conn.execute(
+      '''
+      SELECT pp.id, pp.project_role, pp.consultant_id, pp.start_date, pp.end_date, pp.allocation, pp.billable, pp.daily_rate, pp.daily_rate_currency, pp.status, c.name AS consultant_name
+      FROM project_positions pp
+      LEFT JOIN consultants c ON c.id = pp.consultant_id
+      WHERE pp.project_id = ?
+      ORDER BY pp.id
+      ''',
+      (project_id,)
+    ).fetchall()
+    monthly_rows = []
+    total = 0.0
+    current_month = datetime.utcnow().date().replace(day=1)
+    next_three_total = 0.0
+    this_month_total = 0.0
+    for position in rows:
+      if not bool(position['billable']) or position['daily_rate'] is None:
+        continue
+      display_status = 'Closed' if (position['end_date'] and position['end_date'] < datetime.utcnow().date().isoformat()) else str(position['status'] or '')
+      if display_status == 'Closed':
+        continue
+      position_start = position['start_date'] or project['start_date']
+      position_end = position['end_date'] or project['end_date']
+      if not position_start or not position_end:
+        continue
+      for month_start, month_end in self.iterate_months_between(position_start, position_end):
+        overlap_start = max(position_start, month_start.isoformat())
+        overlap_end = min(position_end, month_end.isoformat())
+        working_days = self._working_days_between(overlap_start, overlap_end)
+        if working_days <= 0:
+          continue
+        allocation = float(position['allocation'] if position['allocation'] is not None else 100.0)
+        billable_days = working_days * max(allocation, 0.0) / 100.0
+        revenue = billable_days * float(position['daily_rate'])
+        month_key = month_start.strftime('%Y-%m')
+        row = {
+          'month': month_key,
+          'monthLabel': month_start.strftime('%b %Y'),
+          'positionId': position['id'],
+          'positionName': position['project_role'] or 'Project Position',
+          'consultantId': position['consultant_id'],
+          'consultantName': position['consultant_name'] or 'Open Position',
+          'allocationPercent': allocation,
+          'dailyRate': float(position['daily_rate']),
+          'dailyRateCurrency': position['daily_rate_currency'] or 'EUR',
+          'billableDays': billable_days,
+          'revenue': revenue
+        }
+        monthly_rows.append(row)
+        total += revenue
+        if month_start == current_month:
+          this_month_total += revenue
+        month_diff = (month_start.year - current_month.year) * 12 + (month_start.month - current_month.month)
+        if 0 <= month_diff <= 2:
+          next_three_total += revenue
+    return {
+      'summary': {
+        'totalContractedRevenue': total,
+        'revenueThisMonth': this_month_total,
+        'revenueNext3Months': next_three_total,
+        'totalForecastRevenueUntilProjectEnd': total
+      },
+      'rows': monthly_rows
+    }
+
+  def calculate_time_material_profitability_forecast(self, conn, project_id):
+    revenue_payload = self.calculate_time_material_revenue_forecast(conn, project_id)
+    if not revenue_payload['rows']:
+      return {'summary': {'totalForecastRevenue': 0.0, 'totalForecastCost': 0.0, 'totalForecastGrossMargin': 0.0, 'forecastMarginPercent': 0.0}, 'rows': []}
+    rows = []
+    total_revenue = 0.0
+    total_cost = 0.0
+    for row in revenue_payload['rows']:
+      consultant = conn.execute('SELECT salary FROM consultants WHERE id = ?', (row['consultantId'],)).fetchone() if row['consultantId'] else None
+      salary = float(consultant['salary'] if consultant and consultant['salary'] is not None else 0.0)
+      month_start = datetime.strptime(f"{row['month']}-01", '%Y-%m-%d').date()
+      if month_start.month == 12:
+        month_end = month_start.replace(year=month_start.year + 1, month=1, day=1) - timedelta(days=1)
+      else:
+        month_end = month_start.replace(month=month_start.month + 1, day=1) - timedelta(days=1)
+      month_working_days = max(self._working_days_between(month_start.isoformat(), month_end.isoformat()), 1)
+      internal_cost_per_day = salary / month_working_days
+      internal_cost = internal_cost_per_day * float(row['billableDays'])
+      gross_margin = float(row['revenue']) - internal_cost
+      margin_percent = (gross_margin / float(row['revenue']) * 100.0) if float(row['revenue']) else 0.0
+      profitability_row = dict(row)
+      profitability_row.update({'internalCost': internal_cost, 'grossMargin': gross_margin, 'marginPercent': margin_percent})
+      rows.append(profitability_row)
+      total_revenue += float(row['revenue'])
+      total_cost += internal_cost
+    total_margin = total_revenue - total_cost
+    margin_percent_total = (total_margin / total_revenue * 100.0) if total_revenue else 0.0
+    return {'summary': {'totalForecastRevenue': total_revenue, 'totalForecastCost': total_cost, 'totalForecastGrossMargin': total_margin, 'forecastMarginPercent': margin_percent_total}, 'rows': rows}
 
   def _fetch_timesheet_detail(self, conn, consultant_id, month_start):
     row = self._ensure_monthly_timesheet(conn, consultant_id, month_start)
@@ -1578,6 +1698,9 @@ class VPMHandler(SimpleHTTPRequestHandler):
     path = self._path()
     query = self._query()
     revenue_summary_match = re.fullmatch(r'/api/projects/(\d+)/revenue-summary', path)
+    revenue_forecast_breakdown_match = re.fullmatch(r'/api/projects/(\d+)/revenue-forecast-breakdown', path)
+    profitability_summary_match = re.fullmatch(r'/api/projects/(\d+)/profitability-summary', path)
+    profitability_breakdown_match = re.fullmatch(r'/api/projects/(\d+)/profitability-breakdown', path)
     project_invoices_match = re.fullmatch(r'/api/projects/(\d+)/invoices', path)
     invoice_payments_match = re.fullmatch(r'/api/invoices/(\d+)/payments', path)
     allocation_simulation_id = self._allocation_simulation_id()
@@ -1633,6 +1756,30 @@ class VPMHandler(SimpleHTTPRequestHandler):
           self._send_json({'error': 'Project not found'}, HTTPStatus.NOT_FOUND)
           return
         self._send_json(self.get_project_revenue_summary(conn, project_id))
+        return
+      if revenue_forecast_breakdown_match:
+        project_id = int(revenue_forecast_breakdown_match.group(1))
+        if not self._ids_exist(conn, 'projects', [project_id]):
+          self._send_json({'error': 'Project not found'}, HTTPStatus.NOT_FOUND)
+          return
+        payload = self.calculate_time_material_revenue_forecast(conn, project_id)
+        self._send_json({'rows': payload['rows']})
+        return
+      if profitability_summary_match:
+        project_id = int(profitability_summary_match.group(1))
+        if not self._ids_exist(conn, 'projects', [project_id]):
+          self._send_json({'error': 'Project not found'}, HTTPStatus.NOT_FOUND)
+          return
+        payload = self.calculate_time_material_profitability_forecast(conn, project_id)
+        self._send_json(payload['summary'])
+        return
+      if profitability_breakdown_match:
+        project_id = int(profitability_breakdown_match.group(1))
+        if not self._ids_exist(conn, 'projects', [project_id]):
+          self._send_json({'error': 'Project not found'}, HTTPStatus.NOT_FOUND)
+          return
+        payload = self.calculate_time_material_profitability_forecast(conn, project_id)
+        self._send_json({'rows': payload['rows']})
         return
       if project_invoices_match:
         project_id = int(project_invoices_match.group(1))

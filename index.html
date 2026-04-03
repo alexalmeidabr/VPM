@@ -142,13 +142,34 @@
                     <div id="project-revenue-not-implemented" class="project-workspace-placeholder" hidden>Revenue Management V1 is not yet implemented for this project type.</div>
                     <div id="project-revenue-time-material" hidden>
                       <div class="section-header">
-                        <h6>Revenue Summary</h6>
+                        <h6>Revenue Forecast KPIs</h6>
                       </div>
                       <div class="revenue-summary-grid">
-                        <div class="revenue-summary-card"><span class="grey-text">Forecast Revenue</span><strong id="revenue-forecast-value">€0.00</strong></div>
-                        <div class="revenue-summary-card"><span class="grey-text">Invoiced</span><strong id="revenue-invoiced-value">€0.00</strong></div>
-                        <div class="revenue-summary-card"><span class="grey-text">Paid</span><strong id="revenue-paid-value">€0.00</strong></div>
+                        <div class="revenue-summary-card"><span class="grey-text">Total Contracted Revenue</span><strong id="revenue-total-contracted-value">€0.00</strong></div>
+                        <div class="revenue-summary-card"><span class="grey-text">Revenue This Month</span><strong id="revenue-this-month-value">€0.00</strong></div>
+                        <div class="revenue-summary-card"><span class="grey-text">Revenue Next 3 Months</span><strong id="revenue-next-3-months-value">€0.00</strong></div>
+                        <div class="revenue-summary-card"><span class="grey-text">Total Forecast Until Project End</span><strong id="revenue-forecast-total-value">€0.00</strong></div>
+                      </div>
+                      <div class="section-header">
+                        <h6>Monthly Forecast Breakdown</h6>
+                      </div>
+                      <div class="table-container">
+                        <table class="striped responsive-table">
+                          <thead>
+                            <tr><th>Month</th><th>Position</th><th>Consultant</th><th>Allocation %</th><th>Daily Rate</th><th>Billable Days</th><th>Revenue</th></tr>
+                          </thead>
+                          <tbody id="project-revenue-forecast-body"></tbody>
+                        </table>
+                      </div>
+                      <p class="grey-text text-darken-1 empty-message" id="project-revenue-forecast-empty">No forecast rows available.</p>
+                      <div class="section-header">
+                        <h6>Revenue Actuals</h6>
+                      </div>
+                      <div class="revenue-summary-grid">
+                        <div class="revenue-summary-card"><span class="grey-text">Total Invoiced</span><strong id="revenue-invoiced-value">€0.00</strong></div>
+                        <div class="revenue-summary-card"><span class="grey-text">Total Paid</span><strong id="revenue-paid-value">€0.00</strong></div>
                         <div class="revenue-summary-card"><span class="grey-text">Outstanding</span><strong id="revenue-outstanding-value">€0.00</strong></div>
+                        <div class="revenue-summary-card"><span class="grey-text">Unbilled Forecast</span><strong id="revenue-unbilled-value">€0.00</strong></div>
                       </div>
                       <div class="section-header">
                         <h6>Invoices</h6>
@@ -165,8 +186,27 @@
                       <p class="grey-text text-darken-1 empty-message" id="project-revenue-invoices-empty">No invoices yet.</p>
                     </div>
                   </div>
-                  <div id="project-workspace-profitability" class="project-workspace-panel project-workspace-placeholder" data-workspace-panel="profitability" hidden>
-                    Profitability view will be available later.
+                  <div id="project-workspace-profitability" class="project-workspace-panel" data-workspace-panel="profitability" hidden>
+                    <div id="project-profitability-not-implemented" class="project-workspace-placeholder" hidden>Profitability V1 is not yet implemented for this project type.</div>
+                    <div id="project-profitability-time-material" hidden>
+                      <div class="section-header"><h6>Profitability KPIs</h6></div>
+                      <div class="revenue-summary-grid">
+                        <div class="revenue-summary-card"><span class="grey-text">Total Forecast Revenue</span><strong id="profitability-revenue-value">€0.00</strong></div>
+                        <div class="revenue-summary-card"><span class="grey-text">Total Forecast Cost</span><strong id="profitability-cost-value">€0.00</strong></div>
+                        <div class="revenue-summary-card"><span class="grey-text">Total Forecast Gross Margin</span><strong id="profitability-margin-value">€0.00</strong></div>
+                        <div class="revenue-summary-card"><span class="grey-text">Forecast Margin %</span><strong id="profitability-margin-percent-value">0%</strong></div>
+                      </div>
+                      <div class="section-header"><h6>Monthly Profitability Breakdown</h6></div>
+                      <div class="table-container">
+                        <table class="striped responsive-table">
+                          <thead>
+                            <tr><th>Month</th><th>Position</th><th>Consultant</th><th>Allocation %</th><th>Revenue</th><th>Internal Cost</th><th>Gross Margin</th><th>Margin %</th></tr>
+                          </thead>
+                          <tbody id="project-profitability-body"></tbody>
+                        </table>
+                      </div>
+                      <p class="grey-text text-darken-1 empty-message" id="project-profitability-empty">No profitability rows available.</p>
+                    </div>
                   </div>
                   <div id="project-workspace-files" class="project-workspace-panel" data-workspace-panel="files" hidden>
                     <div class="section-header">
