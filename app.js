@@ -499,12 +499,12 @@ if (!isBrowserRuntime) {
     Completed: 'status-completed'
   }[status] || 'status-in-progress');
 
-  const deriveProjectDisplayStatus = () => {
+  const deriveProjectDisplayStatusFromData = ({ startDate = '', projectStatus = 'Not Started', projectPhases = [] } = {}) => {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-    const projectStart = fields.startDate.value ? new Date(`${fields.startDate.value}T00:00:00`) : null;
+    const projectStart = startDate ? new Date(`${startDate}T00:00:00`) : null;
     if (projectStart && projectStart > today) return 'Not Started';
-    const phases = (selectedProjectPhases || []).filter((item) => item.startDate && item.endDate);
+    const phases = (projectPhases || []).filter((item) => item.startDate && item.endDate);
     if (phases.length) {
       const parsed = phases
         .map((phase) => ({
@@ -519,8 +519,14 @@ if (!isBrowserRuntime) {
       if (today < parsed[0].start) return 'Not Started';
       return 'In Progress';
     }
-    return fields.projectStatus?.value || 'Not Started';
+    return projectStatus || 'Not Started';
   };
+
+  const deriveProjectDisplayStatus = () => deriveProjectDisplayStatusFromData({
+    startDate: fields.startDate.value,
+    projectStatus: fields.projectStatus?.value || 'Not Started',
+    projectPhases: selectedProjectPhases
+  });
 
   const updateProjectStatusUi = () => {
     const hasPhases = (selectedProjectPhases || []).length > 0;
@@ -2255,12 +2261,17 @@ if (!isBrowserRuntime) {
       const row = document.createElement('tr');
       const client = findBusinessPartnerById(project.clientBusinessPartnerId);
       const delivery = findBusinessPartnerById(project.deliveryPartnerBusinessPartnerId);
+      const displayStatus = deriveProjectDisplayStatusFromData({
+        startDate: project.startDate,
+        projectStatus: project.projectStatus || 'Not Started',
+        projectPhases: project.projectPhases || []
+      });
       row.innerHTML = `
         <td>${project.projectName}</td>
         <td>${client?.companyName || '—'}</td>
+        <td><span class="status-badge ${statusClassByValue(displayStatus)}">${displayStatus}</span></td>
         <td>${consultantNameById(project.managerConsultantId)}</td>
         <td>${project.projectType || '—'}</td>
-        <td>${(project.clientContacts || []).map((item) => `${item.name || ''} ${item.lastName || ''}`.trim() || item.email).filter(Boolean).join(', ') || '—'}</td>
         <td>${delivery?.companyName || '—'}</td>
         <td><span class="chip date-chip">${formatDate(project.startDate)} → ${formatDate(project.endDate)}</span></td>
         <td class="actions-cell">
