@@ -455,10 +455,12 @@ if (!isBrowserRuntime) {
     const isOverviewTab = activeTab === 'overview';
     const isTeamTab = isSavedProject && activeTab === 'team';
     const isTimelineTab = isSavedProject && activeTab === 'timeline';
+    const showProjectsList = !ui.projectsPanelCard.hidden;
+    const useWideMainColumn = showProjectsList || isTimelineTab;
     document.body.classList.toggle('workspace-timeline-wide', isTimelineTab);
     if (ui.projectMainColumn) {
-      ui.projectMainColumn.classList.toggle('l8', !isTimelineTab);
-      ui.projectMainColumn.classList.toggle('l12', isTimelineTab);
+      ui.projectMainColumn.classList.toggle('l8', !useWideMainColumn);
+      ui.projectMainColumn.classList.toggle('l12', useWideMainColumn);
     }
     ui.projectWorkspaceTabs?.querySelectorAll('[data-workspace-tab]').forEach((tabButton) => {
       tabButton.classList.toggle('active', tabButton.dataset.workspaceTab === activeTab);

@@ -18,7 +18,7 @@ body { min-height: 100vh; }
 .date-chip { white-space: nowrap; }
 .table-container { overflow-x: auto; }
 .projects-table-container { overflow-x: auto; }
-.projects-table-container table { width: 100%; min-width: 1180px; }
+.projects-table-container table { width: 100%; min-width: 980px; }
 .projects-table-container .actions-cell { white-space: nowrap; text-align: right; }
 .projects-table-container .actions-cell .btn-flat { padding: 0 0.3rem; min-width: 1.8rem; }
 .empty-message { margin-top: 1.5rem; }
