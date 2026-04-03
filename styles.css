@@ -241,7 +241,14 @@ textarea.materialize-textarea:disabled,
 .availability-week-header div, .availability-month-header div { text-align: center; }
 .availability-name { font-size: 0.85rem; font-weight: 600; text-align: left !important; }
 
-.timeline-area-panel { border: 1px solid #d7e1e6; border-radius: 10px; padding: 0.6rem; background: #fafcfd; margin-bottom: 0.6rem; }
+.timeline-area-panel {
+  border: 1px solid #d7e1e6;
+  border-radius: 10px;
+  padding: 0.6rem;
+  background: #fafcfd;
+  margin-bottom: 0.6rem;
+  min-width: max-content;
+}
 .timeline-area-title { margin: 0 0 0.45rem 0; font-size: 0.9rem; color: #455a64; }
 
 .project-expanded-planning { border: 1px solid #d7e1e6; border-radius: 10px; padding: 0.6rem; background: #fafcfd; margin-bottom: 0.6rem; }
