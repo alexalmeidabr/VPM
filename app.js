@@ -1717,7 +1717,7 @@ if (!isBrowserRuntime) {
       };
       const dynamicBuckets = new Map();
       const pushUnique = (bucket, member, consultant) => {
-        const id = Number(member.consultantId);
+        const id = member.consultantId ? `consultant-${Number(member.consultantId)}` : `position-${String(member.positionId || Math.random())}`;
         if (bucket.ids.has(id)) return;
         bucket.ids.add(id);
         bucket.members.push({ member, consultant });
@@ -2278,7 +2278,12 @@ if (!isBrowserRuntime) {
 
     allMembers.forEach((member) => {
       const consultant = findConsultantById(member.consultantId);
-      const areaNames = (consultant?.areaNames || []).length ? consultant.areaNames : (consultant?.areaIds || []).map(areaNameById).filter(Boolean);
+      const fallbackAreaName = member.areaId ? areaNameById(member.areaId) : '';
+      const areaNames = (consultant?.areaNames || []).length
+        ? consultant.areaNames
+        : ((consultant?.areaIds || []).map(areaNameById).filter(Boolean).length
+          ? (consultant?.areaIds || []).map(areaNameById).filter(Boolean)
+          : [fallbackAreaName || 'Open Positions']);
       const lowerAreas = areaNames.map((name) => String(name).trim().toLowerCase());
 
       if (member.projectRole === 'Project Manager' || lowerAreas.includes(managementLabel.toLowerCase())) {
