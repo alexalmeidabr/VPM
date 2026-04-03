@@ -497,21 +497,27 @@ if (!isBrowserRuntime) {
     'In Progress': 'status-in-progress',
     Delayed: 'status-delayed',
     Completed: 'status-completed'
-  }[status] || 'status-not-started');
+  }[status] || 'status-in-progress');
 
   const deriveProjectDisplayStatus = () => {
     const today = new Date();
+    today.setHours(0, 0, 0, 0);
     const projectStart = fields.startDate.value ? new Date(`${fields.startDate.value}T00:00:00`) : null;
     if (projectStart && projectStart > today) return 'Not Started';
     const phases = (selectedProjectPhases || []).filter((item) => item.startDate && item.endDate);
     if (phases.length) {
-      const parsed = phases.map((phase) => ({
-        start: new Date(`${phase.startDate}T00:00:00`),
-        end: new Date(`${phase.endDate}T00:00:00`)
-      }));
+      const parsed = phases
+        .map((phase) => ({
+          name: String(phase.name || '').trim(),
+          start: new Date(`${phase.startDate}T00:00:00`),
+          end: new Date(`${phase.endDate}T00:00:00`)
+        }))
+        .sort((a, b) => a.start - b.start);
+      const activePhase = parsed.find((phase) => phase.start <= today && phase.end >= today);
+      if (activePhase) return activePhase.name || 'In Progress';
       if (parsed.every((phase) => phase.end < today)) return 'Completed';
-      if (parsed.some((phase) => phase.start <= today && phase.end >= today)) return 'In Progress';
-      return 'Not Started';
+      if (today < parsed[0].start) return 'Not Started';
+      return 'In Progress';
     }
     return fields.projectStatus?.value || 'Not Started';
   };
