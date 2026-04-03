@@ -31,10 +31,12 @@ body { min-height: 100vh; }
 .consultant-assignment-row { display: flex; align-items: center; gap: 0.75rem; margin-top: 0.5rem; margin-bottom: 1rem; }
 .consultant-picker-list { max-height: 260px; overflow-y: auto; border: 1px solid #cfd8dc; border-radius: 8px; padding: 0.75rem; }
 .consultant-picker-item { margin-bottom: 0.5rem; }
-.project-members-list { display: flex; flex-direction: column; gap: 0.6rem; }
+.project-members-list { display: flex; flex-direction: column; gap: 0.6rem; margin-top: 0.5rem; }
 .member-area-panel { border: 1px solid #d7e1e6; border-radius: 10px; padding: 0.6rem; background: #fafcfd; }
 .member-area-title { margin: 0 0 0.5rem 0; font-size: 0.95rem; color: #455a64; }
 .project-members-toggle-row { margin: 0.15rem 0 0.45rem; }
+.project-members-toggle-row.switch label { color: #546e7a; font-size: 0.88rem; }
+.project-members-toggle-row.switch .lever { margin: 0 0.45rem; }
 .member-card { border: 1px solid #dfe7ea; border-radius: 8px; padding: 0.65rem; }
 .member-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 0.5rem; }
 .member-meta { font-size: 0.9rem; color: #546e7a; }

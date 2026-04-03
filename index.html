@@ -173,7 +173,14 @@
                     <span class="card-title">Project Positions</span>
                     <span class="grey-text" id="assigned-consultants-summary">No project positions yet.</span>
                   </div>
-                  <p id="show-closed-project-positions-row" class="project-members-toggle-row" hidden><label><input id="show-closed-project-positions-toggle" type="checkbox" /><span>Show Closed Positions</span></label></p>
+                  <div id="show-closed-project-positions-row" class="project-members-toggle-row switch" hidden>
+                    <label for="show-closed-project-positions-toggle">
+                      Hide Closed
+                      <input id="show-closed-project-positions-toggle" type="checkbox" />
+                      <span class="lever"></span>
+                      Show Closed
+                    </label>
+                  </div>
                   <button class="btn waves-effect waves-light" type="button" id="open-consultant-modal-btn">Add Position</button>
                 </div>
                 <div id="project-members-list" class="project-members-list"></div>
