@@ -3409,7 +3409,6 @@ if (!isBrowserRuntime) {
     ui.saveMemberDetailsBtn.hidden = readOnly;
     if (ui.memberAreaModal) resetSelect('memberArea', ui.memberAreaModal);
     if (ui.memberConsultantModal) resetSelect('memberConsultant', ui.memberConsultantModal);
-    if (ui.memberDailyRateCurrencyEdit) resetSelect('memberDailyRateCurrencyEdit', ui.memberDailyRateCurrencyEdit);
     resetSelect('memberRole', ui.memberProjectRoleModal);
     updateTextFields();
     modals.memberDetails?.open();
