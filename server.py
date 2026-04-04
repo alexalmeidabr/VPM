@@ -1926,15 +1926,8 @@ class VPMHandler(SimpleHTTPRequestHandler):
     total_cost = 0.0
     for row in revenue_payload['rows']:
       consultant = conn.execute('SELECT salary FROM consultants WHERE id = ?', (row['consultantId'],)).fetchone() if row['consultantId'] else None
-      salary = float(consultant['salary'] if consultant and consultant['salary'] is not None else 0.0)
-      month_start = datetime.strptime(f"{row['month']}-01", '%Y-%m-%d').date()
-      if month_start.month == 12:
-        month_end = month_start.replace(year=month_start.year + 1, month=1, day=1) - timedelta(days=1)
-      else:
-        month_end = month_start.replace(month=month_start.month + 1, day=1) - timedelta(days=1)
-      month_working_days = max(self._working_days_between(month_start.isoformat(), month_end.isoformat()), 1)
-      internal_cost_per_day = salary / month_working_days
-      internal_cost = internal_cost_per_day * float(row['billableDays'])
+      daily_internal_cost = float(consultant['salary'] if consultant and consultant['salary'] is not None else 0.0)
+      internal_cost = daily_internal_cost * float(row['billableDays'])
       gross_margin = float(row['revenue']) - internal_cost
       margin_percent = (gross_margin / float(row['revenue']) * 100.0) if float(row['revenue']) else 0.0
       profitability_row = dict(row)
