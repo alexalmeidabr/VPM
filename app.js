@@ -246,11 +246,13 @@ if (!isBrowserRuntime) {
     dayOffTypeForm: document.getElementById('day-off-type-form'),
     businessPartnerTypeForm: document.getElementById('business-partner-type-form'),
     projectTypeForm: document.getElementById('project-type-form'),
+    companyBranchForm: document.getElementById('company-branch-form'),
     rolesList: document.getElementById('roles-list'),
     areasList: document.getElementById('areas-list'),
     dayOffTypesList: document.getElementById('day-off-types-list'),
     businessPartnerTypesList: document.getElementById('business-partner-types-list'),
     projectTypesList: document.getElementById('project-types-list'),
+    companyBranchesList: document.getElementById('company-branches-list'),
     timeTrackingListCard: document.getElementById('time-tracking-list-card'),
     timeTrackingConsultantSelect: document.getElementById('time-tracking-consultant-select'),
     loadTimesheetsBtn: document.getElementById('load-timesheets-btn'),
@@ -298,6 +300,7 @@ if (!isBrowserRuntime) {
     consultantAreaIds: document.getElementById('consultant-area-ids'),
     consultantCompanyRoleId: document.getElementById('consultant-company-role-id'),
     consultantSalary: document.getElementById('consultant-salary'),
+    consultantCompanyBranchId: document.getElementById('consultant-company-branch-id'),
     consultantHolidayLocationId: document.getElementById('consultant-holiday-location-id'),
 
     roleName: document.getElementById('role-name'),
@@ -305,6 +308,7 @@ if (!isBrowserRuntime) {
     dayOffTypeName: document.getElementById('day-off-type-name'),
     businessPartnerTypeName: document.getElementById('business-partner-type-name'),
     projectTypeName: document.getElementById('project-type-name'),
+    companyBranchName: document.getElementById('company-branch-name'),
     businessPartnerId: document.getElementById('business-partner-id'),
     businessPartnerCompanyName: document.getElementById('business-partner-company-name'),
     businessPartnerTypeId: document.getElementById('business-partner-type-id'),
@@ -341,6 +345,7 @@ if (!isBrowserRuntime) {
   let dayOffTypes = [];
   let businessPartnerTypes = [];
   let projectTypes = [];
+  let companyBranches = [];
   let businessPartners = [];
   let editingBusinessPartnerContacts = [];
   let editingCommunicationContactIndex = -1;
@@ -2601,15 +2606,18 @@ if (!isBrowserRuntime) {
     resetSelect('projectType', fields.projectType);
   };
 
-  const rebuildConsultantSelects = ({ areaIds = [], companyRoleId = '', holidayLocationId = '' } = {}) => {
+  const rebuildConsultantSelects = ({ areaIds = [], companyRoleId = '', companyBranchId = '', holidayLocationId = '' } = {}) => {
     fields.consultantAreaIds.innerHTML = '';
     areas.forEach((area) => fields.consultantAreaIds.add(new Option(area.name, area.id, false, areaIds.map(Number).includes(Number(area.id)))));
     fields.consultantCompanyRoleId.innerHTML = '<option value="" disabled selected>Select company role</option>';
     roles.forEach((role) => fields.consultantCompanyRoleId.add(new Option(role.name, role.id, false, Number(companyRoleId) === Number(role.id))));
+    fields.consultantCompanyBranchId.innerHTML = '<option value="" selected>No company branch</option>';
+    companyBranches.forEach((branch) => fields.consultantCompanyBranchId.add(new Option(branch.name, branch.id, false, Number(companyBranchId) === Number(branch.id))));
     fields.consultantHolidayLocationId.innerHTML = '<option value="" selected>No holiday location</option>';
     holidayLocations.forEach((location) => fields.consultantHolidayLocationId.add(new Option(location.label, location.id, false, Number(holidayLocationId) === Number(location.id))));
     resetSelect('consultantAreas', fields.consultantAreaIds);
     resetSelect('consultantCompanyRole', fields.consultantCompanyRoleId);
+    resetSelect('consultantCompanyBranch', fields.consultantCompanyBranchId);
     resetSelect('consultantHolidayLocation', fields.consultantHolidayLocationId);
   };
 
@@ -2904,6 +2912,8 @@ if (!isBrowserRuntime) {
         <td>${consultant.name}</td>
         <td>${(consultant.areaNames || []).join(', ') || (consultant.areaIds || []).map(areaNameById).join(', ') || '—'}</td>
         <td>${consultant.companyRole || roleNameById(consultant.companyRoleId) || '—'}</td>
+        <td>${formatMoney(consultant.salary || 0)}</td>
+        <td>${consultant.companyBranchName || '—'}</td>
         <td>${holidayLocationById(consultant.holidayLocationId)?.label || '—'}</td>
         <td>
           <button class="btn-flat teal-text" data-action="view-consultant" data-id="${consultant.id}"><i class="material-icons tiny">visibility</i></button>
@@ -2956,6 +2966,14 @@ if (!isBrowserRuntime) {
       li.className = 'collection-item';
       li.innerHTML = `${type.name}<button class="btn-flat secondary-content red-text" data-action="delete-project-type" data-id="${type.id}"><i class="material-icons tiny">delete</i></button>`;
       ui.projectTypesList.appendChild(li);
+    });
+
+    ui.companyBranchesList.innerHTML = '';
+    companyBranches.forEach((branch) => {
+      const li = document.createElement('li');
+      li.className = 'collection-item';
+      li.innerHTML = `${branch.name}<button class="btn-flat secondary-content red-text" data-action="delete-company-branch" data-id="${branch.id}"><i class="material-icons tiny">delete</i></button>`;
+      ui.companyBranchesList.appendChild(li);
     });
   };
 
@@ -3214,12 +3232,13 @@ if (!isBrowserRuntime) {
     if (ui.consultantSwitchEditBtn) ui.consultantSwitchEditBtn.hidden = !readOnly;
     ui.openDaysOffModalBtn.disabled = readOnly;
     if (ui.openHolidaysModalBtn) ui.openHolidaysModalBtn.disabled = readOnly;
-    [fields.consultantName, fields.consultantStartDate, fields.consultantAreaIds, fields.consultantCompanyRoleId, fields.consultantSalary].forEach((el) => {
+    [fields.consultantName, fields.consultantStartDate, fields.consultantAreaIds, fields.consultantCompanyRoleId, fields.consultantSalary, fields.consultantCompanyBranchId].forEach((el) => {
       el.disabled = readOnly;
     });
-    fields.consultantHolidayLocationId.disabled = true;
+    fields.consultantHolidayLocationId.disabled = readOnly;
     resetSelect('consultantAreas', fields.consultantAreaIds);
     resetSelect('consultantCompanyRole', fields.consultantCompanyRoleId);
+    resetSelect('consultantCompanyBranch', fields.consultantCompanyBranchId);
     resetSelect('consultantHolidayLocation', fields.consultantHolidayLocationId);
   };
 
@@ -3508,6 +3527,7 @@ if (!isBrowserRuntime) {
       { key: 'dayOffTypes', path: '/api/day-off-types', prop: 'dayOffTypes', fallback: [] },
       { key: 'businessPartnerTypes', path: '/api/business-partner-types', prop: 'businessPartnerTypes', fallback: [] },
       { key: 'projectTypes', path: '/api/project-types', prop: 'projectTypes', fallback: [] },
+      { key: 'companyBranches', path: '/api/company-branches', prop: 'companyBranches', fallback: [] },
       { key: 'businessPartners', path: '/api/business-partners', prop: 'businessPartners', fallback: [] },
       { key: 'holidayLocations', path: '/api/holiday-locations', prop: 'holidayLocations', fallback: [] },
       { key: 'allocationSimulations', path: '/api/allocation-simulations', prop: 'simulations', fallback: [] }
@@ -3554,6 +3574,7 @@ if (!isBrowserRuntime) {
     dayOffTypes = loaded.dayOffTypes;
     businessPartnerTypes = loaded.businessPartnerTypes;
     projectTypes = loaded.projectTypes;
+    companyBranches = loaded.companyBranches;
     businessPartners = loaded.businessPartners;
     holidayLocations = loaded.holidayLocations;
     allocationSimulations = loaded.allocationSimulations;
@@ -3572,7 +3593,7 @@ if (!isBrowserRuntime) {
       deliveryPartnerBusinessPartnerId: fields.deliveryPartnerBusinessPartnerId.value,
       deliveryPartnerContactIds: selectedIds(fields.deliveryPartnerContactIds)
     });
-    rebuildConsultantSelects({ areaIds: selectedIds(fields.consultantAreaIds), companyRoleId: fields.consultantCompanyRoleId.value, holidayLocationId: fields.consultantHolidayLocationId.value });
+    rebuildConsultantSelects({ areaIds: selectedIds(fields.consultantAreaIds), companyRoleId: fields.consultantCompanyRoleId.value, companyBranchId: fields.consultantCompanyBranchId.value, holidayLocationId: fields.consultantHolidayLocationId.value });
     rebuildHolidayCountryRegionControls({ consultantHolidayLocationId: fields.consultantHolidayLocationId.value });
     rebuildAssignmentModalSelects();
     rebuildDayOffTypeSelect();
@@ -4004,6 +4025,7 @@ if (!isBrowserRuntime) {
       areaIds: selectedIds(fields.consultantAreaIds),
       companyRoleId: Number(fields.consultantCompanyRoleId.value),
       salary: fields.consultantSalary.value || 0,
+      companyBranchId: fields.consultantCompanyBranchId.value ? Number(fields.consultantCompanyBranchId.value) : null,
       holidayLocationId: fields.consultantHolidayLocationId.value ? Number(fields.consultantHolidayLocationId.value) : null
     };
 
@@ -4351,7 +4373,7 @@ if (!isBrowserRuntime) {
     fields.consultantName.value = consultant.name;
     fields.consultantSalary.value = consultant.salary;
     fields.consultantStartDate.value = consultant.startDate || '';
-    rebuildConsultantSelects({ areaIds: consultant.areaIds || [], companyRoleId: consultant.companyRoleId || '', holidayLocationId: consultant.holidayLocationId || '' });
+    rebuildConsultantSelects({ areaIds: consultant.areaIds || [], companyRoleId: consultant.companyRoleId || '', companyBranchId: consultant.companyBranchId || '', holidayLocationId: consultant.holidayLocationId || '' });
     rebuildHolidayCountryRegionControls({ consultantHolidayLocationId: consultant.holidayLocationId || '' });
     setConsultantFormMode(button.dataset.action === 'view-consultant' ? 'view' : 'edit');
     await refreshTimelines();
@@ -4422,6 +4444,18 @@ if (!isBrowserRuntime) {
     }
   });
 
+  ui.companyBranchForm?.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    try {
+      await request('/api/company-branches', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: fields.companyBranchName.value.trim() }) });
+      ui.companyBranchForm.reset();
+      await loadAll();
+      toast('Company branch added', 'teal darken-1');
+    } catch (error) {
+      toast(error.message || 'Failed to add company branch', 'red darken-1');
+    }
+  });
+
   ui.rolesList.addEventListener('click', async (event) => {
     const button = event.target.closest('button[data-action="delete-role"]');
     if (!button) return;
@@ -4479,6 +4513,18 @@ if (!isBrowserRuntime) {
       toast('Project type removed', 'orange darken-2');
     } catch (error) {
       toast(error.message || 'Failed to delete project type', 'red darken-1');
+    }
+  });
+
+  ui.companyBranchesList?.addEventListener('click', async (event) => {
+    const button = event.target.closest('button[data-action="delete-company-branch"]');
+    if (!button) return;
+    try {
+      await request(`/api/company-branches/${button.dataset.id}`, { method: 'DELETE' });
+      await loadAll();
+      toast('Company branch removed', 'orange darken-2');
+    } catch (error) {
+      toast(error.message || 'Failed to delete company branch', 'red darken-1');
     }
   });
 

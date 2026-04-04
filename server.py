@@ -28,6 +28,7 @@ DEFAULT_ROLES = [
 DEFAULT_AREAS = ['TM (Transport Management)', 'EWM (Extended Warehouse Management)', 'YL (Yard Logistics)']
 DEFAULT_DAY_OFF_TYPES = ['Vacation', 'PTO']
 DEFAULT_PROJECT_TYPES = ['Time Material', 'Fixed Price', 'Milestone Billing', 'Non-Billable']
+DEFAULT_COMPANY_BRANCHES = ['Poland', 'Germany']
 ALLOWED_PROJECT_STATUSES = {'Not Started', 'In Progress', 'Delayed', 'Completed'}
 
 
@@ -60,6 +61,9 @@ def seed_defaults(conn):
   if conn.execute('SELECT COUNT(*) AS total FROM project_types').fetchone()['total'] == 0:
     for project_type in DEFAULT_PROJECT_TYPES:
       conn.execute('INSERT INTO project_types (name) VALUES (?)', (project_type,))
+  if conn.execute('SELECT COUNT(*) AS total FROM company_branches').fetchone()['total'] == 0:
+    for branch in DEFAULT_COMPANY_BRANCHES:
+      conn.execute('INSERT INTO company_branches (name) VALUES (?)', (branch,))
 
 
 def init_db():
@@ -92,6 +96,12 @@ def init_db():
       );
 
       CREATE TABLE IF NOT EXISTS project_types (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT NOT NULL UNIQUE,
+        created_at TEXT DEFAULT CURRENT_TIMESTAMP
+      );
+
+      CREATE TABLE IF NOT EXISTS company_branches (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         name TEXT NOT NULL UNIQUE,
         created_at TEXT DEFAULT CURRENT_TIMESTAMP
@@ -143,10 +153,12 @@ def init_db():
         area TEXT,
         position TEXT,
         holiday_location_id INTEGER,
+        company_branch_id INTEGER,
         salary REAL NOT NULL,
         start_date TEXT,
         created_at TEXT DEFAULT CURRENT_TIMESTAMP,
-        FOREIGN KEY (holiday_location_id) REFERENCES holiday_locations(id) ON DELETE SET NULL
+        FOREIGN KEY (holiday_location_id) REFERENCES holiday_locations(id) ON DELETE SET NULL,
+        FOREIGN KEY (company_branch_id) REFERENCES company_branches(id) ON DELETE SET NULL
       );
 
       CREATE TABLE IF NOT EXISTS holiday_locations (
@@ -395,6 +407,7 @@ def init_db():
     ensure_column(conn, 'consultant_availability', 'day_off_type_id', 'day_off_type_id INTEGER')
     ensure_column(conn, 'consultant_availability', 'type', 'type TEXT')
     ensure_column(conn, 'consultants', 'holiday_location_id', 'holiday_location_id INTEGER REFERENCES holiday_locations(id) ON DELETE SET NULL')
+    ensure_column(conn, 'consultants', 'company_branch_id', 'company_branch_id INTEGER REFERENCES company_branches(id) ON DELETE SET NULL')
     ensure_column(conn, 'consultants', 'start_date', 'start_date TEXT')
     conn.execute(
       '''
@@ -751,6 +764,14 @@ class VPMHandler(SimpleHTTPRequestHandler):
         payload['holidayLocationId'] = int(holiday_location_id)
       except (TypeError, ValueError):
         return 'holidayLocationId must be numeric when provided'
+    company_branch_id = payload.get('companyBranchId')
+    if company_branch_id in ('', None):
+      payload['companyBranchId'] = None
+    else:
+      try:
+        payload['companyBranchId'] = int(company_branch_id)
+      except (TypeError, ValueError):
+        return 'companyBranchId must be numeric when provided'
     return None
 
   def _holiday_location_payload_error(self, payload):
@@ -1022,7 +1043,14 @@ class VPMHandler(SimpleHTTPRequestHandler):
     return result
 
   def _fetch_consultants(self, conn):
-    rows = conn.execute('SELECT id, name, salary, holiday_location_id, start_date FROM consultants ORDER BY created_at DESC, id DESC').fetchall()
+    rows = conn.execute(
+      '''
+      SELECT c.id, c.name, c.salary, c.holiday_location_id, c.start_date, c.company_branch_id, cb.name AS company_branch_name
+      FROM consultants c
+      LEFT JOIN company_branches cb ON cb.id = c.company_branch_id
+      ORDER BY c.created_at DESC, c.id DESC
+      '''
+    ).fetchall()
     consultants = []
     for consultant in rows:
       role_row = conn.execute(
@@ -1075,6 +1103,8 @@ class VPMHandler(SimpleHTTPRequestHandler):
         'areaIds': [row['id'] for row in area_rows],
         'areaNames': [row['name'] for row in area_rows],
         'holidayLocationId': consultant['holiday_location_id'],
+        'companyBranchId': consultant['company_branch_id'],
+        'companyBranchName': consultant['company_branch_name'],
         'holidayCalendarLoad': {
           'year': holiday_load_row['year'],
           'countryCode': holiday_load_row['country_code'],
@@ -2191,6 +2221,9 @@ class VPMHandler(SimpleHTTPRequestHandler):
       if path == '/api/project-types':
         self._send_json({'projectTypes': self._fetch_simple_table(conn, 'project_types')})
         return
+      if path == '/api/company-branches':
+        self._send_json({'companyBranches': self._fetch_simple_table(conn, 'company_branches')})
+        return
       if path == '/api/business-partners':
         self._send_json({'businessPartners': self._fetch_business_partners(conn)})
         return
@@ -2445,9 +2478,12 @@ class VPMHandler(SimpleHTTPRequestHandler):
         if payload['holidayLocationId'] is not None and not self._ids_exist(conn, 'holiday_locations', [payload['holidayLocationId']]):
           self._send_json({'error': 'Selected holiday location does not exist'}, HTTPStatus.BAD_REQUEST)
           return
+        if payload['companyBranchId'] is not None and not self._ids_exist(conn, 'company_branches', [payload['companyBranchId']]):
+          self._send_json({'error': 'Selected company branch does not exist'}, HTTPStatus.BAD_REQUEST)
+          return
         cursor = conn.execute(
-          'INSERT INTO consultants (name, area, position, salary, holiday_location_id, start_date) VALUES (?, ?, ?, ?, ?, ?)',
-          (payload['name'], first_area['name'] if first_area else None, role_row['name'] if role_row else None, payload['salary'], payload['holidayLocationId'], payload['startDate'])
+          'INSERT INTO consultants (name, area, position, salary, holiday_location_id, company_branch_id, start_date) VALUES (?, ?, ?, ?, ?, ?, ?)',
+          (payload['name'], first_area['name'] if first_area else None, role_row['name'] if role_row else None, payload['salary'], payload['holidayLocationId'], payload['companyBranchId'], payload['startDate'])
         )
         consultant_id = cursor.lastrowid
         for area_id in sorted(set(payload['areaIds'])):
@@ -2538,6 +2574,20 @@ class VPMHandler(SimpleHTTPRequestHandler):
           cursor = conn.execute('INSERT INTO project_types (name) VALUES (?)', (payload['name'],))
         except sqlite3.IntegrityError:
           self._send_json({'error': 'Project type already exists'}, HTTPStatus.BAD_REQUEST)
+          return
+      self._send_json({'id': cursor.lastrowid}, HTTPStatus.CREATED)
+      return
+
+    if path == '/api/company-branches':
+      error = self._name_payload_error(payload)
+      if error:
+        self._send_json({'error': error}, HTTPStatus.BAD_REQUEST)
+        return
+      with get_connection() as conn:
+        try:
+          cursor = conn.execute('INSERT INTO company_branches (name) VALUES (?)', (payload['name'],))
+        except sqlite3.IntegrityError:
+          self._send_json({'error': 'Company branch already exists'}, HTTPStatus.BAD_REQUEST)
           return
       self._send_json({'id': cursor.lastrowid}, HTTPStatus.CREATED)
       return
@@ -2941,11 +2991,14 @@ class VPMHandler(SimpleHTTPRequestHandler):
         if payload['holidayLocationId'] is not None and not self._ids_exist(conn, 'holiday_locations', [payload['holidayLocationId']]):
           self._send_json({'error': 'Selected holiday location does not exist'}, HTTPStatus.BAD_REQUEST)
           return
+        if payload['companyBranchId'] is not None and not self._ids_exist(conn, 'company_branches', [payload['companyBranchId']]):
+          self._send_json({'error': 'Selected company branch does not exist'}, HTTPStatus.BAD_REQUEST)
+          return
         first_area = conn.execute('SELECT name FROM areas WHERE id = ? LIMIT 1', (payload['areaIds'][0],)).fetchone()
         role_row = conn.execute('SELECT name FROM roles WHERE id = ? LIMIT 1', (payload['companyRoleId'],)).fetchone()
         cursor = conn.execute(
-          'UPDATE consultants SET name = ?, area = ?, position = ?, salary = ?, holiday_location_id = ?, start_date = ? WHERE id = ?',
-          (payload['name'], first_area['name'] if first_area else None, role_row['name'] if role_row else None, payload['salary'], payload['holidayLocationId'], payload['startDate'], consultant_id)
+          'UPDATE consultants SET name = ?, area = ?, position = ?, salary = ?, holiday_location_id = ?, company_branch_id = ?, start_date = ? WHERE id = ?',
+          (payload['name'], first_area['name'] if first_area else None, role_row['name'] if role_row else None, payload['salary'], payload['holidayLocationId'], payload['companyBranchId'], payload['startDate'], consultant_id)
         )
         if cursor.rowcount == 0:
           self._send_json({'error': 'Consultant not found'}, HTTPStatus.NOT_FOUND)
@@ -3069,6 +3122,7 @@ class VPMHandler(SimpleHTTPRequestHandler):
     day_off_type_id = self._resource_id('day-off-types')
     business_partner_type_id = self._resource_id('business-partner-types')
     project_type_id = self._resource_id('project-types')
+    company_branch_id = self._resource_id('company-branches')
     business_partner_id = self._resource_id('business-partners')
     availability_consultant_id, availability_id = self._availability_route()
     allocation_simulation_id = self._allocation_simulation_id()
@@ -3163,6 +3217,15 @@ class VPMHandler(SimpleHTTPRequestHandler):
         cursor = conn.execute('DELETE FROM project_types WHERE id = ?', (project_type_id,))
       if cursor.rowcount == 0:
         self._send_json({'error': 'Project type not found'}, HTTPStatus.NOT_FOUND)
+        return
+      self._send_json({'status': 'deleted'})
+      return
+
+    if company_branch_id is not None:
+      with get_connection() as conn:
+        cursor = conn.execute('DELETE FROM company_branches WHERE id = ?', (company_branch_id,))
+      if cursor.rowcount == 0:
+        self._send_json({'error': 'Company branch not found'}, HTTPStatus.NOT_FOUND)
         return
       self._send_json({'status': 'deleted'})
       return
