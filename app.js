@@ -944,17 +944,26 @@ if (!isBrowserRuntime) {
   };
 
   const openForecastDetailsModal = () => {
-    if (!modals.forecastDetails?.open) {
-      console.debug('[RevenueForecast] Forecast details modal instance is not initialized.');
+    if (!ui.forecastDetailsModal) return;
+    const modalElement = ui.forecastDetailsModal;
+    console.debug('[RevenueForecast] Opening forecast details modal instance.');
+    if (typeof modalElement.showModal === 'function') {
+      if (!modalElement.open) modalElement.showModal();
       return;
     }
-    console.debug('[RevenueForecast] Opening forecast details modal instance.');
-    modals.forecastDetails.open();
+    modalElement.style.display = 'block';
+    modalElement.classList.add('modal-fallback-open');
   };
 
   const closeForecastDetailsModal = () => {
-    if (!modals.forecastDetails?.close) return;
-    modals.forecastDetails.close();
+    if (!ui.forecastDetailsModal) return;
+    const modalElement = ui.forecastDetailsModal;
+    if (typeof modalElement.close === 'function' && modalElement.open) {
+      modalElement.close();
+      return;
+    }
+    modalElement.style.display = 'none';
+    modalElement.classList.remove('modal-fallback-open');
   };
 
   const loadRevenueForecastMonthDetails = async (projectId, month) => {
@@ -5363,7 +5372,6 @@ if (!isBrowserRuntime) {
     modals.invoice = M.Modal.init(ui.invoiceModal);
     modals.payment = M.Modal.init(ui.paymentModal);
     modals.timesheetDetails = M.Modal.init(ui.timesheetDetailsModal);
-    modals.forecastDetails = M.Modal.init(ui.forecastDetailsModal);
     modals.companyBranch = M.Modal.init(ui.companyBranchModal);
   }
 
@@ -5373,6 +5381,11 @@ if (!isBrowserRuntime) {
 
   ui.forecastDetailsModal?.addEventListener('click', (event) => {
     if (event.target === ui.forecastDetailsModal) closeForecastDetailsModal();
+  });
+
+  ui.forecastDetailsModal?.addEventListener('cancel', (event) => {
+    event.preventDefault();
+    closeForecastDetailsModal();
   });
 
   setSection('projects');

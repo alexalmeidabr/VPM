@@ -93,8 +93,8 @@ body { min-height: 100vh; }
   gap: 0.4rem;
   flex-wrap: wrap;
 }
-.modal-fallback-open {
-  position: fixed !important;
+.modal.modal-large, dialog.modal-large {
+.modal.modal-large .modal-content, dialog.modal-large .modal-content {
   z-index: 1003;
   inset: 6vh 5%;
   width: auto !important;
@@ -611,3 +611,8 @@ body.project-timeline-expanded #project-timeline-chart { flex: 0 0 auto; max-hei
 .time-tracking-consultant-picker { width: 350px; max-width: 100%; margin-bottom: 0.5rem; }
 .time-tracking-consultant-label { display: block; font-size: 0.9rem; color: #455a64; margin-bottom: 0.25rem; }
 .time-tracking-consultant-select { height: 40px; border: 1px solid #b0bec5; border-radius: 6px; padding: 0 0.5rem; background: #fff; }
+
+
+dialog.modal-large::backdrop {
+  background: rgba(0, 0, 0, 0.45);
+}

@@ -731,10 +731,10 @@
         <div class="input-field"><input id="invoice-ref" type="text" /><label class="active" for="invoice-ref">Invoice Ref</label></div>
         <div class="row date-row">
           <div class="input-field col s12 m6"><input id="invoice-period-from" type="date" /><label class="active" for="invoice-period-from">Period From</label></div>
-    <div id="forecast-details-modal" class="modal modal-large" style="display: none;">
+    <dialog id="forecast-details-modal" class="modal-large">
         </div>
       <div class="modal-footer"><button type="button" class="modal-close btn-flat" id="forecast-details-modal-close-btn">Close</button></div>
-          <div class="input-field col s12 m6"><input id="invoice-date" type="date" /><label class="active" for="invoice-date">Invoice Date</label></div>
+    </dialog>
           <div class="input-field col s12 m6"><input id="invoice-due-date" type="date" /><label class="active" for="invoice-due-date">Due Date</label></div>
         </div>
         <div class="input-field"><input id="invoice-amount" type="number" step="0.01" min="0" /><label class="active" for="invoice-amount">Amount</label></div>
