@@ -5394,3 +5394,4 @@ if (!isBrowserRuntime) {
   resetBusinessPartnerForm();
   loadAll().catch((error) => toast(error.message || 'Unable to load data', 'red darken-1'));
 }
+;
