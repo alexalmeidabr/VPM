@@ -942,15 +942,15 @@ if (!isBrowserRuntime) {
   };
 
   const openForecastDetailsModal = () => {
+    if (!ui.forecastDetailsModal) return;
+    // Always force popup positioning class so details never render inline at page bottom,
+    // even if Materialize CSS is missing or partially loaded.
+    ui.forecastDetailsModal.classList.add('modal-fallback-open');
+    ui.forecastDetailsModal.style.display = 'block';
     if (modals.forecastDetails?.open) {
-      ui.forecastDetailsModal?.classList.remove('modal-fallback-open');
-      ui.forecastDetailsModal?.style.removeProperty('display');
       modals.forecastDetails.open();
       return;
     }
-    if (!ui.forecastDetailsModal) return;
-    ui.forecastDetailsModal.style.display = 'block';
-    ui.forecastDetailsModal.classList.add('modal-fallback-open');
   };
 
   const closeForecastDetailsModal = () => {
