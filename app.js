@@ -944,8 +944,7 @@ if (!isBrowserRuntime) {
 
   const openForecastDetailsModal = () => {
     if (!ui.forecastDetailsModal) return;
-    // Force popup positioning inline so the details container cannot render as an inline block,
-    // even if framework CSS fails to load.
+    // Render this as a standalone popup regardless of Materialize runtime state.
     ui.forecastDetailsModal.classList.add('modal-fallback-open');
     Object.assign(ui.forecastDetailsModal.style, {
       display: 'block',
@@ -958,17 +957,9 @@ if (!isBrowserRuntime) {
       maxHeight: '88vh',
       overflow: 'hidden'
     });
-    if (modals.forecastDetails?.open) {
-      modals.forecastDetails.open();
-      return;
-    }
   };
 
   const closeForecastDetailsModal = () => {
-    if (modals.forecastDetails?.close) {
-      modals.forecastDetails.close();
-      return;
-    }
     if (!ui.forecastDetailsModal) return;
     ui.forecastDetailsModal.style.display = 'none';
     ui.forecastDetailsModal.style.position = '';
@@ -5388,20 +5379,6 @@ if (!isBrowserRuntime) {
     modals.invoice = M.Modal.init(ui.invoiceModal);
     modals.payment = M.Modal.init(ui.paymentModal);
     modals.timesheetDetails = M.Modal.init(ui.timesheetDetailsModal);
-    modals.forecastDetails = M.Modal.init(ui.forecastDetailsModal, {
-      onCloseEnd: () => {
-        ui.forecastDetailsModal?.classList.remove('modal-fallback-open');
-        ui.forecastDetailsModal?.style.removeProperty('display');
-        ui.forecastDetailsModal?.style.removeProperty('position');
-        ui.forecastDetailsModal?.style.removeProperty('z-index');
-        ui.forecastDetailsModal?.style.removeProperty('left');
-        ui.forecastDetailsModal?.style.removeProperty('right');
-        ui.forecastDetailsModal?.style.removeProperty('top');
-        ui.forecastDetailsModal?.style.removeProperty('bottom');
-        ui.forecastDetailsModal?.style.removeProperty('max-height');
-        ui.forecastDetailsModal?.style.removeProperty('overflow');
-      }
-    });
     modals.companyBranch = M.Modal.init(ui.companyBranchModal);
   }
 
