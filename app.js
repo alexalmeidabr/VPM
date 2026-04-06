@@ -719,6 +719,7 @@ if (!isBrowserRuntime) {
   };
 
   const renderRevenueForecastDetails = () => {
+    console.debug('[RevenueForecast] Rendering details into modal container only (no inline detail section).');
     if (!ui.projectRevenueForecastDetail) return;
     const hasSelection = Boolean(selectedRevenueForecastMonth);
     ui.projectRevenueForecastDetail.hidden = !hasSelection;
@@ -943,10 +944,20 @@ if (!isBrowserRuntime) {
 
   const openForecastDetailsModal = () => {
     if (!ui.forecastDetailsModal) return;
-    // Always force popup positioning class so details never render inline at page bottom,
-    // even if Materialize CSS is missing or partially loaded.
+    // Force popup positioning inline so the details container cannot render as an inline block,
+    // even if framework CSS fails to load.
     ui.forecastDetailsModal.classList.add('modal-fallback-open');
-    ui.forecastDetailsModal.style.display = 'block';
+    Object.assign(ui.forecastDetailsModal.style, {
+      display: 'block',
+      position: 'fixed',
+      zIndex: '1003',
+      left: '5%',
+      right: '5%',
+      top: '6vh',
+      bottom: 'auto',
+      maxHeight: '88vh',
+      overflow: 'hidden'
+    });
     if (modals.forecastDetails?.open) {
       modals.forecastDetails.open();
       return;
@@ -960,6 +971,14 @@ if (!isBrowserRuntime) {
     }
     if (!ui.forecastDetailsModal) return;
     ui.forecastDetailsModal.style.display = 'none';
+    ui.forecastDetailsModal.style.position = '';
+    ui.forecastDetailsModal.style.zIndex = '';
+    ui.forecastDetailsModal.style.left = '';
+    ui.forecastDetailsModal.style.right = '';
+    ui.forecastDetailsModal.style.top = '';
+    ui.forecastDetailsModal.style.bottom = '';
+    ui.forecastDetailsModal.style.maxHeight = '';
+    ui.forecastDetailsModal.style.overflow = '';
     ui.forecastDetailsModal.classList.remove('modal-fallback-open');
   };
 
@@ -5373,6 +5392,14 @@ if (!isBrowserRuntime) {
       onCloseEnd: () => {
         ui.forecastDetailsModal?.classList.remove('modal-fallback-open');
         ui.forecastDetailsModal?.style.removeProperty('display');
+        ui.forecastDetailsModal?.style.removeProperty('position');
+        ui.forecastDetailsModal?.style.removeProperty('z-index');
+        ui.forecastDetailsModal?.style.removeProperty('left');
+        ui.forecastDetailsModal?.style.removeProperty('right');
+        ui.forecastDetailsModal?.style.removeProperty('top');
+        ui.forecastDetailsModal?.style.removeProperty('bottom');
+        ui.forecastDetailsModal?.style.removeProperty('max-height');
+        ui.forecastDetailsModal?.style.removeProperty('overflow');
       }
     });
     modals.companyBranch = M.Modal.init(ui.companyBranchModal);
