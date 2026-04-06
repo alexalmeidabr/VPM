@@ -250,7 +250,11 @@ if (!isBrowserRuntime) {
     dayOffTypeForm: document.getElementById('day-off-type-form'),
     businessPartnerTypeForm: document.getElementById('business-partner-type-form'),
     projectTypeForm: document.getElementById('project-type-form'),
+    showCompanyBranchFormBtn: document.getElementById('show-company-branch-form-btn'),
+    companyBranchModal: document.getElementById('company-branch-modal'),
+    companyBranchModalTitle: document.getElementById('company-branch-modal-title'),
     companyBranchForm: document.getElementById('company-branch-form'),
+    saveCompanyBranchBtn: document.getElementById('save-company-branch-btn'),
     rolesList: document.getElementById('roles-list'),
     areasList: document.getElementById('areas-list'),
     dayOffTypesList: document.getElementById('day-off-types-list'),
@@ -312,16 +316,25 @@ if (!isBrowserRuntime) {
     dayOffTypeName: document.getElementById('day-off-type-name'),
     businessPartnerTypeName: document.getElementById('business-partner-type-name'),
     projectTypeName: document.getElementById('project-type-name'),
-    companyBranchName: document.getElementById('company-branch-name'),
     businessPartnerId: document.getElementById('business-partner-id'),
     businessPartnerCompanyName: document.getElementById('business-partner-company-name'),
+    businessPartnerTaxIdentification: document.getElementById('business-partner-tax-identification'),
     businessPartnerTypeId: document.getElementById('business-partner-type-id'),
     businessPartnerAddressStreet: document.getElementById('business-partner-address-street'),
     businessPartnerAddressNumber: document.getElementById('business-partner-address-number'),
     businessPartnerPostalCode: document.getElementById('business-partner-postal-code'),
     businessPartnerCity: document.getElementById('business-partner-city'),
     businessPartnerRegion: document.getElementById('business-partner-region'),
-    businessPartnerCountry: document.getElementById('business-partner-country')
+    businessPartnerCountry: document.getElementById('business-partner-country'),
+    companyBranchId: document.getElementById('company-branch-id'),
+    companyBranchName: document.getElementById('company-branch-name'),
+    companyBranchTaxIdentification: document.getElementById('company-branch-tax-identification'),
+    companyBranchStreetName: document.getElementById('company-branch-street-name'),
+    companyBranchStreetNumber: document.getElementById('company-branch-street-number'),
+    companyBranchPostalCode: document.getElementById('company-branch-postal-code'),
+    companyBranchCity: document.getElementById('company-branch-city'),
+    companyBranchRegion: document.getElementById('company-branch-region'),
+    companyBranchCountry: document.getElementById('company-branch-country')
   };
 
   Object.assign(ui, {
@@ -3003,7 +3016,14 @@ if (!isBrowserRuntime) {
     companyBranches.forEach((branch) => {
       const li = document.createElement('li');
       li.className = 'collection-item';
-      li.innerHTML = `${branch.name}<button class="btn-flat secondary-content red-text" data-action="delete-company-branch" data-id="${branch.id}"><i class="material-icons tiny">delete</i></button>`;
+      const address = [branch.streetName, branch.streetNumber, branch.postalCode, branch.city, branch.region, branch.country].filter(Boolean).join(', ');
+      li.innerHTML = `
+        <div><strong>${branch.name}</strong></div>
+        <div class="grey-text text-darken-1">${branch.taxIdentification ? `Tax ID: ${branch.taxIdentification}` : 'Tax ID: —'}</div>
+        <div class="grey-text text-darken-1">${address || 'Address: —'}</div>
+        <button class="btn-flat secondary-content blue-text" data-action="edit-company-branch" data-id="${branch.id}" style="right:2.5rem;"><i class="material-icons tiny">edit</i></button>
+        <button class="btn-flat secondary-content red-text" data-action="delete-company-branch" data-id="${branch.id}"><i class="material-icons tiny">delete</i></button>
+      `;
       ui.companyBranchesList.appendChild(li);
     });
   };
@@ -3051,7 +3071,7 @@ if (!isBrowserRuntime) {
     const readOnly = mode === 'view';
     ui.businessPartnerFormCard?.classList.toggle('form-mode-view', readOnly);
     ui.businessPartnerFormCard?.classList.toggle('form-mode-edit', !readOnly);
-    [fields.businessPartnerCompanyName, fields.businessPartnerTypeId, fields.businessPartnerAddressStreet, fields.businessPartnerAddressNumber, fields.businessPartnerPostalCode, fields.businessPartnerCity, fields.businessPartnerRegion, fields.businessPartnerCountry]
+    [fields.businessPartnerCompanyName, fields.businessPartnerTaxIdentification, fields.businessPartnerTypeId, fields.businessPartnerAddressStreet, fields.businessPartnerAddressNumber, fields.businessPartnerPostalCode, fields.businessPartnerCity, fields.businessPartnerRegion, fields.businessPartnerCountry]
       .forEach((el) => { if (el) el.disabled = readOnly; });
     if (ui.addBusinessPartnerContactBtn) ui.addBusinessPartnerContactBtn.hidden = readOnly;
     if (ui.businessPartnerSaveBtn) ui.businessPartnerSaveBtn.hidden = readOnly;
@@ -3178,6 +3198,38 @@ if (!isBrowserRuntime) {
     fields.businessPartnerRegion.disabled = !normalizedCountry || !regions.length;
     if (!regions.length) fields.businessPartnerRegion.value = '';
     resetSelect('businessPartnerRegion', fields.businessPartnerRegion);
+  };
+
+  const rebuildCompanyBranchRegionSelect = ({ countryCode = '', regionValue = '' } = {}) => {
+    const normalizedCountry = String(countryCode || '').toUpperCase();
+    const regions = fallbackHolidayRegionsByCountry[normalizedCountry] || [];
+    fields.companyBranchRegion.innerHTML = '<option value="" selected>No region</option>';
+    regions.forEach((region) => fields.companyBranchRegion.add(new Option(region, region, false, String(region) === String(regionValue))));
+    fields.companyBranchRegion.disabled = !normalizedCountry || !regions.length;
+    if (!regions.length) fields.companyBranchRegion.value = '';
+    resetSelect('companyBranchRegion', fields.companyBranchRegion);
+  };
+
+  const rebuildCompanyBranchCountrySelect = (countryValue = '') => {
+    const countryCodes = [...new Set([...(fallbackHolidayCountries || []), ...Object.keys(countryNamesByCode)])].sort();
+    fields.companyBranchCountry.innerHTML = '<option value="" selected>No country</option>';
+    countryCodes.forEach((code) => fields.companyBranchCountry.add(new Option(`${code} - ${countryNamesByCode[code] || code}`, code)));
+    if (countryValue && !countryNamesByCode[countryValue]) {
+      fields.companyBranchCountry.add(new Option(countryValue, countryValue, false, true));
+    }
+    fields.companyBranchCountry.value = countryValue || '';
+    resetSelect('companyBranchCountry', fields.companyBranchCountry);
+  };
+
+  const resetCompanyBranchForm = () => {
+    ui.companyBranchForm?.reset();
+    if (fields.companyBranchId) fields.companyBranchId.value = '';
+    if (ui.companyBranchModalTitle) ui.companyBranchModalTitle.textContent = 'Add Company Branch';
+    rebuildCompanyBranchCountrySelect('');
+    fields.companyBranchRegion.innerHTML = '<option value="" selected>No region</option>';
+    fields.companyBranchRegion.disabled = true;
+    resetSelect('companyBranchRegion', fields.companyBranchRegion);
+    updateTextFields();
   };
 
   const resetBusinessPartnerForm = () => {
@@ -4486,16 +4538,44 @@ if (!isBrowserRuntime) {
     }
   });
 
-  ui.companyBranchForm?.addEventListener('submit', async (event) => {
-    event.preventDefault();
+  ui.showCompanyBranchFormBtn?.addEventListener('click', () => {
+    resetCompanyBranchForm();
+    modals.companyBranch?.open();
+  });
+
+  fields.companyBranchCountry?.addEventListener('change', () => {
+    rebuildCompanyBranchRegionSelect({ countryCode: fields.companyBranchCountry.value, regionValue: '' });
+  });
+
+  ui.saveCompanyBranchBtn?.addEventListener('click', async () => {
+    const payload = {
+      name: fields.companyBranchName.value.trim(),
+      taxIdentification: fields.companyBranchTaxIdentification.value.trim(),
+      streetName: fields.companyBranchStreetName.value.trim(),
+      streetNumber: fields.companyBranchStreetNumber.value.trim(),
+      postalCode: fields.companyBranchPostalCode.value.trim(),
+      city: fields.companyBranchCity.value.trim(),
+      region: fields.companyBranchRegion.value.trim(),
+      country: fields.companyBranchCountry.value.trim()
+    };
     try {
-      await request('/api/company-branches', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: fields.companyBranchName.value.trim() }) });
-      ui.companyBranchForm.reset();
+      const editing = Boolean(fields.companyBranchId.value);
+      await request(editing ? `/api/company-branches/${fields.companyBranchId.value}` : '/api/company-branches', {
+        method: editing ? 'PUT' : 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
       await loadAll();
-      toast('Company branch added', 'teal darken-1');
+      modals.companyBranch?.close();
+      resetCompanyBranchForm();
+      toast(editing ? 'Company branch updated' : 'Company branch added', 'teal darken-1');
     } catch (error) {
-      toast(error.message || 'Failed to add company branch', 'red darken-1');
+      toast(error.message || 'Failed to save company branch', 'red darken-1');
     }
+  });
+  ui.companyBranchForm?.addEventListener('submit', (event) => {
+    event.preventDefault();
+    ui.saveCompanyBranchBtn?.click();
   });
 
   ui.rolesList.addEventListener('click', async (event) => {
@@ -4559,14 +4639,36 @@ if (!isBrowserRuntime) {
   });
 
   ui.companyBranchesList?.addEventListener('click', async (event) => {
-    const button = event.target.closest('button[data-action="delete-company-branch"]');
+    const button = event.target.closest('button[data-action]');
     if (!button) return;
-    try {
-      await request(`/api/company-branches/${button.dataset.id}`, { method: 'DELETE' });
-      await loadAll();
-      toast('Company branch removed', 'orange darken-2');
-    } catch (error) {
-      toast(error.message || 'Failed to delete company branch', 'red darken-1');
+    const id = Number(button.dataset.id);
+    const branch = companyBranches.find((item) => Number(item.id) === id);
+    if (!branch) return;
+    if (button.dataset.action === 'edit-company-branch') {
+      resetCompanyBranchForm();
+      if (ui.companyBranchModalTitle) ui.companyBranchModalTitle.textContent = 'Edit Company Branch';
+      fields.companyBranchId.value = branch.id;
+      fields.companyBranchName.value = branch.name || '';
+      fields.companyBranchTaxIdentification.value = branch.taxIdentification || '';
+      fields.companyBranchStreetName.value = branch.streetName || '';
+      fields.companyBranchStreetNumber.value = branch.streetNumber || '';
+      fields.companyBranchPostalCode.value = branch.postalCode || '';
+      fields.companyBranchCity.value = branch.city || '';
+      const countryValue = String(branch.country || '').trim();
+      rebuildCompanyBranchCountrySelect(countryValue);
+      rebuildCompanyBranchRegionSelect({ countryCode: countryValue, regionValue: branch.region || '' });
+      updateTextFields();
+      modals.companyBranch?.open();
+      return;
+    }
+    if (button.dataset.action === 'delete-company-branch') {
+      try {
+        await request(`/api/company-branches/${id}`, { method: 'DELETE' });
+        await loadAll();
+        toast('Company branch removed', 'orange darken-2');
+      } catch (error) {
+        toast(error.message || 'Failed to delete company branch', 'red darken-1');
+      }
     }
   });
 
@@ -4673,6 +4775,7 @@ if (!isBrowserRuntime) {
     event.preventDefault();
     const payload = {
       companyName: fields.businessPartnerCompanyName.value.trim(),
+      taxIdentification: fields.businessPartnerTaxIdentification.value.trim(),
       businessPartnerTypeId: fields.businessPartnerTypeId.value ? Number(fields.businessPartnerTypeId.value) : null,
       addressStreet: fields.businessPartnerAddressStreet.value.trim(),
       addressNumber: fields.businessPartnerAddressNumber.value.trim(),
@@ -4720,6 +4823,7 @@ if (!isBrowserRuntime) {
     }
     fields.businessPartnerId.value = partner.id;
     fields.businessPartnerCompanyName.value = partner.companyName || '';
+    fields.businessPartnerTaxIdentification.value = partner.taxIdentification || '';
     fields.businessPartnerTypeId.value = partner.businessPartnerTypeId || '';
     fields.businessPartnerAddressStreet.value = partner.addressStreet || '';
     fields.businessPartnerAddressNumber.value = partner.addressNumber || '';
@@ -5101,6 +5205,7 @@ if (!isBrowserRuntime) {
     modals.payment = M.Modal.init(ui.paymentModal);
     modals.timesheetDetails = M.Modal.init(ui.timesheetDetailsModal);
     modals.businessPartnerCommunication = M.Modal.init(ui.businessPartnerCommunicationModal);
+    modals.companyBranch = M.Modal.init(ui.companyBranchModal);
   }
 
   setSection('projects');

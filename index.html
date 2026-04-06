@@ -340,6 +340,7 @@
             <form id="business-partner-form">
               <input type="hidden" id="business-partner-id" />
               <div class="input-field"><input id="business-partner-company-name" type="text" required /><label for="business-partner-company-name">Company Name</label></div>
+              <div class="input-field"><input id="business-partner-tax-identification" type="text" /><label for="business-partner-tax-identification">Tax Identification</label></div>
               <div class="input-field"><select id="business-partner-type-id"></select><label for="business-partner-type-id">Business Partner Type</label></div>
               <div class="bp-collapsible-section">
                 <button class="bp-collapsible-header" type="button" id="bp-address-toggle-btn">
@@ -587,7 +588,7 @@
               </div>
               <div class="col s12 m3">
                 <h6>Manage Company Branches</h6>
-                <form id="company-branch-form" class="inline-form"><div class="input-field inline-input"><input id="company-branch-name" type="text" required /><label for="company-branch-name">New Branch</label></div><button class="btn" type="submit">Add</button></form>
+                <button class="btn waves-effect waves-light" id="show-company-branch-form-btn" type="button">Add Company Branch<i class="material-icons right">add</i></button>
                 <ul class="collection" id="company-branches-list"></ul>
               </div>
             </div>
@@ -595,6 +596,31 @@
         </div>
       </section>
     </main>
+
+    <div id="company-branch-modal" class="modal">
+      <div class="modal-content">
+        <h5 id="company-branch-modal-title">Manage Company Branch</h5>
+        <form id="company-branch-form">
+          <input id="company-branch-id" type="hidden" />
+          <div class="input-field"><input id="company-branch-name" type="text" required /><label for="company-branch-name">Name</label></div>
+          <div class="input-field"><input id="company-branch-tax-identification" type="text" /><label for="company-branch-tax-identification">Tax Identification</label></div>
+          <div class="row date-row">
+            <div class="input-field col s12 m8"><input id="company-branch-street-name" type="text" /><label for="company-branch-street-name">Street Name</label></div>
+            <div class="input-field col s12 m4"><input id="company-branch-street-number" type="text" /><label for="company-branch-street-number">Number</label></div>
+          </div>
+          <div class="row date-row">
+            <div class="input-field col s12 m4"><input id="company-branch-postal-code" type="text" /><label for="company-branch-postal-code">Postal Code</label></div>
+            <div class="input-field col s12 m4"><input id="company-branch-city" type="text" /><label for="company-branch-city">City</label></div>
+            <div class="input-field col s12 m4"><select id="company-branch-region"></select><label for="company-branch-region">Region</label></div>
+          </div>
+          <div class="input-field"><select id="company-branch-country"></select><label for="company-branch-country">Country</label></div>
+        </form>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-flat modal-close" type="button">Cancel</button>
+        <button class="btn waves-effect waves-light" id="save-company-branch-btn" type="button">Save</button>
+      </div>
+    </div>
 
     <div id="consultant-assignment-modal" class="modal">
       <div class="modal-content">
