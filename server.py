@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 import json
+import html
 import mimetypes
 import re
 import sqlite3
@@ -512,6 +513,153 @@ class VPMHandler(SimpleHTTPRequestHandler):
     self.send_header('Content-Length', str(len(body)))
     self.end_headers()
     self.wfile.write(body)
+
+  def _send_html(self, html_text, status=HTTPStatus.OK):
+    body = html_text.encode('utf-8')
+    self.send_response(status)
+    self.send_header('Content-Type', 'text/html; charset=utf-8')
+    self.send_header('Content-Length', str(len(body)))
+    self.end_headers()
+    self.wfile.write(body)
+
+  def _invoice_print_html(self, conn, invoice_id):
+    row = conn.execute(
+      '''
+      SELECT i.id, i.invoice_ref, i.period_from, i.period_to, i.invoice_date, i.due_date, i.amount, i.notes,
+             p.project_name, p.contract_with_branch_id, p.client_business_partner_id,
+             cb.name AS branch_name, cb.tax_identification AS branch_tax_identification,
+             cb.street_name AS branch_street_name, cb.street_number AS branch_street_number,
+             cb.postal_code AS branch_postal_code, cb.city AS branch_city, cb.region AS branch_region, cb.country AS branch_country,
+             bp.company_name AS client_company_name, bp.tax_identification AS client_tax_identification,
+             bp.address_street AS client_street_name, bp.address_number AS client_street_number,
+             bp.postal_code AS client_postal_code, bp.city AS client_city, bp.region AS client_region, bp.country AS client_country
+      FROM invoices i
+      JOIN projects p ON p.id = i.project_id
+      LEFT JOIN company_branches cb ON cb.id = p.contract_with_branch_id
+      LEFT JOIN business_partners bp ON bp.id = p.client_business_partner_id
+      WHERE i.id = ?
+      LIMIT 1
+      ''',
+      (invoice_id,)
+    ).fetchone()
+    if not row:
+      return None
+
+    def _address_lines(street_name, street_number, postal_code, city, region, country):
+      street = ' '.join(part for part in [street_name or '', street_number or ''] if str(part).strip()).strip()
+      locality = ' '.join(part for part in [postal_code or '', city or ''] if str(part).strip()).strip()
+      region_country = ', '.join(part for part in [region or '', country or ''] if str(part).strip()).strip()
+      return [line for line in [street, locality, region_country] if line]
+
+    def _money(value):
+      try:
+        amount = float(value or 0)
+      except (TypeError, ValueError):
+        amount = 0.0
+      return f'EUR {amount:,.2f}'
+
+    def _fmt_date(value):
+      value = str(value or '').strip()
+      if not value:
+        return '—'
+      try:
+        return datetime.strptime(value, '%Y-%m-%d').strftime('%d %b %Y')
+      except ValueError:
+        return value
+
+    logo_payload = self._company_logo_payload()
+    logo_html = f'<img class="logo" src="{html.escape(logo_payload["logoUrl"])}" alt="Company logo" />' if logo_payload.get('hasLogo') and logo_payload.get('logoUrl') else f'<strong>{html.escape(str(row["branch_name"] or "VPM Workspace"))}</strong>'
+    period_label = f'{_fmt_date(row["period_from"])} - {_fmt_date(row["period_to"])}'
+    branch_lines = ''.join(f'<div>{html.escape(line)}</div>' for line in _address_lines(row['branch_street_name'], row['branch_street_number'], row['branch_postal_code'], row['branch_city'], row['branch_region'], row['branch_country']))
+    client_lines = ''.join(f'<div>{html.escape(line)}</div>' for line in _address_lines(row['client_street_name'], row['client_street_number'], row['client_postal_code'], row['client_city'], row['client_region'], row['client_country']))
+    amount_label = _money(row['amount'])
+    notes_value = str(row['notes'] or '').strip() or 'Payment terms: as agreed in contract.'
+
+    return f'''<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>Invoice {html.escape(str(row["invoice_ref"] or row["id"]))}</title>
+  <style>
+    @page {{ size: A4; margin: 18mm; }}
+    body {{ font-family: Arial, sans-serif; color: #1f2933; margin: 0; }}
+    .invoice-wrap {{ max-width: 760px; margin: 0 auto; }}
+    .header {{ display:flex; justify-content:space-between; align-items:flex-start; gap:16px; border-bottom:2px solid #d8e0e6; padding-bottom:12px; margin-bottom:14px; }}
+    .logo {{ max-height:56px; max-width:220px; object-fit:contain; }}
+    h1 {{ margin: 0; letter-spacing: 1px; }}
+    .meta {{ font-size: 13px; line-height: 1.5; text-align:right; }}
+    .blocks {{ display:grid; grid-template-columns:1fr 1fr; gap:14px; margin-bottom:14px; }}
+    .block {{ border:1px solid #d8e0e6; border-radius:6px; padding:10px 12px; font-size:13px; line-height:1.5; }}
+    .block h3 {{ margin: 0 0 6px 0; font-size: 12px; color:#4a5a67; text-transform: uppercase; letter-spacing: 0.04em; }}
+    .ref {{ border:1px solid #d8e0e6; border-radius:6px; padding:10px 12px; margin-bottom:14px; font-size:13px; line-height:1.5; }}
+    table {{ width:100%; border-collapse: collapse; margin-bottom: 14px; }}
+    th, td {{ border:1px solid #d8e0e6; padding:8px; font-size:13px; text-align:left; }}
+    th {{ background:#f4f7f9; }}
+    .num {{ text-align:right; }}
+    .totals {{ margin-left:auto; width: 260px; border:1px solid #d8e0e6; border-radius:6px; }}
+    .totals div {{ display:flex; justify-content:space-between; padding:8px 10px; font-size:13px; }}
+    .totals div + div {{ border-top:1px solid #d8e0e6; }}
+    .totals .grand {{ font-weight:700; font-size:15px; background:#f4f7f9; }}
+    .notes {{ margin-top:14px; font-size:12px; color:#5c6b77; white-space:pre-wrap; }}
+    .top-actions {{ margin: 10px 0 16px 0; }}
+    .btn {{ border: 1px solid #cfd8de; border-radius: 6px; padding: 6px 10px; text-decoration: none; color: #1f2933; font-size: 12px; margin-right: 8px; }}
+    @media print {{ .top-actions {{ display:none; }} }}
+  </style>
+</head>
+<body>
+  <div class="invoice-wrap">
+    <div class="top-actions"><a class="btn" href="javascript:history.back()">Back</a><a class="btn" href="javascript:window.print()">Print</a></div>
+    <div class="header">
+      <div>{logo_html}</div>
+      <div>
+        <h1>INVOICE</h1>
+        <div class="meta">
+          <div><strong>Invoice #:</strong> {html.escape(str(row['invoice_ref'] or row['id']))}</div>
+          <div><strong>Invoice Date:</strong> {html.escape(_fmt_date(row['invoice_date']))}</div>
+          <div><strong>Billing Period:</strong> {html.escape(period_label)}</div>
+          <div><strong>Currency:</strong> EUR</div>
+        </div>
+      </div>
+    </div>
+    <div class="blocks">
+      <div class="block">
+        <h3>Issuer</h3>
+        <div><strong>{html.escape(str(row['branch_name'] or '—'))}</strong></div>
+        {branch_lines or '<div>—</div>'}
+        <div><strong>Tax ID:</strong> {html.escape(str(row['branch_tax_identification'] or '—'))}</div>
+      </div>
+      <div class="block">
+        <h3>Bill To</h3>
+        <div><strong>{html.escape(str(row['client_company_name'] or '—'))}</strong></div>
+        {client_lines or '<div>—</div>'}
+        <div><strong>Tax ID:</strong> {html.escape(str(row['client_tax_identification'] or '—'))}</div>
+      </div>
+    </div>
+    <div class="ref">
+      <div><strong>Project:</strong> {html.escape(str(row['project_name'] or '—'))}</div>
+      <div><strong>Client:</strong> {html.escape(str(row['client_company_name'] or '—'))}</div>
+      <div><strong>Contract With:</strong> {html.escape(str(row['branch_name'] or '—'))}</div>
+    </div>
+    <table>
+      <thead><tr><th>Description</th><th>Period</th><th class="num">Qty</th><th class="num">Unit Price</th><th class="num">Amount</th></tr></thead>
+      <tbody>
+        <tr>
+          <td>Consulting services for period {html.escape(period_label)}</td>
+          <td>{html.escape(period_label)}</td>
+          <td class="num">1</td>
+          <td class="num">{html.escape(amount_label)}</td>
+          <td class="num">{html.escape(amount_label)}</td>
+        </tr>
+      </tbody>
+    </table>
+    <div class="totals">
+      <div><span>Subtotal</span><span>{html.escape(amount_label)}</span></div>
+      <div class="grand"><span>Total</span><span>{html.escape(amount_label)}</span></div>
+    </div>
+    <div class="notes">{html.escape(notes_value)}</div>
+  </div>
+</body>
+</html>'''
 
   def _read_json(self):
     length = int(self.headers.get('Content-Length', 0))
@@ -2141,6 +2289,7 @@ class VPMHandler(SimpleHTTPRequestHandler):
   def do_GET(self):
     path = self._path()
     query = self._query()
+    print_invoice_match = re.fullmatch(r'/print/invoice/(\d+)', path)
     revenue_summary_match = re.fullmatch(r'/api/projects/(\d+)/revenue-summary', path)
     revenue_invoice_periods_match = re.fullmatch(r'/api/projects/(\d+)/revenue/invoice-periods', path)
     revenue_timesheet_details_match = re.fullmatch(r'/api/projects/(\d+)/revenue/timesheet-details', path)
@@ -2158,6 +2307,14 @@ class VPMHandler(SimpleHTTPRequestHandler):
     allocation_simulation_id = self._allocation_simulation_id()
     files_project_id, file_id, files_action = self._project_files_route()
     with get_connection() as conn:
+      if print_invoice_match:
+        invoice_id = int(print_invoice_match.group(1))
+        html_doc = self._invoice_print_html(conn, invoice_id)
+        if not html_doc:
+          self.send_error(HTTPStatus.NOT_FOUND, 'Invoice not found')
+          return
+        self._send_html(html_doc)
+        return
       if files_project_id is not None and file_id is None:
         if not self._ids_exist(conn, 'projects', [files_project_id]):
           self._send_json({'error': 'Project not found'}, HTTPStatus.NOT_FOUND)

@@ -516,149 +516,9 @@ if (!isBrowserRuntime) {
     Overdue: 'status-invoice-overdue'
   }[String(status || '').trim()] || 'status-invoice-default');
 
-  const escapeHtml = (value) => String(value ?? '')
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;');
-
-  const formatAddressParts = ({ streetName = '', streetNumber = '', postalCode = '', city = '', region = '', country = '' } = {}) => {
-    const street = [streetName, streetNumber].filter(Boolean).join(' ').trim();
-    const locality = [postalCode, city].filter(Boolean).join(' ').trim();
-    const regionCountry = [region, country].filter(Boolean).join(', ').trim();
-    return [street, locality, regionCountry].filter(Boolean);
-  };
-
-  const generateInvoicePrintout = async (invoice) => {
-    if (!invoice) return;
-    const branch = companyBranches.find((item) => Number(item.id) === Number(fields.contractWithBranchId.value || 0));
-    const client = findBusinessPartnerById(fields.clientBusinessPartnerId.value);
-    const currency = revenueSummary?.currency || 'EUR';
-    const periodLabel = `${formatDate(invoice.periodFrom)} - ${formatDate(invoice.periodTo)}`;
-    const candidateLogoUrl = companyLogo?.hasLogo && companyLogo?.logoUrl ? `${primaryApiBase}${companyLogo.logoUrl}` : '';
-    const logoUrl = await new Promise((resolve) => {
-      if (!candidateLogoUrl) {
-        resolve('');
-        return;
-      }
-      const testLogo = new Image();
-      testLogo.onload = () => resolve(candidateLogoUrl);
-      testLogo.onerror = () => resolve('');
-      testLogo.src = candidateLogoUrl;
-    });
-    const issuerAddress = formatAddressParts({
-      streetName: branch?.streetName || '',
-      streetNumber: branch?.streetNumber || '',
-      postalCode: branch?.postalCode || '',
-      city: branch?.city || '',
-      region: branch?.region || '',
-      country: branch?.country || ''
-    });
-    const clientAddress = formatAddressParts({
-      streetName: client?.addressStreet || '',
-      streetNumber: client?.addressNumber || '',
-      postalCode: client?.postalCode || '',
-      city: client?.city || '',
-      region: client?.region || '',
-      country: client?.country || ''
-    });
-    const amount = Number(invoice.amount || 0);
-    const notes = String(invoice.notes || '').trim();
-    const printWindow = window.open('', '_blank', 'noopener,noreferrer,width=980,height=900');
-    if (!printWindow) {
-      toast('Unable to open print window. Please allow pop-ups.', 'orange darken-2');
-      return;
-    }
-    const html = `
-<!doctype html>
-<html>
-<head>
-  <meta charset="utf-8" />
-  <title>Invoice ${escapeHtml(invoice.invoiceRef || invoice.id)}</title>
-  <style>
-    @page { size: A4; margin: 18mm; }
-    body { font-family: Arial, sans-serif; color: #1f2933; margin: 0; }
-    .invoice-wrap { max-width: 760px; margin: 0 auto; }
-    .header { display:flex; justify-content:space-between; align-items:flex-start; gap:16px; border-bottom:2px solid #d8e0e6; padding-bottom:12px; margin-bottom:14px; }
-    .logo { max-height:56px; max-width:220px; object-fit:contain; }
-    h1 { margin: 0; letter-spacing: 1px; }
-    .meta { font-size: 13px; line-height: 1.5; text-align:right; }
-    .blocks { display:grid; grid-template-columns:1fr 1fr; gap:14px; margin-bottom:14px; }
-    .block { border:1px solid #d8e0e6; border-radius:6px; padding:10px 12px; font-size:13px; line-height:1.5; }
-    .block h3 { margin: 0 0 6px 0; font-size: 12px; color:#4a5a67; text-transform: uppercase; letter-spacing: 0.04em; }
-    .ref { border:1px solid #d8e0e6; border-radius:6px; padding:10px 12px; margin-bottom:14px; font-size:13px; line-height:1.5; }
-    table { width:100%; border-collapse: collapse; margin-bottom: 14px; }
-    th, td { border:1px solid #d8e0e6; padding:8px; font-size:13px; text-align:left; }
-    th { background:#f4f7f9; }
-    .num { text-align:right; }
-    .totals { margin-left:auto; width: 260px; border:1px solid #d8e0e6; border-radius:6px; }
-    .totals div { display:flex; justify-content:space-between; padding:8px 10px; font-size:13px; }
-    .totals div + div { border-top:1px solid #d8e0e6; }
-    .totals .grand { font-weight:700; font-size:15px; background:#f4f7f9; }
-    .notes { margin-top:14px; font-size:12px; color:#5c6b77; white-space:pre-wrap; }
-  </style>
-</head>
-<body>
-  <div class="invoice-wrap">
-    <div class="header">
-      <div>${logoUrl ? `<img class="logo" src="${escapeHtml(logoUrl)}" alt="Company logo" />` : `<strong>${escapeHtml(branch?.name || 'VPM Workspace')}</strong>`}</div>
-      <div>
-        <h1>INVOICE</h1>
-        <div class="meta">
-          <div><strong>Invoice #:</strong> ${escapeHtml(invoice.invoiceRef || invoice.id)}</div>
-          <div><strong>Invoice Date:</strong> ${escapeHtml(formatDate(invoice.invoiceDate))}</div>
-          <div><strong>Billing Period:</strong> ${escapeHtml(periodLabel)}</div>
-          <div><strong>Currency:</strong> ${escapeHtml(currency)}</div>
-        </div>
-      </div>
-    </div>
-    <div class="blocks">
-      <div class="block">
-        <h3>Issuer</h3>
-        <div><strong>${escapeHtml(branch?.name || '—')}</strong></div>
-        ${issuerAddress.length ? issuerAddress.map((line) => `<div>${escapeHtml(line)}</div>`).join('') : '<div>—</div>'}
-        <div><strong>Tax ID:</strong> ${escapeHtml(branch?.taxIdentification || '—')}</div>
-      </div>
-      <div class="block">
-        <h3>Bill To</h3>
-        <div><strong>${escapeHtml(client?.companyName || '—')}</strong></div>
-        ${clientAddress.length ? clientAddress.map((line) => `<div>${escapeHtml(line)}</div>`).join('') : '<div>—</div>'}
-        <div><strong>Tax ID:</strong> ${escapeHtml(client?.taxIdentification || '—')}</div>
-      </div>
-    </div>
-    <div class="ref">
-      <div><strong>Project:</strong> ${escapeHtml(fields.projectName.value || '—')}</div>
-      <div><strong>Client:</strong> ${escapeHtml(client?.companyName || '—')}</div>
-      <div><strong>Contract With:</strong> ${escapeHtml(branch?.name || '—')}</div>
-    </div>
-    <table>
-      <thead>
-        <tr><th>Description</th><th>Period</th><th class="num">Qty</th><th class="num">Unit Price</th><th class="num">Amount</th></tr>
-      </thead>
-      <tbody>
-        <tr>
-          <td>Consulting services for period ${escapeHtml(periodLabel)}</td>
-          <td>${escapeHtml(periodLabel)}</td>
-          <td class="num">1</td>
-          <td class="num">${escapeHtml(formatMoney(amount, currency))}</td>
-          <td class="num">${escapeHtml(formatMoney(amount, currency))}</td>
-        </tr>
-      </tbody>
-    </table>
-    <div class="totals">
-      <div><span>Subtotal</span><span>${escapeHtml(formatMoney(amount, currency))}</span></div>
-      <div class="grand"><span>Total</span><span>${escapeHtml(formatMoney(amount, currency))}</span></div>
-    </div>
-    <div class="notes">${escapeHtml(notes || 'Payment terms: as agreed in contract.')}</div>
-  </div>
-</body>
-</html>
-`;
-    printWindow.document.open();
-    printWindow.document.write(html);
-    printWindow.document.close();
-    printWindow.focus();
+  const generateInvoicePrintout = (invoiceId) => {
+    if (!invoiceId) return;
+    window.location.assign(`${primaryApiBase}/print/invoice/${invoiceId}`);
   };
 
   const resetSelect = (key, element) => {
@@ -4611,7 +4471,7 @@ if (!isBrowserRuntime) {
       return;
     }
     if (button.dataset.action === 'generate-invoice') {
-      await generateInvoicePrintout(invoice);
+      generateInvoicePrintout(invoiceId);
       return;
     }
     if (button.dataset.action === 'delete-invoice') {
