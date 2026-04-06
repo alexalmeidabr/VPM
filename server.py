@@ -1917,6 +1917,45 @@ class VPMHandler(SimpleHTTPRequestHandler):
         cursor = cursor.replace(month=cursor.month - 1, day=1)
     return {'periods': rows}
 
+  def get_revenue_timesheet_details(self, conn, project_id, month):
+    if not re.fullmatch(r'\d{4}-\d{2}', str(month or '')):
+      return {'details': []}
+    month_start = datetime.strptime(f'{month}-01', '%Y-%m-%d').date()
+    if month_start.month == 12:
+      next_month = month_start.replace(year=month_start.year + 1, month=1, day=1)
+    else:
+      next_month = month_start.replace(month=month_start.month + 1, day=1)
+    month_end = next_month - timedelta(days=1)
+    month_start_iso = month_start.isoformat()
+    month_end_iso = month_end.isoformat()
+
+    positions = self._project_active_assigned_positions_for_month(conn, project_id, month_start_iso, month_end_iso)
+    hours_map = self._fetch_monthly_project_timesheet_hours_by_consultant(conn, project_id, month_start_iso)
+    details = []
+    for row in positions:
+      consultant_id = int(row['consultant_id']) if row['consultant_id'] is not None else None
+      if consultant_id is None:
+        continue
+      total_hours = float(hours_map.get(consultant_id, 0.0))
+      timesheet_row = conn.execute(
+        'SELECT id FROM monthly_timesheets WHERE consultant_id = ? AND month_start = ?',
+        (consultant_id, month_start_iso)
+      ).fetchone()
+      if total_hours > 0:
+        status = 'Completed'
+      elif timesheet_row:
+        status = 'Pending'
+      else:
+        status = 'Not Started'
+      details.append({
+        'consultantId': consultant_id,
+        'consultantName': row['consultant_name'] or 'Consultant',
+        'projectRole': row['project_role'] or 'Project Position',
+        'status': status,
+        'totalHours': total_hours
+      })
+    return {'details': details}
+
   def calculate_time_material_profitability_forecast(self, conn, project_id):
     revenue_payload = self.calculate_time_material_revenue_forecast(conn, project_id)
     if not revenue_payload['rows']:
@@ -1997,6 +2036,7 @@ class VPMHandler(SimpleHTTPRequestHandler):
     query = self._query()
     revenue_summary_match = re.fullmatch(r'/api/projects/(\d+)/revenue-summary', path)
     revenue_invoice_periods_match = re.fullmatch(r'/api/projects/(\d+)/revenue/invoice-periods', path)
+    revenue_timesheet_details_match = re.fullmatch(r'/api/projects/(\d+)/revenue/timesheet-details', path)
     revenue_forecast_summary_match = re.fullmatch(r'/api/projects/(\d+)/revenue-forecast-summary', path)
     revenue_forecast_monthly_match = re.fullmatch(r'/api/projects/(\d+)/revenue-forecast-monthly', path)
     revenue_forecast_month_details_match = re.fullmatch(r'/api/projects/(\d+)/revenue-forecast-month-details', path)
@@ -2068,6 +2108,17 @@ class VPMHandler(SimpleHTTPRequestHandler):
           self._send_json({'error': 'Project not found'}, HTTPStatus.NOT_FOUND)
           return
         self._send_json(self.get_revenue_invoice_periods(conn, project_id))
+        return
+      if revenue_timesheet_details_match:
+        project_id = int(revenue_timesheet_details_match.group(1))
+        month = str(query.get('month', [''])[0]).strip()
+        if not self._ids_exist(conn, 'projects', [project_id]):
+          self._send_json({'error': 'Project not found'}, HTTPStatus.NOT_FOUND)
+          return
+        if not re.fullmatch(r'\d{4}-\d{2}', month):
+          self._send_json({'error': 'month query parameter must be YYYY-MM'}, HTTPStatus.BAD_REQUEST)
+          return
+        self._send_json(self.get_revenue_timesheet_details(conn, project_id, month))
         return
       if revenue_forecast_summary_match:
         project_id = int(revenue_forecast_summary_match.group(1))

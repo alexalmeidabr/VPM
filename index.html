@@ -153,7 +153,7 @@
                         <div class="table-container">
                           <table class="striped responsive-table">
                             <thead>
-                              <tr><th>Month</th><th>Timesheet Status</th><th>Period</th><th>Proposed Amount</th><th>Invoices</th><th>Actions</th></tr>
+                              <tr><th>Month</th><th>Timesheet Status</th><th>Details</th><th>Period</th><th>Proposed Amount</th><th>Invoices</th><th>Actions</th></tr>
                             </thead>
                             <tbody id="project-revenue-invoice-periods-body"></tbody>
                           </table>
@@ -706,6 +706,20 @@
         <div class="input-field"><textarea id="payment-notes" class="materialize-textarea"></textarea><label class="active" for="payment-notes">Notes</label></div>
       </div>
       <div class="modal-footer"><button type="button" class="modal-close btn-flat">Cancel</button><button type="button" class="btn" id="save-payment-btn">Save Payment</button></div>
+    </div>
+
+    <div id="timesheet-details-modal" class="modal">
+      <div class="modal-content">
+        <h5 id="timesheet-details-modal-title">Timesheet Details</h5>
+        <div class="table-container">
+          <table class="striped responsive-table">
+            <thead><tr><th>Consultant</th><th>Role</th><th>Status</th><th>Hours</th></tr></thead>
+            <tbody id="timesheet-details-modal-body"></tbody>
+          </table>
+        </div>
+        <p class="grey-text text-darken-1 empty-message" id="timesheet-details-modal-empty">No consultant timesheet details for this period.</p>
+      </div>
+      <div class="modal-footer"><button type="button" class="modal-close btn-flat">Close</button></div>
     </div>
 
     <div id="business-partner-communication-modal" class="modal">

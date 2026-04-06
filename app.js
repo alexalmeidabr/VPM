@@ -236,6 +236,10 @@ if (!isBrowserRuntime) {
     paymentAmount: document.getElementById('payment-amount'),
     paymentNotes: document.getElementById('payment-notes'),
     savePaymentBtn: document.getElementById('save-payment-btn'),
+    timesheetDetailsModal: document.getElementById('timesheet-details-modal'),
+    timesheetDetailsModalTitle: document.getElementById('timesheet-details-modal-title'),
+    timesheetDetailsModalBody: document.getElementById('timesheet-details-modal-body'),
+    timesheetDetailsModalEmpty: document.getElementById('timesheet-details-modal-empty'),
     availabilityType: document.getElementById('availability-type'),
     availabilityStartDate: document.getElementById('availability-start-date'),
     availabilityEndDate: document.getElementById('availability-end-date'),
@@ -376,6 +380,7 @@ if (!isBrowserRuntime) {
   let revenueInvoices = [];
   let revenueInvoicePeriods = [];
   let selectedInvoicePeriodMonth = '';
+  let revenueTimesheetDetails = [];
   let revenueSummary = null;
   let revenueActualsSummary = null;
   let revenueForecastBreakdown = [];
@@ -738,6 +743,29 @@ if (!isBrowserRuntime) {
     return 'status-timesheet-not-started';
   };
 
+  const consultantTimesheetStatusClass = (status) => {
+    if (status === 'Completed') return 'status-timesheet-completed';
+    if (status === 'Pending') return 'status-timesheet-incompleted';
+    return 'status-timesheet-not-started';
+  };
+
+  const renderTimesheetDetailsModal = (monthLabel) => {
+    if (!ui.timesheetDetailsModalBody) return;
+    if (ui.timesheetDetailsModalTitle) ui.timesheetDetailsModalTitle.textContent = `Timesheet Details – ${monthLabel}`;
+    ui.timesheetDetailsModalBody.innerHTML = '';
+    revenueTimesheetDetails.forEach((item) => {
+      const row = document.createElement('tr');
+      row.innerHTML = `
+        <td>${item.consultantName || 'Consultant'}</td>
+        <td>${item.projectRole || 'Project Position'}</td>
+        <td><span class="status-badge ${consultantTimesheetStatusClass(item.status)}">${item.status || 'Not Started'}</span></td>
+        <td>${Number(item.totalHours || 0).toFixed(2)}</td>
+      `;
+      ui.timesheetDetailsModalBody.appendChild(row);
+    });
+    if (ui.timesheetDetailsModalEmpty) ui.timesheetDetailsModalEmpty.hidden = revenueTimesheetDetails.length > 0;
+  };
+
   const renderRevenueInvoicePeriods = () => {
     if (!ui.projectRevenueInvoicePeriodsBody) return;
     ui.projectRevenueInvoicePeriodsBody.innerHTML = '';
@@ -747,6 +775,7 @@ if (!isBrowserRuntime) {
       row.innerHTML = `
         <td>${period.monthLabel || period.month}</td>
         <td><span class="status-badge ${timesheetStatusClass(period.timesheetStatus)}">${period.timesheetStatus || 'Not Started'}</span></td>
+        <td><button type="button" class="btn-flat blue-text" data-action="view-timesheet-details" data-month="${period.month}" title="View timesheet details"><i class="material-icons tiny">visibility</i></button></td>
         <td>${period.periodFrom} → ${period.periodTo}</td>
         <td>${formatMoney(period.proposedAmount || 0, period.currency || 'EUR')}</td>
         <td>${Number(period.invoiceCount || 0)} invoice(s) · ${formatMoney(period.invoicedTotal || 0, period.currency || 'EUR')}</td>
@@ -805,6 +834,7 @@ if (!isBrowserRuntime) {
       revenueInvoices = [];
       revenueInvoicePeriods = [];
       selectedInvoicePeriodMonth = '';
+      revenueTimesheetDetails = [];
       revenueForecastBreakdown = [];
       selectedRevenueForecastMonth = '';
       revenueForecastDetails = [];
@@ -840,6 +870,7 @@ if (!isBrowserRuntime) {
     revenueActualsSummary = actualsPayload || null;
     revenueInvoices = invoicesPayload?.invoices || [];
     revenueInvoicePeriods = invoicePeriodsPayload?.periods || [];
+    revenueTimesheetDetails = [];
     if (selectedInvoicePeriodMonth && !revenueInvoicePeriods.some((item) => item.month === selectedInvoicePeriodMonth)) selectedInvoicePeriodMonth = '';
     revenueForecastBreakdown = forecastPayload?.rows || [];
     profitabilitySummary = profitabilitySummaryPayload || null;
@@ -4243,6 +4274,17 @@ if (!isBrowserRuntime) {
       renderRevenueMonthInvoices();
       return;
     }
+    if (button.dataset.action === 'view-timesheet-details') {
+      try {
+        const payload = await request(`/api/projects/${projectId}/revenue/timesheet-details?month=${encodeURIComponent(month)}`);
+        revenueTimesheetDetails = payload?.details || [];
+        renderTimesheetDetailsModal(period.monthLabel || month);
+        modals.timesheetDetails?.open();
+      } catch (error) {
+        toast(error.message || 'Unable to load timesheet details', 'red darken-1');
+      }
+      return;
+    }
   });
 
   ui.projectRevenueMonthInvoicesBody?.addEventListener('click', async (event) => {
@@ -5057,6 +5099,7 @@ if (!isBrowserRuntime) {
     modals.manualLine = M.Modal.init(ui.manualLineModal);
     modals.invoice = M.Modal.init(ui.invoiceModal);
     modals.payment = M.Modal.init(ui.paymentModal);
+    modals.timesheetDetails = M.Modal.init(ui.timesheetDetailsModal);
     modals.businessPartnerCommunication = M.Modal.init(ui.businessPartnerCommunicationModal);
   }
 
