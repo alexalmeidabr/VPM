@@ -53,7 +53,6 @@ if (!isBrowserRuntime) {
     projectRevenueTimeMaterial: document.getElementById('project-revenue-time-material'),
     projectRevenueSubtabs: document.querySelectorAll('[data-revenue-subtab]'),
     projectRevenueSubtabPanels: document.querySelectorAll('[data-revenue-subtab-panel]'),
-    revenueTotalContractedValue: document.getElementById('revenue-total-contracted-value'),
     revenueThisMonthValue: document.getElementById('revenue-this-month-value'),
     revenueNext3MonthsValue: document.getElementById('revenue-next-3-months-value'),
     revenueForecastTotalValue: document.getElementById('revenue-forecast-total-value'),
@@ -665,8 +664,7 @@ if (!isBrowserRuntime) {
   };
 
   const renderRevenueSummary = () => {
-    if (!ui.revenueTotalContractedValue) return;
-    ui.revenueTotalContractedValue.textContent = formatMoney(revenueSummary?.totalContractedRevenue || 0);
+    if (!ui.revenueThisMonthValue) return;
     ui.revenueThisMonthValue.textContent = formatMoney(revenueSummary?.revenueThisMonth || 0);
     ui.revenueNext3MonthsValue.textContent = formatMoney(revenueSummary?.revenueNext3Months || 0);
     ui.revenueForecastTotalValue.textContent = formatMoney(revenueSummary?.totalForecastRevenueUntilProjectEnd || 0);
