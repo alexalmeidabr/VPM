@@ -639,10 +639,15 @@ dialog.modal-large::backdrop {
 
 
 dialog.forecast-details-dialog {
+  position: fixed;
   border: 0;
   outline: 0;
   padding: 0;
   color: #263238;
+}
+
+dialog.forecast-details-dialog[open] {
+  display: block;
 }
 
 dialog.forecast-details-dialog .modal-content {

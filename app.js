@@ -906,7 +906,6 @@ if (!isBrowserRuntime) {
       renderRevenueSummary();
       renderRevenueActuals();
       renderRevenueSubtabs();
-      renderRevenueForecastBreakdown();
       renderRevenueForecastDetails();
       renderRevenueInvoicePeriods();
       renderRevenueMonthInvoices();
@@ -948,50 +947,32 @@ if (!isBrowserRuntime) {
   };
 
   const openForecastDetailsModal = () => {
-    if (!ui.forecastDetailsModal) {
-      console.debug('[RevenueForecast] Missing forecastDetailsModal ref; cannot open modal.');
+    const modalElement = ui.forecastDetailsModal;
+    if (!modalElement) {
+      console.debug('[RevenueForecast] Missing forecast details dialog ref.');
       return;
     }
-    const modalElement = ui.forecastDetailsModal;
     const isDialog = String(modalElement.tagName || '').toUpperCase() === 'DIALOG';
     const hasShowModal = typeof modalElement.showModal === 'function';
-    console.debug(`[RevenueForecast] Open requested tag=${modalElement.tagName} isDialog=${isDialog} hasShowModal=${hasShowModal} alreadyOpen=${Boolean(modalElement.open)}`);
-    if (isDialog && hasShowModal) {
-      if (modalElement.open) {
-        console.debug('[RevenueForecast] Dialog already open; skipping showModal().');
-        return;
-      }
-      try {
-        modalElement.showModal();
-        console.debug('[RevenueForecast] Dialog showModal() completed.');
-      } catch (error) {
-        console.debug('[RevenueForecast] Dialog showModal() failed, applying fallback display.', error);
-        modalElement.style.display = 'block';
-        modalElement.classList.add('modal-fallback-open');
-      }
+    console.debug(`[RevenueForecast] open() tag=${modalElement.tagName} isDialog=${isDialog} hasShowModal=${hasShowModal} open=${Boolean(modalElement.open)}`);
+    if (!isDialog || !hasShowModal) {
+      // Defensive fallback only.
+      modalElement.style.display = 'block';
       return;
     }
-    console.debug('[RevenueForecast] Non-dialog modal element detected; using fallback display strategy.');
-    modalElement.style.display = 'block';
-    modalElement.classList.add('modal-fallback-open');
+    if (modalElement.open) return;
+    modalElement.showModal();
   };
 
   const closeForecastDetailsModal = () => {
-    if (!ui.forecastDetailsModal) {
-      console.debug('[RevenueForecast] Missing forecastDetailsModal ref; cannot close modal.');
-      return;
-    }
     const modalElement = ui.forecastDetailsModal;
+    if (!modalElement) return;
     const isDialog = String(modalElement.tagName || '').toUpperCase() === 'DIALOG';
-    console.debug(`[RevenueForecast] Close requested tag=${modalElement.tagName} isDialog=${isDialog} open=${Boolean(modalElement.open)}`);
     if (isDialog && typeof modalElement.close === 'function' && modalElement.open) {
       modalElement.close();
-      console.debug('[RevenueForecast] Dialog close() completed.');
       return;
     }
     modalElement.style.display = 'none';
-    modalElement.classList.remove('modal-fallback-open');
-    console.debug('[RevenueForecast] Fallback close completed.');
   };
 
   const loadRevenueForecastMonthDetails = async (projectId, month) => {
@@ -1007,7 +988,6 @@ if (!isBrowserRuntime) {
       selectedRevenueForecastMonth = month;
       revenueForecastDetails = payload?.rows || [];
       console.debug(`[RevenueForecast] Modal data loaded for month=${month}, rows=${revenueForecastDetails.length}`);
-      renderRevenueForecastBreakdown();
       renderRevenueForecastDetails();
       console.debug('[RevenueForecast] Opening forecast details modal');
       openForecastDetailsModal();
@@ -5430,8 +5410,7 @@ if (!isBrowserRuntime) {
   });
 
   ui.forecastDetailsModal?.addEventListener('close', () => {
-    console.debug('[RevenueForecast] Dialog close event observed. Cleaning fallback state.');
-    ui.forecastDetailsModal?.classList.remove('modal-fallback-open');
+    console.debug('[RevenueForecast] Dialog close event observed.');
     ui.forecastDetailsModal?.style.removeProperty('display');
   });
 
