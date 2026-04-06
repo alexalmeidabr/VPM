@@ -67,6 +67,7 @@ if (!isBrowserRuntime) {
     revenueActualsOutstandingLabel: document.getElementById('revenue-actuals-outstanding-label'),
     projectRevenueForecastBody: document.getElementById('project-revenue-forecast-body'),
     projectRevenueForecastEmpty: document.getElementById('project-revenue-forecast-empty'),
+    forecastDetailsModalCloseBtn: document.getElementById('forecast-details-modal-close-btn'),
     projectRevenueForecastDetail: document.getElementById('project-revenue-forecast-detail'),
     projectRevenueForecastDetailTitle: document.getElementById('project-revenue-forecast-detail-title'),
     projectRevenueForecastDetailBody: document.getElementById('project-revenue-forecast-detail-body'),
@@ -940,14 +941,39 @@ if (!isBrowserRuntime) {
     renderProfitabilityDetails();
   };
 
+  const openForecastDetailsModal = () => {
+    if (modals.forecastDetails?.open) {
+      ui.forecastDetailsModal?.classList.remove('modal-fallback-open');
+      ui.forecastDetailsModal?.style.removeProperty('display');
+      modals.forecastDetails.open();
+      return;
+    }
+    if (!ui.forecastDetailsModal) return;
+    ui.forecastDetailsModal.style.display = 'block';
+    ui.forecastDetailsModal.classList.add('modal-fallback-open');
+  };
+
+  const closeForecastDetailsModal = () => {
+    if (modals.forecastDetails?.close) {
+      modals.forecastDetails.close();
+      return;
+    }
+    if (!ui.forecastDetailsModal) return;
+    ui.forecastDetailsModal.style.display = 'none';
+    ui.forecastDetailsModal.classList.remove('modal-fallback-open');
+  };
+
   const loadRevenueForecastMonthDetails = async (projectId, month) => {
     if (!projectId || !month) return;
+    console.debug(`[RevenueForecast] View Details click captured for month=${month}, projectId=${projectId}`);
     const payload = await request(`/api/projects/${projectId}/revenue-forecast-month-details?month=${encodeURIComponent(month)}`);
     selectedRevenueForecastMonth = month;
     revenueForecastDetails = payload?.rows || [];
+    console.debug(`[RevenueForecast] Modal data loaded for month=${month}, rows=${revenueForecastDetails.length}`);
     renderRevenueForecastBreakdown();
     renderRevenueForecastDetails();
-  };
+    console.debug('[RevenueForecast] Opening forecast details modal');
+    openForecastDetailsModal();
 
   const loadProfitabilityMonthDetails = async (projectId, month) => {
     if (!projectId || !month) return;
@@ -4394,9 +4420,11 @@ if (!isBrowserRuntime) {
     const month = String(button.dataset.month || '').trim();
     const projectId = Number(fields.projectId.value || 0);
     if (!projectId || !month) return;
+    console.debug(`[RevenueForecast] Delegated forecast detail button click month=${month}, projectId=${projectId}`);
     try {
       await loadRevenueForecastMonthDetails(projectId, month);
     } catch (error) {
+      console.debug('[RevenueForecast] Failed to open forecast details modal', error);
       toast(error.message || 'Unable to load forecast month details', 'red darken-1');
     }
   });
@@ -5341,9 +5369,23 @@ if (!isBrowserRuntime) {
     modals.invoice = M.Modal.init(ui.invoiceModal);
     modals.payment = M.Modal.init(ui.paymentModal);
     modals.timesheetDetails = M.Modal.init(ui.timesheetDetailsModal);
-    modals.businessPartnerCommunication = M.Modal.init(ui.businessPartnerCommunicationModal);
+    modals.forecastDetails = M.Modal.init(ui.forecastDetailsModal, {
+      onCloseEnd: () => {
+        ui.forecastDetailsModal?.classList.remove('modal-fallback-open');
+        ui.forecastDetailsModal?.style.removeProperty('display');
+      }
+    });
     modals.companyBranch = M.Modal.init(ui.companyBranchModal);
   }
+
+  ui.forecastDetailsModalCloseBtn?.addEventListener('click', () => {
+    closeForecastDetailsModal();
+  });
+
+  ui.forecastDetailsModal?.addEventListener('click', (event) => {
+    if (!ui.forecastDetailsModal?.classList.contains('modal-fallback-open')) return;
+    if (event.target === ui.forecastDetailsModal) closeForecastDetailsModal();
+  });
 
   setSection('projects');
   updateProjectTimelineExpandUi();

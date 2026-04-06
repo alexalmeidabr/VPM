@@ -93,6 +93,18 @@ body { min-height: 100vh; }
   gap: 0.4rem;
   flex-wrap: wrap;
 }
+.modal-fallback-open {
+  position: fixed !important;
+  z-index: 1003;
+  inset: 6vh 5%;
+  width: auto !important;
+  max-width: 1080px;
+  margin: 0 auto;
+  background: #fff;
+  border-radius: 8px;
+  box-shadow: 0 18px 44px rgba(0, 0, 0, 0.35);
+  overflow: hidden;
+}
 .action-row { display: flex; gap: 0.75rem; align-items: center; padding-left: 0; }
 .actions-cell { white-space: nowrap; }
 .actions-cell .btn-flat { display: inline-flex; align-items: center; }
