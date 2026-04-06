@@ -306,6 +306,7 @@ if (!isBrowserRuntime) {
     clientContactIds: document.getElementById('client-contact-ids'),
     deliveryPartnerBusinessPartnerId: document.getElementById('delivery-partner-business-partner-id'),
     deliveryPartnerContactIds: document.getElementById('delivery-partner-contact-ids'),
+    contractWithBranchId: document.getElementById('contract-with-branch-id'),
     startDate: document.getElementById('start-date'),
     endDate: document.getElementById('end-date'),
 
@@ -507,6 +508,14 @@ if (!isBrowserRuntime) {
     return `${(mb / 1024).toFixed(1)} GB`;
   };
 
+  const invoiceStatusClass = (status) => ({
+    Draft: 'status-invoice-draft',
+    Issued: 'status-invoice-issued',
+    'Partially Paid': 'status-invoice-partially-paid',
+    Paid: 'status-invoice-paid',
+    Overdue: 'status-invoice-overdue'
+  }[String(status || '').trim()] || 'status-invoice-default');
+
   const resetSelect = (key, element) => {
     if (selectInstances[key]) selectInstances[key].destroy();
     if (window.M?.FormSelect) selectInstances[key] = M.FormSelect.init(element);
@@ -568,6 +577,7 @@ if (!isBrowserRuntime) {
     clientContactIds: selectedIds(fields.clientContactIds),
     deliveryPartnerBusinessPartnerId: fields.deliveryPartnerBusinessPartnerId.value ? Number(fields.deliveryPartnerBusinessPartnerId.value) : null,
     deliveryPartnerContactIds: selectedIds(fields.deliveryPartnerContactIds),
+    contractWithBranchId: fields.contractWithBranchId.value ? Number(fields.contractWithBranchId.value) : null,
     projectType: fields.projectType.value,
     projectStatus: fields.projectStatus?.value || 'Not Started',
     managerConsultantId: managerConsultantIdFromAssignments(),
@@ -853,7 +863,7 @@ if (!isBrowserRuntime) {
           <td>${invoice.dueDate ? formatDate(invoice.dueDate) : '—'}</td>
           <td>${formatMoney(invoice.amount)}</td>
           <td>${formatMoney(invoice.paidAmount)}</td>
-          <td><span class="status-badge">${invoice.status}</span></td>
+          <td><span class="status-badge ${invoiceStatusClass(invoice.status)}">${invoice.status}</span></td>
           <td>
             <button type="button" class="btn-flat blue-text" data-action="edit-invoice" data-id="${invoice.id}" title="Edit"><i class="material-icons tiny">edit</i></button>
             <button type="button" class="btn-flat teal-text" data-action="add-payment" data-id="${invoice.id}" title="Register Payment"><i class="material-icons tiny">payments</i></button>
@@ -1127,7 +1137,7 @@ if (!isBrowserRuntime) {
     applyButtonVisibility(headerPenBtn, isSavedProject && readOnly);
     applyButtonVisibility(headerEyeBtn, isSavedProject && !readOnly);
 
-    [fields.projectName, fields.clientBusinessPartnerId, fields.clientContactIds, fields.projectType, fields.projectStatus, fields.deliveryPartnerBusinessPartnerId, fields.deliveryPartnerContactIds, fields.startDate, fields.endDate]
+    [fields.projectName, fields.clientBusinessPartnerId, fields.clientContactIds, fields.projectType, fields.projectStatus, fields.deliveryPartnerBusinessPartnerId, fields.deliveryPartnerContactIds, fields.contractWithBranchId, fields.startDate, fields.endDate]
       .forEach((el) => { if (el) el.disabled = readOnly; });
     fields.managerId.disabled = true;
 
@@ -1136,6 +1146,7 @@ if (!isBrowserRuntime) {
     resetSelect('clientContacts', fields.clientContactIds);
     resetSelect('deliveryPartnerBusinessPartner', fields.deliveryPartnerBusinessPartnerId);
     resetSelect('deliveryPartnerContacts', fields.deliveryPartnerContactIds);
+    resetSelect('contractWithBranch', fields.contractWithBranchId);
     resetSelect('projectType', fields.projectType);
     resetSelect('projectStatus', fields.projectStatus);
 
@@ -2633,7 +2644,7 @@ if (!isBrowserRuntime) {
     ui.assignedConsultantsSummary.textContent = `${assignedCount} position${assignedCount === 1 ? '' : 's'} assigned`;
   };
 
-  const rebuildProjectSelects = ({ managerId = '', projectType = '', clientBusinessPartnerId = '', clientContactIds = [], deliveryPartnerBusinessPartnerId = '', deliveryPartnerContactIds = [] } = {}) => {
+  const rebuildProjectSelects = ({ managerId = '', projectType = '', clientBusinessPartnerId = '', clientContactIds = [], deliveryPartnerBusinessPartnerId = '', deliveryPartnerContactIds = [], contractWithBranchId = '' } = {}) => {
     fields.managerId.innerHTML = '<option value="" disabled selected>Select a manager</option>';
     managerCandidates().forEach((consultant) => fields.managerId.add(new Option(consultant.name, consultant.id, false, Number(managerId) === Number(consultant.id))));
 
@@ -2668,12 +2679,15 @@ if (!isBrowserRuntime) {
     if (projectType && !projectTypes.some((type) => String(type.name) === String(projectType))) {
       fields.projectType.add(new Option(`${projectType} (Legacy)`, projectType, false, true));
     }
+    fields.contractWithBranchId.innerHTML = '<option value="" selected>No company branch</option>';
+    companyBranches.forEach((branch) => fields.contractWithBranchId.add(new Option(branch.name, branch.id, false, Number(contractWithBranchId) === Number(branch.id))));
 
     resetSelect('manager', fields.managerId);
     resetSelect('clientBusinessPartner', fields.clientBusinessPartnerId);
     resetSelect('clientContacts', fields.clientContactIds);
     resetSelect('deliveryPartnerBusinessPartner', fields.deliveryPartnerBusinessPartnerId);
     resetSelect('deliveryPartnerContacts', fields.deliveryPartnerContactIds);
+    resetSelect('contractWithBranch', fields.contractWithBranchId);
     resetSelect('projectType', fields.projectType);
   };
 
@@ -3733,7 +3747,8 @@ if (!isBrowserRuntime) {
       clientBusinessPartnerId: fields.clientBusinessPartnerId.value,
       clientContactIds: selectedIds(fields.clientContactIds),
       deliveryPartnerBusinessPartnerId: fields.deliveryPartnerBusinessPartnerId.value,
-      deliveryPartnerContactIds: selectedIds(fields.deliveryPartnerContactIds)
+      deliveryPartnerContactIds: selectedIds(fields.deliveryPartnerContactIds),
+      contractWithBranchId: fields.contractWithBranchId.value
     });
     rebuildConsultantSelects({ areaIds: selectedIds(fields.consultantAreaIds), companyRoleId: fields.consultantCompanyRoleId.value, companyBranchId: fields.consultantCompanyBranchId.value, holidayLocationId: fields.consultantHolidayLocationId.value });
     rebuildHolidayCountryRegionControls({ consultantHolidayLocationId: fields.consultantHolidayLocationId.value });
@@ -3805,7 +3820,8 @@ if (!isBrowserRuntime) {
       clientBusinessPartnerId: fields.clientBusinessPartnerId.value,
       clientContactIds: [],
       deliveryPartnerBusinessPartnerId: fields.deliveryPartnerBusinessPartnerId.value,
-      deliveryPartnerContactIds: selectedIds(fields.deliveryPartnerContactIds)
+      deliveryPartnerContactIds: selectedIds(fields.deliveryPartnerContactIds),
+      contractWithBranchId: fields.contractWithBranchId.value
     });
     updateProjectSummaryHeader();
   });
@@ -3816,7 +3832,8 @@ if (!isBrowserRuntime) {
       clientBusinessPartnerId: fields.clientBusinessPartnerId.value,
       clientContactIds: selectedIds(fields.clientContactIds),
       deliveryPartnerBusinessPartnerId: fields.deliveryPartnerBusinessPartnerId.value,
-      deliveryPartnerContactIds: []
+      deliveryPartnerContactIds: [],
+      contractWithBranchId: fields.contractWithBranchId.value
     });
   });
   fields.projectName.addEventListener('input', () => { updateProjectTimelineExpandUi(); updateProjectSummaryHeader(); });
@@ -4260,6 +4277,7 @@ if (!isBrowserRuntime) {
     fields.managerId.value = project.managerConsultantId || '';
     fields.clientBusinessPartnerId.value = project.clientBusinessPartnerId || '';
     fields.deliveryPartnerBusinessPartnerId.value = project.deliveryPartnerBusinessPartnerId || '';
+    fields.contractWithBranchId.value = project.contractWithBranchId || '';
     fields.startDate.value = project.startDate;
     fields.endDate.value = project.endDate;
     showClosedProjectPositions = false;
@@ -4307,7 +4325,8 @@ if (!isBrowserRuntime) {
       clientBusinessPartnerId: project.clientBusinessPartnerId || '',
       clientContactIds: (project.clientContacts || []).map((item) => Number(item.id)),
       deliveryPartnerBusinessPartnerId: project.deliveryPartnerBusinessPartnerId || '',
-      deliveryPartnerContactIds: (project.deliveryPartnerContacts || []).map((item) => Number(item.id))
+      deliveryPartnerContactIds: (project.deliveryPartnerContacts || []).map((item) => Number(item.id)),
+      contractWithBranchId: project.contractWithBranchId || ''
     });
     const targetMode = button.dataset.action === 'view-project' ? 'view' : 'edit';
     showProjectPhaseForm = false;

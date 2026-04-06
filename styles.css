@@ -175,6 +175,8 @@ body { min-height: 100vh; }
   color: #263238;
 }
 .project-workspace-panel { margin-top: 0.25rem; }
+.project-overview-pair-row { margin-bottom: 0.15rem; }
+.project-overview-pair-row .input-field { margin-bottom: 0.55rem; }
 .project-workspace-placeholder {
   border: 1px dashed #cfd8dc;
   border-radius: 10px;
@@ -245,6 +247,12 @@ body { min-height: 100vh; }
 .status-in-progress { background: #e3f2fd; color: #1565c0; }
 .status-delayed { background: #ffebee; color: #c62828; }
 .status-completed { background: #e8f5e9; color: #2e7d32; }
+.status-invoice-default { background: #eceff1; color: #546e7a; }
+.status-invoice-draft { background: #eceff1; color: #455a64; }
+.status-invoice-issued { background: #e3f2fd; color: #1565c0; }
+.status-invoice-partially-paid { background: #fff8e1; color: #ef6c00; }
+.status-invoice-paid { background: #e8f5e9; color: #2e7d32; }
+.status-invoice-overdue { background: #ffebee; color: #c62828; }
 
 /* Global form-field restyle (Materialize override) */
 .input-field { margin-top: 0.5rem; margin-bottom: 0.9rem; }

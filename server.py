@@ -400,6 +400,7 @@ def init_db():
     ensure_column(conn, 'projects', 'project_status', 'project_status TEXT')
     ensure_column(conn, 'projects', 'client_business_partner_id', 'client_business_partner_id INTEGER REFERENCES business_partners(id) ON DELETE SET NULL')
     ensure_column(conn, 'projects', 'delivery_partner_business_partner_id', 'delivery_partner_business_partner_id INTEGER REFERENCES business_partners(id) ON DELETE SET NULL')
+    ensure_column(conn, 'projects', 'contract_with_branch_id', 'contract_with_branch_id INTEGER REFERENCES company_branches(id) ON DELETE SET NULL')
     ensure_column(conn, 'project_consultants', 'project_role', 'project_role TEXT')
     ensure_column(conn, 'project_consultants', 'start_date', 'start_date TEXT')
     ensure_column(conn, 'project_consultants', 'end_date', 'end_date TEXT')
@@ -644,6 +645,18 @@ class VPMHandler(SimpleHTTPRequestHandler):
         payload['deliveryPartnerBusinessPartnerId'] = int(delivery_bp)
       except (TypeError, ValueError):
         return 'deliveryPartnerBusinessPartnerId must be numeric'
+
+    contract_with_branch = payload.get('contractWithBranchId')
+    if contract_with_branch in (None, ''):
+      payload['contractWithBranchId'] = None
+    else:
+      try:
+        payload['contractWithBranchId'] = int(contract_with_branch)
+      except (TypeError, ValueError):
+        return 'contractWithBranchId must be numeric'
+      branch_exists = conn.execute('SELECT 1 FROM company_branches WHERE id = ? LIMIT 1', (payload['contractWithBranchId'],)).fetchone()
+      if not branch_exists:
+        return 'contractWithBranchId must reference an existing company branch'
 
     for key in ('clientContactIds', 'deliveryPartnerContactIds'):
       values = payload.get(key, [])
@@ -1218,9 +1231,11 @@ class VPMHandler(SimpleHTTPRequestHandler):
     rows = conn.execute(
       '''
       SELECT p.id, p.project_name, p.client_name, p.client_contact, p.start_date, p.end_date,
-             p.project_type, p.project_status, p.manager_consultant_id, p.client_business_partner_id, p.delivery_partner_business_partner_id, c.name AS manager_name
+             p.project_type, p.project_status, p.manager_consultant_id, p.client_business_partner_id, p.delivery_partner_business_partner_id,
+             p.contract_with_branch_id, c.name AS manager_name, cb.name AS contract_with_branch_name
       FROM projects p
       LEFT JOIN consultants c ON c.id = p.manager_consultant_id
+      LEFT JOIN company_branches cb ON cb.id = p.contract_with_branch_id
       ORDER BY p.created_at DESC, p.id DESC
       '''
     ).fetchall()
@@ -1272,6 +1287,8 @@ class VPMHandler(SimpleHTTPRequestHandler):
         'clientContact': row['client_contact'],
         'clientBusinessPartnerId': row['client_business_partner_id'],
         'deliveryPartnerBusinessPartnerId': row['delivery_partner_business_partner_id'],
+        'contractWithBranchId': row['contract_with_branch_id'],
+        'contractWithBranchName': row['contract_with_branch_name'],
         'clientContacts': [{'id': c['id'], 'name': c['name'], 'lastName': c['last_name'], 'email': c['email']} for c in client_contacts],
         'deliveryPartnerContacts': [{'id': c['id'], 'name': c['name'], 'lastName': c['last_name'], 'email': c['email']} for c in delivery_contacts],
         'startDate': row['start_date'],
@@ -2583,10 +2600,10 @@ class VPMHandler(SimpleHTTPRequestHandler):
         manager_name = self._consultant_name(conn, payload['managerConsultantId'])
         cursor = conn.execute(
           '''
-          INSERT INTO projects (project_name, client_name, project_lead, client_contact, start_date, end_date, manager_consultant_id, project_type, project_status, client_business_partner_id, delivery_partner_business_partner_id)
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          INSERT INTO projects (project_name, client_name, project_lead, client_contact, start_date, end_date, manager_consultant_id, project_type, project_status, client_business_partner_id, delivery_partner_business_partner_id, contract_with_branch_id)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
           ''',
-          (payload['projectName'], '', manager_name or 'Manager', '', payload['startDate'], payload['endDate'], payload['managerConsultantId'], payload['projectType'], payload['projectStatus'], payload['clientBusinessPartnerId'], payload['deliveryPartnerBusinessPartnerId'])
+          (payload['projectName'], '', manager_name or 'Manager', '', payload['startDate'], payload['endDate'], payload['managerConsultantId'], payload['projectType'], payload['projectStatus'], payload['clientBusinessPartnerId'], payload['deliveryPartnerBusinessPartnerId'], payload['contractWithBranchId'])
         )
         project_id = cursor.lastrowid
         for item in payload['consultantAssignments']:
@@ -3107,10 +3124,10 @@ class VPMHandler(SimpleHTTPRequestHandler):
         cursor = conn.execute(
           '''
           UPDATE projects
-          SET project_name = ?, client_name = ?, project_lead = ?, client_contact = ?, start_date = ?, end_date = ?, manager_consultant_id = ?, project_type = ?, project_status = ?, client_business_partner_id = ?, delivery_partner_business_partner_id = ?
+          SET project_name = ?, client_name = ?, project_lead = ?, client_contact = ?, start_date = ?, end_date = ?, manager_consultant_id = ?, project_type = ?, project_status = ?, client_business_partner_id = ?, delivery_partner_business_partner_id = ?, contract_with_branch_id = ?
           WHERE id = ?
           ''',
-          (payload['projectName'], '', manager_name or 'Manager', '', payload['startDate'], payload['endDate'], payload['managerConsultantId'], payload['projectType'], payload['projectStatus'], payload['clientBusinessPartnerId'], payload['deliveryPartnerBusinessPartnerId'], project_id)
+          (payload['projectName'], '', manager_name or 'Manager', '', payload['startDate'], payload['endDate'], payload['managerConsultantId'], payload['projectType'], payload['projectStatus'], payload['clientBusinessPartnerId'], payload['deliveryPartnerBusinessPartnerId'], payload['contractWithBranchId'], project_id)
         )
         if cursor.rowcount == 0:
           self._send_json({'error': 'Project not found'}, HTTPStatus.NOT_FOUND)
