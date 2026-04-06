@@ -704,7 +704,6 @@ if (!isBrowserRuntime) {
     ui.projectRevenueForecastBody.innerHTML = '';
     ui.projectRevenueForecastEmpty.hidden = revenueForecastBreakdown.length > 0;
     revenueForecastBreakdown.forEach((row) => {
-      const isSelected = selectedRevenueForecastMonth === row.month;
       const tr = document.createElement('tr');
       tr.innerHTML = `
         <td>${row.monthLabel || row.month}</td>
@@ -712,7 +711,7 @@ if (!isBrowserRuntime) {
         <td>${formatMoney(row.revenue || 0, 'EUR')}</td>
         <td>${Number(row.positionsCount || 0)}</td>
         <td>${Number(row.consultantsCount || 0)}</td>
-        <td><button type="button" class="btn-flat teal-text" data-action="forecast-month-detail" data-month="${row.month}">${isSelected ? 'Refresh' : 'View Details'}</button></td>
+        <td><button type="button" class="btn-flat teal-text" data-action="forecast-month-detail" data-month="${row.month}">View Details</button></td>
       `;
       ui.projectRevenueForecastBody.appendChild(tr);
     });
