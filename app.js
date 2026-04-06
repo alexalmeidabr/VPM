@@ -3073,19 +3073,50 @@ if (!isBrowserRuntime) {
     });
   };
 
+  const clearCompanyLogoImages = () => {
+    if (ui.sidebarLogoImage) {
+      ui.sidebarLogoImage.hidden = true;
+      ui.sidebarLogoImage.removeAttribute('src');
+    }
+    if (ui.companyLogoPreviewImage) {
+      ui.companyLogoPreviewImage.hidden = true;
+      ui.companyLogoPreviewImage.removeAttribute('src');
+    }
+  };
+
+  const renderCompanyLogoFallback = () => {
+    clearCompanyLogoImages();
+    if (ui.sidebarLogoFallback) ui.sidebarLogoFallback.hidden = false;
+    if (ui.companyLogoPreviewEmpty) ui.companyLogoPreviewEmpty.hidden = false;
+    if (ui.removeCompanyLogoBtn) ui.removeCompanyLogoBtn.disabled = true;
+  };
+
   const renderCompanyLogoUi = () => {
     const hasLogo = Boolean(companyLogo?.hasLogo && companyLogo?.logoUrl);
-    if (ui.sidebarLogoImage) {
-      ui.sidebarLogoImage.hidden = !hasLogo;
-      ui.sidebarLogoImage.src = hasLogo ? `${companyLogo.logoUrl}${companyLogo.logoUrl.includes('?') ? '&' : '?'}r=${Date.now()}` : '';
+    if (!hasLogo) {
+      renderCompanyLogoFallback();
+      return;
     }
-    if (ui.sidebarLogoFallback) ui.sidebarLogoFallback.hidden = hasLogo;
-    if (ui.companyLogoPreviewImage) {
-      ui.companyLogoPreviewImage.hidden = !hasLogo;
-      ui.companyLogoPreviewImage.src = hasLogo ? `${companyLogo.logoUrl}${companyLogo.logoUrl.includes('?') ? '&' : '?'}r=${Date.now()}` : '';
-    }
-    if (ui.companyLogoPreviewEmpty) ui.companyLogoPreviewEmpty.hidden = hasLogo;
-    if (ui.removeCompanyLogoBtn) ui.removeCompanyLogoBtn.disabled = !hasLogo;
+    const logoUrl = String(companyLogo.logoUrl);
+    const probe = new Image();
+    probe.onload = () => {
+      if (ui.sidebarLogoImage) {
+        ui.sidebarLogoImage.src = logoUrl;
+        ui.sidebarLogoImage.hidden = false;
+      }
+      if (ui.companyLogoPreviewImage) {
+        ui.companyLogoPreviewImage.src = logoUrl;
+        ui.companyLogoPreviewImage.hidden = false;
+      }
+      if (ui.sidebarLogoFallback) ui.sidebarLogoFallback.hidden = true;
+      if (ui.companyLogoPreviewEmpty) ui.companyLogoPreviewEmpty.hidden = true;
+      if (ui.removeCompanyLogoBtn) ui.removeCompanyLogoBtn.disabled = false;
+    };
+    probe.onerror = () => {
+      companyLogo = { hasLogo: false, logoUrl: null };
+      renderCompanyLogoFallback();
+    };
+    probe.src = logoUrl;
   };
 
   const updateProjectTimelineExpandUi = () => {
@@ -4622,12 +4653,12 @@ if (!isBrowserRuntime) {
   });
 
   ui.sidebarLogoImage?.addEventListener('error', () => {
-    ui.sidebarLogoImage.hidden = true;
-    if (ui.sidebarLogoFallback) ui.sidebarLogoFallback.hidden = false;
+    companyLogo = { hasLogo: false, logoUrl: null };
+    renderCompanyLogoFallback();
   });
   ui.companyLogoPreviewImage?.addEventListener('error', () => {
-    ui.companyLogoPreviewImage.hidden = true;
-    if (ui.companyLogoPreviewEmpty) ui.companyLogoPreviewEmpty.hidden = false;
+    companyLogo = { hasLogo: false, logoUrl: null };
+    renderCompanyLogoFallback();
   });
   ui.uploadCompanyLogoBtn?.addEventListener('click', () => {
     ui.companyLogoUploadInput?.click();
