@@ -3015,14 +3015,18 @@ if (!isBrowserRuntime) {
     ui.companyBranchesList.innerHTML = '';
     companyBranches.forEach((branch) => {
       const li = document.createElement('li');
-      li.className = 'collection-item';
+      li.className = 'collection-item company-branch-item';
       const address = [branch.streetName, branch.streetNumber, branch.postalCode, branch.city, branch.region, branch.country].filter(Boolean).join(', ');
       li.innerHTML = `
-        <div><strong>${branch.name}</strong></div>
-        <div class="grey-text text-darken-1">${branch.taxIdentification ? `Tax ID: ${branch.taxIdentification}` : 'Tax ID: —'}</div>
-        <div class="grey-text text-darken-1">${address || 'Address: —'}</div>
-        <button class="btn-flat secondary-content blue-text" data-action="edit-company-branch" data-id="${branch.id}" style="right:2.5rem;"><i class="material-icons tiny">edit</i></button>
-        <button class="btn-flat secondary-content red-text" data-action="delete-company-branch" data-id="${branch.id}"><i class="material-icons tiny">delete</i></button>
+        <div class="company-branch-item-content">
+          <div class="company-branch-item-title">${branch.name || '—'}</div>
+          <div class="company-branch-item-meta">${branch.taxIdentification ? `Tax ID: ${branch.taxIdentification}` : 'Tax ID: —'}</div>
+          <div class="company-branch-item-meta">${address || 'Address: —'}</div>
+        </div>
+        <div class="company-branch-item-actions">
+          <button class="btn-flat blue-text company-branch-action-btn" data-action="edit-company-branch" data-id="${branch.id}" aria-label="Edit branch ${branch.name || ''}"><i class="material-icons tiny">edit</i></button>
+          <button class="btn-flat red-text company-branch-action-btn" data-action="delete-company-branch" data-id="${branch.id}" aria-label="Delete branch ${branch.name || ''}"><i class="material-icons tiny">delete</i></button>
+        </div>
       `;
       ui.companyBranchesList.appendChild(li);
     });
