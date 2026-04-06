@@ -10,7 +10,10 @@
   </head>
   <body class="blue-grey lighten-5 app-shell">
     <aside class="sidebar-panel blue-grey darken-3">
-      <div class="sidebar-header">VPM • Workspace</div>
+      <div class="sidebar-header" id="sidebar-branding">
+        <img id="sidebar-logo-image" alt="Company logo" hidden />
+        <span id="sidebar-logo-fallback">VPM • Workspace</span>
+      </div>
       <ul class="collection" id="nav-menu">
         <li class="collection-item active" data-section="projects">Projects</li>
         <li class="collection-item" data-section="consultants">Consultants</li>
@@ -590,6 +593,20 @@
                 <h6>Manage Company Branches</h6>
                 <button class="btn waves-effect waves-light" id="show-company-branch-form-btn" type="button">Add Company Branch<i class="material-icons right">add</i></button>
                 <ul class="collection" id="company-branches-list"></ul>
+              </div>
+              <div class="col s12 m4">
+                <h6>Manage Company Logo</h6>
+                <div class="company-logo-admin-panel">
+                  <div class="company-logo-preview-wrap">
+                    <img id="company-logo-preview-image" alt="Current company logo" hidden />
+                    <p id="company-logo-preview-empty" class="grey-text text-darken-1">No logo uploaded</p>
+                  </div>
+                  <div class="company-logo-actions">
+                    <input id="company-logo-upload-input" type="file" accept="image/png,image/jpeg,image/svg+xml" hidden />
+                    <button class="btn waves-effect waves-light" id="upload-company-logo-btn" type="button">Upload / Replace Logo</button>
+                    <button class="btn-flat red-text" id="remove-company-logo-btn" type="button">Remove</button>
+                  </div>
+                </div>
               </div>
             </div>
           </div>

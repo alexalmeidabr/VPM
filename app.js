@@ -21,6 +21,13 @@ if (!isBrowserRuntime) {
 
   const ui = {
     navMenu: document.getElementById('nav-menu'),
+    sidebarLogoImage: document.getElementById('sidebar-logo-image'),
+    sidebarLogoFallback: document.getElementById('sidebar-logo-fallback'),
+    companyLogoPreviewImage: document.getElementById('company-logo-preview-image'),
+    companyLogoPreviewEmpty: document.getElementById('company-logo-preview-empty'),
+    companyLogoUploadInput: document.getElementById('company-logo-upload-input'),
+    uploadCompanyLogoBtn: document.getElementById('upload-company-logo-btn'),
+    removeCompanyLogoBtn: document.getElementById('remove-company-logo-btn'),
 
     projectsBody: document.getElementById('projects-body'),
     projectCount: document.getElementById('project-count'),
@@ -364,6 +371,7 @@ if (!isBrowserRuntime) {
   let projectTypes = [];
   let companyBranches = [];
   let businessPartners = [];
+  let companyLogo = { hasLogo: false, logoUrl: null };
   let editingBusinessPartnerContacts = [];
   let editingCommunicationContactIndex = -1;
   let editingCommunicationDraft = { emails: [], phoneNumbers: [] };
@@ -465,6 +473,25 @@ if (!isBrowserRuntime) {
     if (!response.ok) {
       const payload = await response.json().catch(() => ({ error: 'Upload failed' }));
       throw new Error(payload.error || 'Upload failed');
+    }
+    return response.json();
+  };
+
+  const uploadCompanyLogo = async (file) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    const upload = async (baseUrl) => fetch(`${baseUrl}/api/company-logo`, { method: 'POST', body: formData });
+    let response;
+    try {
+      response = await upload(primaryApiBase);
+    } catch (error) {
+      if (!(error instanceof TypeError) || primaryApiBase === fallbackApiBase) throw error;
+      response = await upload(fallbackApiBase);
+      window.localStorage.setItem('vpmApiOrigin', fallbackApiBase);
+    }
+    if (!response.ok) {
+      const payload = await response.json().catch(() => ({ error: 'Logo upload failed' }));
+      throw new Error(payload.error || 'Logo upload failed');
     }
     return response.json();
   };
@@ -3032,6 +3059,21 @@ if (!isBrowserRuntime) {
     });
   };
 
+  const renderCompanyLogoUi = () => {
+    const hasLogo = Boolean(companyLogo?.hasLogo && companyLogo?.logoUrl);
+    if (ui.sidebarLogoImage) {
+      ui.sidebarLogoImage.hidden = !hasLogo;
+      ui.sidebarLogoImage.src = hasLogo ? `${companyLogo.logoUrl}${companyLogo.logoUrl.includes('?') ? '&' : '?'}r=${Date.now()}` : '';
+    }
+    if (ui.sidebarLogoFallback) ui.sidebarLogoFallback.hidden = hasLogo;
+    if (ui.companyLogoPreviewImage) {
+      ui.companyLogoPreviewImage.hidden = !hasLogo;
+      ui.companyLogoPreviewImage.src = hasLogo ? `${companyLogo.logoUrl}${companyLogo.logoUrl.includes('?') ? '&' : '?'}r=${Date.now()}` : '';
+    }
+    if (ui.companyLogoPreviewEmpty) ui.companyLogoPreviewEmpty.hidden = hasLogo;
+    if (ui.removeCompanyLogoBtn) ui.removeCompanyLogoBtn.disabled = !hasLogo;
+  };
+
   const updateProjectTimelineExpandUi = () => {
     if (!ui.toggleProjectTimelineExpandBtn) return;
     document.body.classList.toggle('project-timeline-expanded', isProjectTimelineExpanded);
@@ -3617,7 +3659,8 @@ if (!isBrowserRuntime) {
       { key: 'companyBranches', path: '/api/company-branches', prop: 'companyBranches', fallback: [] },
       { key: 'businessPartners', path: '/api/business-partners', prop: 'businessPartners', fallback: [] },
       { key: 'holidayLocations', path: '/api/holiday-locations', prop: 'holidayLocations', fallback: [] },
-      { key: 'allocationSimulations', path: '/api/allocation-simulations', prop: 'simulations', fallback: [] }
+      { key: 'allocationSimulations', path: '/api/allocation-simulations', prop: 'simulations', fallback: [] },
+      { key: 'companyLogo', path: '/api/company-logo', prop: 'companyLogo', fallback: { hasLogo: false, logoUrl: null } }
     ];
 
     const results = await Promise.allSettled(endpoints.map((item) => request(item.path)));
@@ -3633,10 +3676,20 @@ if (!isBrowserRuntime) {
       return fallback;
     };
 
+    const extractCompanyLogo = (payload) => {
+      if (!payload || typeof payload !== 'object') return { hasLogo: false, logoUrl: null };
+      return {
+        hasLogo: Boolean(payload.hasLogo),
+        logoUrl: payload.logoUrl || null
+      };
+    };
+
     results.forEach((result, index) => {
       const endpoint = endpoints[index];
       if (result.status === 'fulfilled') {
-        loaded[endpoint.key] = extractCollection(result.value, endpoint.prop, endpoint.fallback);
+        loaded[endpoint.key] = endpoint.key === 'companyLogo'
+          ? extractCompanyLogo(result.value)
+          : extractCollection(result.value, endpoint.prop, endpoint.fallback);
         if (endpoint.key === 'projects') {
           console.debug('[loadAll] raw /api/projects response', result.value);
           console.debug('[loadAll] Array.isArray(projectsRes.projects)', Array.isArray(result.value?.projects));
@@ -3665,12 +3718,14 @@ if (!isBrowserRuntime) {
     businessPartners = loaded.businessPartners;
     holidayLocations = loaded.holidayLocations;
     allocationSimulations = loaded.allocationSimulations;
+    companyLogo = loaded.companyLogo || { hasLogo: false, logoUrl: null };
 
     renderProjects();
     console.debug('[loadAll] empty state visible', projects.length === 0);
     renderConsultants();
     renderBusinessPartners();
     renderAdminLists();
+    renderCompanyLogoUi();
     await refreshTimelines();
     rebuildProjectSelects({
       managerId: fields.managerId.value,
@@ -4545,6 +4600,42 @@ if (!isBrowserRuntime) {
   ui.showCompanyBranchFormBtn?.addEventListener('click', () => {
     resetCompanyBranchForm();
     modals.companyBranch?.open();
+  });
+
+  ui.sidebarLogoImage?.addEventListener('error', () => {
+    ui.sidebarLogoImage.hidden = true;
+    if (ui.sidebarLogoFallback) ui.sidebarLogoFallback.hidden = false;
+  });
+  ui.companyLogoPreviewImage?.addEventListener('error', () => {
+    ui.companyLogoPreviewImage.hidden = true;
+    if (ui.companyLogoPreviewEmpty) ui.companyLogoPreviewEmpty.hidden = false;
+  });
+  ui.uploadCompanyLogoBtn?.addEventListener('click', () => {
+    ui.companyLogoUploadInput?.click();
+  });
+  ui.companyLogoUploadInput?.addEventListener('change', async () => {
+    const file = ui.companyLogoUploadInput.files?.[0];
+    if (!file) return;
+    try {
+      const payload = await uploadCompanyLogo(file);
+      companyLogo = { hasLogo: Boolean(payload?.hasLogo), logoUrl: payload?.logoUrl || null };
+      renderCompanyLogoUi();
+      toast('Company logo updated', 'teal darken-1');
+    } catch (error) {
+      toast(error.message || 'Failed to upload company logo', 'red darken-1');
+    } finally {
+      ui.companyLogoUploadInput.value = '';
+    }
+  });
+  ui.removeCompanyLogoBtn?.addEventListener('click', async () => {
+    try {
+      await request('/api/company-logo', { method: 'DELETE' });
+      companyLogo = { hasLogo: false, logoUrl: null };
+      renderCompanyLogoUi();
+      toast('Company logo removed', 'orange darken-2');
+    } catch (error) {
+      toast(error.message || 'Failed to remove company logo', 'red darken-1');
+    }
   });
 
   fields.companyBranchCountry?.addEventListener('change', () => {

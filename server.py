@@ -20,6 +20,7 @@ except ImportError:
 BASE_DIR = Path(__file__).resolve().parent
 DB_PATH = BASE_DIR / 'projects.db'
 PROJECT_FILES_DIR = BASE_DIR / 'project-files'
+COMPANY_LOGO_DIR = BASE_DIR / 'company-logo'
 
 DEFAULT_ROLES = [
   'TM Junior Consultant', 'TM Regular Consultant', 'TM Senior Consultant',
@@ -68,6 +69,7 @@ def seed_defaults(conn):
 
 def init_db():
   PROJECT_FILES_DIR.mkdir(parents=True, exist_ok=True)
+  COMPANY_LOGO_DIR.mkdir(parents=True, exist_ok=True)
   with get_connection() as conn:
     conn.executescript(
       '''
@@ -436,6 +438,62 @@ def init_db():
 
 
 class VPMHandler(SimpleHTTPRequestHandler):
+  def _detect_company_logo_extension(self, original_filename, file_data):
+    suffix = Path(str(original_filename or '')).suffix.lower()
+    if suffix in ('.png', '.jpg', '.jpeg', '.svg'):
+      ext = '.jpg' if suffix == '.jpeg' else suffix
+    else:
+      ext = ''
+
+    if file_data.startswith(b'\x89PNG\r\n\x1a\n'):
+      return '.png'
+    if file_data.startswith(b'\xff\xd8\xff'):
+      return '.jpg'
+    try:
+      head = file_data[:2048].decode('utf-8', errors='ignore').lower()
+    except Exception:
+      head = ''
+    if '<svg' in head:
+      return '.svg'
+    return ext
+
+  def _company_logo_path(self):
+    for candidate in sorted(COMPANY_LOGO_DIR.glob('current.*')):
+      if candidate.is_file():
+        return candidate
+    return None
+
+  def _company_logo_payload(self):
+    logo_path = self._company_logo_path()
+    if not logo_path:
+      return {'hasLogo': False, 'logoUrl': None}
+    return {
+      'hasLogo': True,
+      'logoUrl': f'/api/company-logo/file?ts={int(logo_path.stat().st_mtime)}'
+    }
+
+  def _replace_company_logo_file(self, ext, file_data):
+    COMPANY_LOGO_DIR.mkdir(parents=True, exist_ok=True)
+    for candidate in COMPANY_LOGO_DIR.glob('current.*'):
+      if candidate.is_file():
+        candidate.unlink(missing_ok=True)
+    target = COMPANY_LOGO_DIR / f'current{ext}'
+    target.write_bytes(file_data)
+    return target
+
+  def _send_binary_file(self, file_path):
+    if not file_path or not file_path.exists() or not file_path.is_file():
+      self._send_json({'error': 'Company logo not found'}, HTTPStatus.NOT_FOUND)
+      return
+    mime_type = mimetypes.guess_type(str(file_path))[0] or 'application/octet-stream'
+    data = file_path.read_bytes()
+    self.send_response(HTTPStatus.OK)
+    self.send_header('Content-Type', mime_type)
+    self.send_header('Content-Length', str(len(data)))
+    self.send_header('Cache-Control', 'no-store')
+    self.end_headers()
+    self.wfile.write(data)
+
   def end_headers(self):
     self.send_header('Access-Control-Allow-Origin', '*')
     self.send_header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS')
@@ -2300,6 +2358,12 @@ class VPMHandler(SimpleHTTPRequestHandler):
       if path == '/api/company-branches':
         self._send_json({'companyBranches': self._fetch_company_branches(conn)})
         return
+      if path == '/api/company-logo':
+        self._send_json(self._company_logo_payload())
+        return
+      if path == '/api/company-logo/file':
+        self._send_binary_file(self._company_logo_path())
+        return
       if path == '/api/business-partners':
         self._send_json({'businessPartners': self._fetch_business_partners(conn)})
         return
@@ -2376,6 +2440,23 @@ class VPMHandler(SimpleHTTPRequestHandler):
           (files_project_id, original_filename, stored_filename, len(file_data))
         )
       self._send_json({'id': cursor.lastrowid}, HTTPStatus.CREATED)
+      return
+
+    if path == '/api/company-logo':
+      try:
+        original_filename, file_data = self._read_upload_file()
+      except ValueError as error:
+        self._send_json({'error': str(error)}, HTTPStatus.BAD_REQUEST)
+        return
+      if not file_data:
+        self._send_json({'error': 'Uploaded logo file is empty'}, HTTPStatus.BAD_REQUEST)
+        return
+      ext = self._detect_company_logo_extension(original_filename, file_data)
+      if ext not in {'.png', '.jpg', '.svg'}:
+        self._send_json({'error': 'Company logo must be a PNG, JPG/JPEG, or SVG image'}, HTTPStatus.BAD_REQUEST)
+        return
+      self._replace_company_logo_file(ext, file_data)
+      self._send_json(self._company_logo_payload(), HTTPStatus.CREATED)
       return
 
     try:
@@ -3254,6 +3335,18 @@ class VPMHandler(SimpleHTTPRequestHandler):
     business_partner_id = self._resource_id('business-partners')
     availability_consultant_id, availability_id = self._availability_route()
     allocation_simulation_id = self._allocation_simulation_id()
+
+    if path == '/api/company-logo':
+      removed = False
+      for candidate in COMPANY_LOGO_DIR.glob('current.*'):
+        if candidate.is_file():
+          candidate.unlink(missing_ok=True)
+          removed = True
+      if not removed:
+        self._send_json({'error': 'Company logo not found'}, HTTPStatus.NOT_FOUND)
+        return
+      self._send_json({'status': 'deleted'})
+      return
 
     if invoice_match:
       invoice_id = int(invoice_match.group(1))
