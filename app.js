@@ -4429,8 +4429,7 @@ if (!isBrowserRuntime) {
       resetInvoiceModal(null, {
         periodFrom: period.periodFrom,
         periodTo: period.periodTo,
-        amount: period.proposedAmount,
-        notes: `Auto-proposed for ${period.monthLabel || period.month}`
+        amount: period.proposedAmount
       });
       modals.invoice?.open();
       return;
