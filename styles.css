@@ -636,3 +636,37 @@ body.project-timeline-expanded #project-timeline-chart { flex: 0 0 auto; max-hei
 dialog.modal-large::backdrop {
   background: rgba(0, 0, 0, 0.45);
 }
+
+
+dialog.forecast-details-dialog {
+  border: 0;
+  outline: 0;
+  padding: 0;
+  color: #263238;
+}
+
+dialog.forecast-details-dialog .modal-content {
+  padding: 1.5rem 1.5rem 1rem;
+}
+
+dialog.forecast-details-dialog .modal-content h5 {
+  margin: 0 0 1rem;
+}
+
+dialog.forecast-details-dialog .table-container {
+  margin-top: 0.25rem;
+}
+
+dialog.forecast-details-dialog .modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  padding: 0.75rem 1.5rem 1rem;
+  border-top: 1px solid #e0e6eb;
+  background: #fafbfc;
+}
+
+dialog.forecast-details-dialog .modal-footer .btn,
+dialog.forecast-details-dialog .modal-footer .btn-flat {
+  margin: 0;
+}
