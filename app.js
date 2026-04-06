@@ -974,7 +974,7 @@ if (!isBrowserRuntime) {
     renderRevenueForecastDetails();
     console.debug('[RevenueForecast] Opening forecast details modal');
     openForecastDetailsModal();
-
+  }; // loadRevenueForecastMonthDetails
   const loadProfitabilityMonthDetails = async (projectId, month) => {
     if (!projectId || !month) return;
     const payload = await request(`/api/projects/${projectId}/profitability-month-details?month=${encodeURIComponent(month)}`);
