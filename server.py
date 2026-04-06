@@ -1922,6 +1922,12 @@ class VPMHandler(SimpleHTTPRequestHandler):
         working_days = self._working_days_between(overlap_start, overlap_end)
         if working_days <= 0:
           continue
+        consultant_id = int(position['consultant_id']) if position['consultant_id'] is not None else None
+        if consultant_id is not None:
+          days_off = self._consultant_days_off_between(conn, consultant_id, overlap_start, overlap_end)
+          working_days = max(working_days - days_off, 0)
+        if working_days <= 0:
+          continue
         allocation = float(position['allocation'] if position['allocation'] is not None else 100.0)
         billable_days = working_days * max(allocation, 0.0) / 100.0
         revenue = billable_days * float(position['daily_rate'])
@@ -1991,7 +1997,7 @@ class VPMHandler(SimpleHTTPRequestHandler):
     rows = [row for row in revenue_payload['rows'] if str(row.get('month', '')) == str(month or '')]
     return {'rows': rows}
 
-  def _count_weekdays_in_ranges(self, ranges):
+  def _weekday_date_set_for_ranges(self, ranges):
     covered = set()
     for start_iso, end_iso in ranges:
       if not start_iso or not end_iso:
@@ -2003,10 +2009,13 @@ class VPMHandler(SimpleHTTPRequestHandler):
         if cursor.weekday() < 5:
           covered.add(cursor.isoformat())
         cursor += timedelta(days=1)
-    return len(covered)
+    return covered
 
   def _consultant_days_off_between(self, conn, consultant_id, start_date, end_date):
-    rows = conn.execute(
+    non_working_dates = set()
+
+    # 1) Manual/availability day-off entries.
+    availability_rows = conn.execute(
       '''
       SELECT start_date, end_date
       FROM consultant_availability
@@ -2016,13 +2025,58 @@ class VPMHandler(SimpleHTTPRequestHandler):
       ''',
       (consultant_id, end_date, start_date)
     ).fetchall()
-    ranges = []
-    for row in rows:
+    availability_ranges = []
+    for row in availability_rows:
       overlap_start = max(start_date, row['start_date'])
       overlap_end = min(end_date, row['end_date'])
       if overlap_end >= overlap_start:
-        ranges.append((overlap_start, overlap_end))
-    return self._count_weekdays_in_ranges(ranges)
+        availability_ranges.append((overlap_start, overlap_end))
+    non_working_dates.update(self._weekday_date_set_for_ranges(availability_ranges))
+
+    # 2) Holiday calendar dates loaded for the consultant's holiday location.
+    holiday_location = conn.execute(
+      '''
+      SELECT hl.country_code, hl.region_code
+      FROM consultants c
+      LEFT JOIN holiday_locations hl ON hl.id = c.holiday_location_id
+      WHERE c.id = ?
+      ''',
+      (consultant_id,)
+    ).fetchone()
+
+    if holiday_location and holiday_location['country_code']:
+      country_code = holiday_location['country_code']
+      region_code = holiday_location['region_code']
+      if region_code:
+        holiday_rows = conn.execute(
+          '''
+          SELECT date
+          FROM holidays
+          WHERE country_code = ?
+            AND date BETWEEN ? AND ?
+            AND (region_code IS NULL OR region_code = ?)
+          ''',
+          (country_code, start_date, end_date, region_code)
+        ).fetchall()
+      else:
+        holiday_rows = conn.execute(
+          '''
+          SELECT date
+          FROM holidays
+          WHERE country_code = ?
+            AND date BETWEEN ? AND ?
+            AND region_code IS NULL
+          ''',
+          (country_code, start_date, end_date)
+        ).fetchall()
+
+      for row in holiday_rows:
+        holiday_date = str(row['date'])
+        holiday_day = datetime.strptime(holiday_date, '%Y-%m-%d').date()
+        if holiday_day.weekday() < 5:
+          non_working_dates.add(holiday_date)
+
+    return len(non_working_dates)
 
   def _fetch_monthly_project_timesheet_hours_by_consultant(self, conn, project_id, month_start):
     month_from, month_to = self._month_range(month_start)
