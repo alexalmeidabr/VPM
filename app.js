@@ -4415,7 +4415,7 @@ if (!isBrowserRuntime) {
   });
 
   ui.projectRevenueForecastBody?.addEventListener('click', async (event) => {
-    const button = event.target.closest('button[data-action=\"forecast-month-detail\"]');
+    const button = event.target.closest('button[data-action="forecast-month-detail"]');
     if (!button) return;
     const month = String(button.dataset.month || '').trim();
     const projectId = Number(fields.projectId.value || 0);
@@ -4430,7 +4430,7 @@ if (!isBrowserRuntime) {
   });
 
   ui.projectProfitabilityBody?.addEventListener('click', async (event) => {
-    const button = event.target.closest('button[data-action=\"profitability-month-detail\"]');
+    const button = event.target.closest('button[data-action="profitability-month-detail"]');
     if (!button) return;
     const month = String(button.dataset.month || '').trim();
     const projectId = Number(fields.projectId.value || 0);
