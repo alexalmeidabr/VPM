@@ -720,6 +720,7 @@ if (!isBrowserRuntime) {
 
   const renderRevenueForecastDetails = () => {
     console.debug('[RevenueForecast] Rendering details into modal container only (no inline detail section).');
+    console.debug(`[RevenueForecast] Modal body populated for month=${selectedRevenueForecastMonth}, rows=${revenueForecastDetails.length}`);
     if (!ui.projectRevenueForecastDetail) return;
     const hasSelection = Boolean(selectedRevenueForecastMonth);
     ui.projectRevenueForecastDetail.hidden = !hasSelection;
@@ -943,34 +944,17 @@ if (!isBrowserRuntime) {
   };
 
   const openForecastDetailsModal = () => {
-    if (!ui.forecastDetailsModal) return;
-    // Render this as a standalone popup regardless of Materialize runtime state.
-    ui.forecastDetailsModal.classList.add('modal-fallback-open');
-    Object.assign(ui.forecastDetailsModal.style, {
-      display: 'block',
-      position: 'fixed',
-      zIndex: '1003',
-      left: '5%',
-      right: '5%',
-      top: '6vh',
-      bottom: 'auto',
-      maxHeight: '88vh',
-      overflow: 'hidden'
-    });
+    if (!modals.forecastDetails?.open) {
+      console.debug('[RevenueForecast] Forecast details modal instance is not initialized.');
+      return;
+    }
+    console.debug('[RevenueForecast] Opening forecast details modal instance.');
+    modals.forecastDetails.open();
   };
 
   const closeForecastDetailsModal = () => {
-    if (!ui.forecastDetailsModal) return;
-    ui.forecastDetailsModal.style.display = 'none';
-    ui.forecastDetailsModal.style.position = '';
-    ui.forecastDetailsModal.style.zIndex = '';
-    ui.forecastDetailsModal.style.left = '';
-    ui.forecastDetailsModal.style.right = '';
-    ui.forecastDetailsModal.style.top = '';
-    ui.forecastDetailsModal.style.bottom = '';
-    ui.forecastDetailsModal.style.maxHeight = '';
-    ui.forecastDetailsModal.style.overflow = '';
-    ui.forecastDetailsModal.classList.remove('modal-fallback-open');
+    if (!modals.forecastDetails?.close) return;
+    modals.forecastDetails.close();
   };
 
   const loadRevenueForecastMonthDetails = async (projectId, month) => {
@@ -5379,6 +5363,7 @@ if (!isBrowserRuntime) {
     modals.invoice = M.Modal.init(ui.invoiceModal);
     modals.payment = M.Modal.init(ui.paymentModal);
     modals.timesheetDetails = M.Modal.init(ui.timesheetDetailsModal);
+    modals.forecastDetails = M.Modal.init(ui.forecastDetailsModal);
     modals.companyBranch = M.Modal.init(ui.companyBranchModal);
   }
 
@@ -5387,7 +5372,6 @@ if (!isBrowserRuntime) {
   });
 
   ui.forecastDetailsModal?.addEventListener('click', (event) => {
-    if (!ui.forecastDetailsModal?.classList.contains('modal-fallback-open')) return;
     if (event.target === ui.forecastDetailsModal) closeForecastDetailsModal();
   });
 
