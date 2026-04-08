@@ -16,7 +16,8 @@ if (!isBrowserRuntime) {
     'allocation-forecast': document.getElementById('allocation-forecast-section'),
     'mass-update': document.getElementById('mass-update-section'),
     authorization: document.getElementById('authorization-section'),
-    administration: document.getElementById('administration-section')
+    administration: document.getElementById('administration-section'),
+    'backup-restore': document.getElementById('backup-restore-section')
   };
 
   const ui = {
@@ -28,6 +29,9 @@ if (!isBrowserRuntime) {
     companyLogoUploadInput: document.getElementById('company-logo-upload-input'),
     uploadCompanyLogoBtn: document.getElementById('upload-company-logo-btn'),
     removeCompanyLogoBtn: document.getElementById('remove-company-logo-btn'),
+    downloadBackupBtn: document.getElementById('download-backup-btn'),
+    restoreBackupFileInput: document.getElementById('restore-backup-file-input'),
+    restoreBackupBtn: document.getElementById('restore-backup-btn'),
 
     projectsBody: document.getElementById('projects-body'),
     projectCount: document.getElementById('project-count'),
@@ -494,6 +498,55 @@ if (!isBrowserRuntime) {
     if (!response.ok) {
       const payload = await response.json().catch(() => ({ error: 'Logo upload failed' }));
       throw new Error(payload.error || 'Logo upload failed');
+    }
+    return response.json();
+  };
+
+  const downloadBackup = async () => {
+    const fetchBackup = async (baseUrl) => fetch(`${baseUrl}/api/backup/export`);
+    let response;
+    try {
+      response = await fetchBackup(primaryApiBase);
+    } catch (error) {
+      if (!(error instanceof TypeError) || primaryApiBase === fallbackApiBase) throw error;
+      response = await fetchBackup(fallbackApiBase);
+      window.localStorage.setItem('vpmApiOrigin', fallbackApiBase);
+    }
+    if (!response.ok) {
+      const payload = await response.json().catch(() => ({ error: 'Unable to download backup' }));
+      throw new Error(payload.error || 'Unable to download backup');
+    }
+    const blob = await response.blob();
+    const disposition = String(response.headers.get('Content-Disposition') || '');
+    const fileNameMatch = disposition.match(/filename\*=UTF-8''([^;]+)|filename=\"?([^\";]+)\"?/i);
+    const fileNameRaw = fileNameMatch ? (fileNameMatch[1] || fileNameMatch[2]) : '';
+    const fileName = decodeURIComponent(fileNameRaw || `InhousePSA_backup_${new Date().toISOString().slice(0, 10)}.zip`);
+    const url = window.URL.createObjectURL(blob);
+    const anchor = document.createElement('a');
+    anchor.href = url;
+    anchor.download = fileName;
+    document.body.appendChild(anchor);
+    anchor.click();
+    anchor.remove();
+    window.URL.revokeObjectURL(url);
+  };
+
+  const restoreBackup = async (file) => {
+    if (!file) throw new Error('Please choose a backup ZIP file first');
+    const formData = new FormData();
+    formData.append('file', file);
+    const upload = async (baseUrl) => fetch(`${baseUrl}/api/backup/restore`, { method: 'POST', body: formData });
+    let response;
+    try {
+      response = await upload(primaryApiBase);
+    } catch (error) {
+      if (!(error instanceof TypeError) || primaryApiBase === fallbackApiBase) throw error;
+      response = await upload(fallbackApiBase);
+      window.localStorage.setItem('vpmApiOrigin', fallbackApiBase);
+    }
+    if (!response.ok) {
+      const payload = await response.json().catch(() => ({ error: 'Restore failed' }));
+      throw new Error(payload.error || 'Restore failed');
     }
     return response.json();
   };
@@ -5310,6 +5363,34 @@ if (!isBrowserRuntime) {
     const item = event.target.closest('li[data-section]');
     if (!item) return;
     setSection(item.dataset.section);
+  });
+
+  ui.downloadBackupBtn?.addEventListener('click', async () => {
+    try {
+      await downloadBackup();
+      toast('Backup downloaded', 'teal darken-1');
+    } catch (error) {
+      toast(error.message || 'Unable to download backup', 'red darken-1');
+    }
+  });
+
+  ui.restoreBackupBtn?.addEventListener('click', async () => {
+    const file = ui.restoreBackupFileInput?.files?.[0];
+    if (!file) {
+      toast('Please select a backup ZIP file', 'red darken-1');
+      return;
+    }
+    const confirmed = window.confirm('Restore will replace current data. A safety backup will be created first. Continue?');
+    if (!confirmed) return;
+    try {
+      const payload = await restoreBackup(file);
+      toast(`Backup restored successfully (${payload?.safetyBackup || 'safety backup created'})`, 'teal darken-1');
+      if (ui.restoreBackupFileInput) ui.restoreBackupFileInput.value = '';
+      await loadAll();
+      setSection('projects');
+    } catch (error) {
+      toast(error.message || 'Unable to restore backup', 'red darken-1');
+    }
   });
 
   ui.createAllocationSimulationBtn?.addEventListener('click', async () => {

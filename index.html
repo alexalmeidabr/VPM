@@ -23,6 +23,7 @@
         <li class="collection-item" data-section="mass-update">Mass Update</li>
         <li class="collection-item" data-section="authorization">Authorization</li>
         <li class="collection-item" data-section="administration">Administration</li>
+        <li class="collection-item" data-section="backup-restore">Backup & Restore</li>
       </ul>
       <button class="sidebar-settings" type="button">Settings</button>
     </aside>
@@ -596,6 +597,38 @@
                     <button class="btn waves-effect waves-light" id="upload-company-logo-btn" type="button">Upload / Replace Logo</button>
                     <button class="btn-flat red-text" id="remove-company-logo-btn" type="button">Remove</button>
                   </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section id="backup-restore-section" hidden>
+        <div class="card">
+          <div class="card-content">
+            <span class="card-title">Backup & Restore</span>
+            <p class="grey-text text-darken-1">Create a full ZIP backup for migration/disaster recovery, or restore from a previously exported backup.</p>
+            <div class="row">
+              <div class="col s12 m6">
+                <div class="card-panel blue-grey lighten-5">
+                  <h6>Download Backup</h6>
+                  <p class="grey-text text-darken-1">Downloads a ZIP that includes the full <code>projects.db</code> database and backup metadata.</p>
+                  <button class="btn waves-effect waves-light" id="download-backup-btn" type="button">Download Backup</button>
+                </div>
+              </div>
+              <div class="col s12 m6">
+                <div class="card-panel red lighten-5">
+                  <h6>Restore Backup</h6>
+                  <p class="grey-text text-darken-2"><strong>Warning:</strong> restore replaces current app data. A safety backup of current data is created first. Restore is all-or-nothing.</p>
+                  <div class="file-field input-field">
+                    <div class="btn">
+                      <span>Select ZIP</span>
+                      <input id="restore-backup-file-input" type="file" accept=".zip,application/zip" />
+                    </div>
+                    <div class="file-path-wrapper"><input class="file-path validate" type="text" placeholder="Upload backup ZIP" /></div>
+                  </div>
+                  <button class="btn red darken-1 waves-effect waves-light" id="restore-backup-btn" type="button">Restore Backup</button>
                 </div>
               </div>
             </div>

@@ -1,10 +1,15 @@
 #!/usr/bin/env python3
 import json
 import html
+import io
 import mimetypes
+import os
 import re
 import sqlite3
+import shutil
+import tempfile
 import uuid
+import zipfile
 from datetime import datetime, timedelta
 from http import HTTPStatus
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
@@ -22,6 +27,7 @@ BASE_DIR = Path(__file__).resolve().parent
 DB_PATH = BASE_DIR / 'projects.db'
 PROJECT_FILES_DIR = BASE_DIR / 'project-files'
 COMPANY_LOGO_DIR = BASE_DIR / 'company-logo'
+BACKUPS_DIR = BASE_DIR / 'backups'
 
 DEFAULT_ROLES = [
   'TM Junior Consultant', 'TM Regular Consultant', 'TM Senior Consultant',
@@ -71,6 +77,7 @@ def seed_defaults(conn):
 def init_db():
   PROJECT_FILES_DIR.mkdir(parents=True, exist_ok=True)
   COMPANY_LOGO_DIR.mkdir(parents=True, exist_ok=True)
+  BACKUPS_DIR.mkdir(parents=True, exist_ok=True)
   with get_connection() as conn:
     conn.executescript(
       '''
@@ -521,6 +528,105 @@ class VPMHandler(SimpleHTTPRequestHandler):
     self.send_header('Content-Length', str(len(body)))
     self.end_headers()
     self.wfile.write(body)
+
+  def _backup_required_tables(self):
+    return {
+      'consultants',
+      'projects',
+      'project_positions',
+      'consultant_availability',
+      'monthly_timesheets',
+      'monthly_timesheet_lines',
+      'monthly_timesheet_entries',
+      'business_partners',
+      'invoices',
+      'invoice_payments',
+      'roles',
+      'areas',
+      'day_off_types',
+      'business_partner_types',
+      'project_types',
+      'company_branches'
+    }
+
+  def _validate_backup_database_file(self, db_path):
+    if not db_path or not Path(db_path).exists():
+      raise ValueError('Backup does not contain a readable projects.db file')
+    try:
+      with sqlite3.connect(db_path) as test_conn:
+        integrity_row = test_conn.execute('PRAGMA integrity_check').fetchone()
+        integrity_status = str(integrity_row[0] if integrity_row else '').strip().lower()
+        if integrity_status != 'ok':
+          raise ValueError('SQLite integrity check failed for backup database')
+        table_rows = test_conn.execute(
+          "SELECT name FROM sqlite_master WHERE type = 'table'"
+        ).fetchall()
+    except sqlite3.Error as error:
+      raise ValueError('Backup projects.db is not a valid SQLite database') from error
+    existing_tables = {str(row[0]) for row in table_rows}
+    missing = sorted(self._backup_required_tables() - existing_tables)
+    if missing:
+      raise ValueError(f'Backup database is missing required tables: {", ".join(missing)}')
+
+  def _create_database_snapshot(self, output_path):
+    output_path = Path(output_path)
+    with sqlite3.connect(DB_PATH) as source_conn, sqlite3.connect(output_path) as snapshot_conn:
+      source_conn.backup(snapshot_conn)
+
+  def _build_backup_manifest(self):
+    schema_version = None
+    try:
+      with sqlite3.connect(DB_PATH) as conn:
+        schema_version = conn.execute('PRAGMA user_version').fetchone()[0]
+    except sqlite3.Error:
+      schema_version = None
+    return {
+      'app_name': 'Inhouse PSA',
+      'created_at': datetime.utcnow().isoformat(timespec='seconds') + 'Z',
+      'database_name': DB_PATH.name,
+      'backup_format_version': 1,
+      'schema_version': schema_version
+    }
+
+  def _create_backup_zip_payload(self):
+    with tempfile.TemporaryDirectory(prefix='psa-backup-') as temp_dir:
+      temp_dir_path = Path(temp_dir)
+      snapshot_path = temp_dir_path / DB_PATH.name
+      self._create_database_snapshot(snapshot_path)
+      manifest_bytes = json.dumps(self._build_backup_manifest(), indent=2).encode('utf-8')
+      buffer = io.BytesIO()
+      with zipfile.ZipFile(buffer, 'w', compression=zipfile.ZIP_DEFLATED) as archive:
+        archive.write(snapshot_path, arcname=DB_PATH.name)
+        archive.writestr('manifest.json', manifest_bytes)
+      return buffer.getvalue()
+
+  def _create_safety_backup(self):
+    BACKUPS_DIR.mkdir(parents=True, exist_ok=True)
+    timestamp = datetime.utcnow().strftime('%Y%m%d_%H%M%S')
+    safety_path = BACKUPS_DIR / f'projects_backup_{timestamp}.db'
+    shutil.copy2(DB_PATH, safety_path)
+    return safety_path
+
+  def _restore_backup_from_zip_bytes(self, zip_bytes):
+    if not zip_bytes:
+      raise ValueError('Uploaded backup file is empty')
+    with tempfile.TemporaryDirectory(prefix='psa-restore-') as temp_dir:
+      temp_dir_path = Path(temp_dir)
+      try:
+        with zipfile.ZipFile(io.BytesIO(zip_bytes), 'r') as archive:
+          names = set(archive.namelist())
+          if DB_PATH.name not in names:
+            raise ValueError('Backup ZIP must include projects.db')
+          extracted_db_path = temp_dir_path / DB_PATH.name
+          with archive.open(DB_PATH.name, 'r') as source_fp, open(extracted_db_path, 'wb') as target_fp:
+            shutil.copyfileobj(source_fp, target_fp)
+      except zipfile.BadZipFile as error:
+        raise ValueError('Uploaded file is not a valid ZIP archive') from error
+
+      self._validate_backup_database_file(extracted_db_path)
+      safety_path = self._create_safety_backup()
+      os.replace(extracted_db_path, DB_PATH)
+      return safety_path
 
   def _invoice_print_html(self, conn, invoice_id):
     row = conn.execute(
@@ -2343,6 +2449,21 @@ class VPMHandler(SimpleHTTPRequestHandler):
   def do_GET(self):
     path = self._path()
     query = self._query()
+    if path == '/api/backup/export':
+      try:
+        payload = self._create_backup_zip_payload()
+      except Exception as error:
+        self._send_json({'error': f'Unable to create backup: {error}'}, HTTPStatus.INTERNAL_SERVER_ERROR)
+        return
+      filename = f'InhousePSA_backup_{datetime.utcnow().strftime("%Y%m%d_%H%M%S")}.zip'
+      self.send_response(HTTPStatus.OK)
+      self.send_header('Content-Type', 'application/zip')
+      self.send_header('Content-Length', str(len(payload)))
+      self.send_header('Content-Disposition', f"attachment; filename*=UTF-8''{quote(filename)}")
+      self.end_headers()
+      self.wfile.write(payload)
+      return
+
     print_invoice_match = re.fullmatch(r'/print/invoice/(\d+)', path)
     revenue_summary_match = re.fullmatch(r'/api/projects/(\d+)/revenue-summary', path)
     revenue_invoice_periods_match = re.fullmatch(r'/api/projects/(\d+)/revenue/invoice-periods', path)
@@ -2642,6 +2763,29 @@ class VPMHandler(SimpleHTTPRequestHandler):
 
   def do_POST(self):
     path = self._path()
+    if path == '/api/backup/restore':
+      try:
+        original_filename, file_data = self._read_upload_file()
+      except ValueError as error:
+        self._send_json({'error': str(error)}, HTTPStatus.BAD_REQUEST)
+        return
+      if not str(original_filename or '').lower().endswith('.zip'):
+        self._send_json({'error': 'Backup restore file must be a .zip archive'}, HTTPStatus.BAD_REQUEST)
+        return
+      try:
+        safety_path = self._restore_backup_from_zip_bytes(file_data)
+      except ValueError as error:
+        self._send_json({'error': str(error)}, HTTPStatus.BAD_REQUEST)
+        return
+      except Exception as error:
+        self._send_json({'error': f'Restore failed: {error}'}, HTTPStatus.INTERNAL_SERVER_ERROR)
+        return
+      self._send_json({
+        'status': 'restored',
+        'safetyBackup': str(safety_path.relative_to(BASE_DIR))
+      })
+      return
+
     project_invoices_match = re.fullmatch(r'/api/projects/(\d+)/invoices', path)
     invoice_payments_match = re.fullmatch(r'/api/invoices/(\d+)/payments', path)
     files_project_id, _, files_action = self._project_files_route()
