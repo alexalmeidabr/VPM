@@ -570,8 +570,12 @@ class VPMHandler(SimpleHTTPRequestHandler):
 
   def _create_database_snapshot(self, output_path):
     output_path = Path(output_path)
-    with sqlite3.connect(DB_PATH) as source_conn, sqlite3.connect(output_path) as snapshot_conn:
-      source_conn.backup(snapshot_conn)
+    source_uri = f'file:{DB_PATH.as_posix()}?mode=ro'
+    try:
+      with sqlite3.connect(source_uri, uri=True) as source_conn, sqlite3.connect(output_path) as snapshot_conn:
+        source_conn.backup(snapshot_conn)
+    except sqlite3.Error as error:
+      raise ValueError(f'Unable to create SQLite snapshot for backup: {error}') from error
 
   def _build_backup_manifest(self):
     schema_version = None
@@ -591,12 +595,13 @@ class VPMHandler(SimpleHTTPRequestHandler):
   def _create_backup_zip_payload(self):
     with tempfile.TemporaryDirectory(prefix='psa-backup-') as temp_dir:
       temp_dir_path = Path(temp_dir)
-      snapshot_path = temp_dir_path / DB_PATH.name
+      snapshot_path = temp_dir_path / 'projects_snapshot.db'
       self._create_database_snapshot(snapshot_path)
       manifest_bytes = json.dumps(self._build_backup_manifest(), indent=2).encode('utf-8')
+      snapshot_bytes = snapshot_path.read_bytes()
       buffer = io.BytesIO()
       with zipfile.ZipFile(buffer, 'w', compression=zipfile.ZIP_DEFLATED) as archive:
-        archive.write(snapshot_path, arcname=DB_PATH.name)
+        archive.writestr(DB_PATH.name, snapshot_bytes)
         archive.writestr('manifest.json', manifest_bytes)
       return buffer.getvalue()
 
