@@ -571,11 +571,19 @@ class VPMHandler(SimpleHTTPRequestHandler):
   def _create_database_snapshot(self, output_path):
     output_path = Path(output_path)
     source_uri = f'file:{DB_PATH.as_posix()}?mode=ro'
+    source_conn = None
+    snapshot_conn = None
     try:
-      with sqlite3.connect(source_uri, uri=True) as source_conn, sqlite3.connect(output_path) as snapshot_conn:
-        source_conn.backup(snapshot_conn)
+      source_conn = sqlite3.connect(source_uri, uri=True)
+      snapshot_conn = sqlite3.connect(output_path)
+      source_conn.backup(snapshot_conn)
     except sqlite3.Error as error:
       raise ValueError(f'Unable to create SQLite snapshot for backup: {error}') from error
+    finally:
+      if snapshot_conn is not None:
+        snapshot_conn.close()
+      if source_conn is not None:
+        source_conn.close()
 
   def _build_backup_manifest(self):
     schema_version = None
@@ -597,6 +605,10 @@ class VPMHandler(SimpleHTTPRequestHandler):
       temp_dir_path = Path(temp_dir)
       snapshot_path = temp_dir_path / 'projects_snapshot.db'
       self._create_database_snapshot(snapshot_path)
+      # Defensive check to guarantee the snapshot file is closed/released before zipping.
+      if not snapshot_path.exists() or snapshot_path.stat().st_size <= 0:
+        raise ValueError('SQLite snapshot file was not created correctly for backup export')
+      print(f'[Backup] Snapshot created and released: {snapshot_path.name} ({snapshot_path.stat().st_size} bytes)')
       manifest_bytes = json.dumps(self._build_backup_manifest(), indent=2).encode('utf-8')
       snapshot_bytes = snapshot_path.read_bytes()
       buffer = io.BytesIO()
