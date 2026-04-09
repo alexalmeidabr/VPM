@@ -13,7 +13,7 @@ import zipfile
 from datetime import datetime, timedelta
 from http import HTTPStatus
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 from urllib.error import URLError
 from urllib.parse import parse_qs, quote, urlparse
 from urllib.request import urlopen
@@ -586,7 +586,7 @@ class VPMHandler(SimpleHTTPRequestHandler):
       if source_conn is not None:
         source_conn.close()
 
-  def _build_backup_manifest(self):
+  def _build_backup_manifest(self, includes_company_logo=False):
     schema_version = None
     try:
       with sqlite3.connect(DB_PATH) as conn:
@@ -598,8 +598,20 @@ class VPMHandler(SimpleHTTPRequestHandler):
       'created_at': datetime.utcnow().isoformat(timespec='seconds') + 'Z',
       'database_name': DB_PATH.name,
       'backup_format_version': 1,
-      'schema_version': schema_version
+      'schema_version': schema_version,
+      'includes_company_logo': bool(includes_company_logo)
     }
+
+  def _find_backup_logo_archive_name(self, archive_names):
+    for name in sorted(archive_names):
+      path = PurePosixPath(name)
+      if path.parent.as_posix() != COMPANY_LOGO_DIR.name:
+        continue
+      if not path.name.startswith('current.'):
+        continue
+      if path.suffix.lower() in ('.png', '.jpg', '.jpeg', '.svg'):
+        return name
+    return None
 
   def _create_backup_zip_payload(self):
     with tempfile.TemporaryDirectory(prefix='psa-backup-') as temp_dir:
@@ -610,12 +622,27 @@ class VPMHandler(SimpleHTTPRequestHandler):
       if not snapshot_path.exists() or snapshot_path.stat().st_size <= 0:
         raise ValueError('SQLite snapshot file was not created correctly for backup export')
       print(f'[Backup] Snapshot created and released: {snapshot_path.name} ({snapshot_path.stat().st_size} bytes)')
-      manifest_bytes = json.dumps(self._build_backup_manifest(), indent=2).encode('utf-8')
+      logo_path = self._company_logo_path()
+      logo_archive_name = None
+      logo_bytes = None
+      if logo_path is not None:
+        logo_ext = logo_path.suffix.lower()
+        if logo_ext == '.jpeg':
+          logo_ext = '.jpg'
+        if logo_ext in ('.png', '.jpg', '.svg'):
+          logo_archive_name = f'{COMPANY_LOGO_DIR.name}/current{logo_ext}'
+          logo_bytes = logo_path.read_bytes()
+      manifest_bytes = json.dumps(
+        self._build_backup_manifest(includes_company_logo=logo_bytes is not None),
+        indent=2
+      ).encode('utf-8')
       snapshot_bytes = snapshot_path.read_bytes()
       buffer = io.BytesIO()
       with zipfile.ZipFile(buffer, 'w', compression=zipfile.ZIP_DEFLATED) as archive:
         archive.writestr(DB_PATH.name, snapshot_bytes)
         archive.writestr('manifest.json', manifest_bytes)
+        if logo_archive_name and logo_bytes:
+          archive.writestr(logo_archive_name, logo_bytes)
       return buffer.getvalue()
 
   def _create_safety_backup(self):
@@ -659,6 +686,8 @@ class VPMHandler(SimpleHTTPRequestHandler):
       raise ValueError('Uploaded backup file is empty')
     with tempfile.TemporaryDirectory(prefix='psa-restore-') as temp_dir:
       temp_dir_path = Path(temp_dir)
+      logo_ext = None
+      logo_file_data = None
       try:
         with zipfile.ZipFile(io.BytesIO(zip_bytes), 'r') as archive:
           names = set(archive.namelist())
@@ -667,12 +696,23 @@ class VPMHandler(SimpleHTTPRequestHandler):
           extracted_db_path = temp_dir_path / DB_PATH.name
           with archive.open(DB_PATH.name, 'r') as source_fp, open(extracted_db_path, 'wb') as target_fp:
             shutil.copyfileobj(source_fp, target_fp)
+          logo_archive_name = self._find_backup_logo_archive_name(names)
+          if logo_archive_name:
+            with archive.open(logo_archive_name, 'r') as logo_source:
+              logo_file_data = logo_source.read()
+            if not logo_file_data:
+              raise ValueError('Backup company logo file is empty')
+            logo_ext = self._detect_company_logo_extension(Path(logo_archive_name).name, logo_file_data)
+            if logo_ext not in ('.png', '.jpg', '.svg'):
+              raise ValueError('Backup company logo must be a PNG, JPG/JPEG, or SVG image')
       except zipfile.BadZipFile as error:
         raise ValueError('Uploaded file is not a valid ZIP archive') from error
 
       self._validate_backup_database_file(extracted_db_path)
       safety_path = self._create_safety_backup()
       self._restore_database_from_snapshot(extracted_db_path)
+      if logo_file_data is not None and logo_ext is not None:
+        self._replace_company_logo_file(logo_ext, logo_file_data)
       return safety_path
 
   def _invoice_print_html(self, conn, invoice_id):
