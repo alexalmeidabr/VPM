@@ -3713,7 +3713,6 @@ if (!isBrowserRuntime) {
     renderRevenueForecastBreakdown();
     renderRevenueForecastDetails();
     renderProfitability();
-    renderProfitabilityDetails();
     renderProjectFiles();
     updateAssignedConsultantsSummary();
     rebuildProjectSelects();
