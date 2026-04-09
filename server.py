@@ -3,11 +3,11 @@ import json
 import html
 import io
 import mimetypes
-import os
 import re
 import sqlite3
 import shutil
 import tempfile
+import threading
 import uuid
 import zipfile
 from datetime import datetime, timedelta
@@ -28,6 +28,7 @@ DB_PATH = BASE_DIR / 'projects.db'
 PROJECT_FILES_DIR = BASE_DIR / 'project-files'
 COMPANY_LOGO_DIR = BASE_DIR / 'company-logo'
 BACKUPS_DIR = BASE_DIR / 'backups'
+BACKUP_RESTORE_LOCK = threading.Lock()
 
 DEFAULT_ROLES = [
   'TM Junior Consultant', 'TM Regular Consultant', 'TM Senior Consultant',
@@ -637,6 +638,22 @@ class VPMHandler(SimpleHTTPRequestHandler):
         source_conn.close()
     return safety_path
 
+  def _restore_database_from_snapshot(self, imported_db_path):
+    source_conn = None
+    target_conn = None
+    source_uri = f'file:{Path(imported_db_path).as_posix()}?mode=ro'
+    try:
+      source_conn = sqlite3.connect(source_uri, uri=True)
+      target_conn = sqlite3.connect(DB_PATH)
+      source_conn.backup(target_conn)
+    except sqlite3.Error as error:
+      raise ValueError(f'Unable to restore live database from backup snapshot: {error}') from error
+    finally:
+      if target_conn is not None:
+        target_conn.close()
+      if source_conn is not None:
+        source_conn.close()
+
   def _restore_backup_from_zip_bytes(self, zip_bytes):
     if not zip_bytes:
       raise ValueError('Uploaded backup file is empty')
@@ -655,7 +672,7 @@ class VPMHandler(SimpleHTTPRequestHandler):
 
       self._validate_backup_database_file(extracted_db_path)
       safety_path = self._create_safety_backup()
-      os.replace(extracted_db_path, DB_PATH)
+      self._restore_database_from_snapshot(extracted_db_path)
       return safety_path
 
   def _invoice_print_html(self, conn, invoice_id):
@@ -2481,7 +2498,8 @@ class VPMHandler(SimpleHTTPRequestHandler):
     query = self._query()
     if path == '/api/backup/export':
       try:
-        payload = self._create_backup_zip_payload()
+        with BACKUP_RESTORE_LOCK:
+          payload = self._create_backup_zip_payload()
       except Exception as error:
         self._send_json({'error': f'Unable to create backup: {error}'}, HTTPStatus.INTERNAL_SERVER_ERROR)
         return
@@ -2803,7 +2821,8 @@ class VPMHandler(SimpleHTTPRequestHandler):
         self._send_json({'error': 'Backup restore file must be a .zip archive'}, HTTPStatus.BAD_REQUEST)
         return
       try:
-        safety_path = self._restore_backup_from_zip_bytes(file_data)
+        with BACKUP_RESTORE_LOCK:
+          safety_path = self._restore_backup_from_zip_bytes(file_data)
       except ValueError as error:
         self._send_json({'error': str(error)}, HTTPStatus.BAD_REQUEST)
         return
