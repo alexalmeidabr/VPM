@@ -233,33 +233,22 @@
                     <div id="project-profitability-time-material" hidden>
                       <div class="section-header"><h6>Profitability KPIs</h6></div>
                       <div class="revenue-summary-grid">
-                        <div class="revenue-summary-card"><span class="grey-text">Total Forecast Revenue</span><strong id="profitability-revenue-value">€0.00</strong></div>
-                        <div class="revenue-summary-card"><span class="grey-text">Total Forecast Cost</span><strong id="profitability-cost-value">€0.00</strong></div>
-                        <div class="revenue-summary-card"><span class="grey-text">Total Forecast Gross Margin</span><strong id="profitability-margin-value">€0.00</strong></div>
-                        <div class="revenue-summary-card"><span class="grey-text">Forecast Margin %</span><strong id="profitability-margin-percent-value">0%</strong></div>
+                        <div class="revenue-summary-card"><span class="grey-text">Total Revenue Until Previous Period</span><strong id="profitability-revenue-value">€0.00</strong></div>
+                        <div class="revenue-summary-card"><span class="grey-text">Total Internal Cost Until Previous Period</span><strong id="profitability-cost-value">€0.00</strong></div>
+                        <div class="revenue-summary-card"><span class="grey-text">Total Gross Margin Until Previous Period</span><strong id="profitability-margin-value">€0.00</strong></div>
+                        <div class="revenue-summary-card"><span class="grey-text">Current Margin %</span><strong id="profitability-margin-percent-value">0%</strong></div>
                       </div>
-                      <div class="section-header"><h6>Monthly Profitability Breakdown</h6></div>
+                      <p id="project-profitability-cutoff" class="grey-text text-darken-1">Calculated until previous period.</p>
+                      <div class="section-header"><h6>Consultant Profitability Breakdown</h6></div>
                       <div class="table-container">
                         <table class="striped responsive-table">
                           <thead>
-                            <tr><th>Month</th><th>Revenue</th><th>Internal Cost</th><th>Gross Margin</th><th>Margin %</th><th>Details</th></tr>
+                            <tr><th>Consultant</th><th>Project Role</th><th>Revenue Until Previous Period</th><th>Internal Cost Until Previous Period</th><th>Gross Margin Until Previous Period</th><th>Margin %</th></tr>
                           </thead>
                           <tbody id="project-profitability-body"></tbody>
                         </table>
                       </div>
-                      <p class="grey-text text-darken-1 empty-message" id="project-profitability-empty">No profitability rows available.</p>
-                      <div id="project-profitability-detail" class="month-detail-card" hidden>
-                        <div class="section-header"><h6 id="project-profitability-detail-title">Profitability Month Details</h6></div>
-                        <div class="table-container">
-                          <table class="striped responsive-table">
-                            <thead>
-                              <tr><th>Position</th><th>Consultant</th><th>Allocation %</th><th>Revenue</th><th>Internal Cost</th><th>Gross Margin</th><th>Margin %</th></tr>
-                            </thead>
-                            <tbody id="project-profitability-detail-body"></tbody>
-                          </table>
-                        </div>
-                        <p class="grey-text text-darken-1 empty-message" id="project-profitability-detail-empty">No month details available.</p>
-                      </div>
+                      <p class="grey-text text-darken-1 empty-message" id="project-profitability-empty">No consultant profitability rows available.</p>
                     </div>
                   </div>
                   <div id="project-workspace-files" class="project-workspace-panel" data-workspace-panel="files" hidden>

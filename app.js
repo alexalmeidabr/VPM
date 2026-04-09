@@ -87,12 +87,9 @@ if (!isBrowserRuntime) {
     profitabilityCostValue: document.getElementById('profitability-cost-value'),
     profitabilityMarginValue: document.getElementById('profitability-margin-value'),
     profitabilityMarginPercentValue: document.getElementById('profitability-margin-percent-value'),
+    projectProfitabilityCutoff: document.getElementById('project-profitability-cutoff'),
     projectProfitabilityBody: document.getElementById('project-profitability-body'),
     projectProfitabilityEmpty: document.getElementById('project-profitability-empty'),
-    projectProfitabilityDetail: document.getElementById('project-profitability-detail'),
-    projectProfitabilityDetailTitle: document.getElementById('project-profitability-detail-title'),
-    projectProfitabilityDetailBody: document.getElementById('project-profitability-detail-body'),
-    projectProfitabilityDetailEmpty: document.getElementById('project-profitability-detail-empty'),
     projectUploadFileBtn: document.getElementById('project-upload-file-btn'),
     projectFileUploadInput: document.getElementById('project-file-upload-input'),
     projectFilesBody: document.getElementById('project-files-body'),
@@ -416,8 +413,7 @@ if (!isBrowserRuntime) {
   let activeRevenueSubtab = 'invoices';
   let profitabilitySummary = null;
   let profitabilityBreakdown = [];
-  let selectedProfitabilityMonth = '';
-  let profitabilityDetails = [];
+  let profitabilityCutoff = null;
   let allocationSimulations = [];
   let allocationState = null;
   let timesheetMonths = [];
@@ -802,51 +798,29 @@ if (!isBrowserRuntime) {
 
   const renderProfitability = () => {
     if (!ui.profitabilityRevenueValue) return;
-    ui.profitabilityRevenueValue.textContent = formatMoney(profitabilitySummary?.totalForecastRevenue || 0);
-    ui.profitabilityCostValue.textContent = formatMoney(profitabilitySummary?.totalForecastCost || 0);
-    ui.profitabilityMarginValue.textContent = formatMoney(profitabilitySummary?.totalForecastGrossMargin || 0);
-    ui.profitabilityMarginPercentValue.textContent = `${Number(profitabilitySummary?.forecastMarginPercent || 0).toFixed(2)}%`;
+    ui.profitabilityRevenueValue.textContent = formatMoney(profitabilitySummary?.totalRevenueUntilPreviousPeriod || 0);
+    ui.profitabilityCostValue.textContent = formatMoney(profitabilitySummary?.totalInternalCostUntilPreviousPeriod || 0);
+    ui.profitabilityMarginValue.textContent = formatMoney(profitabilitySummary?.totalGrossMarginUntilPreviousPeriod || 0);
+    ui.profitabilityMarginPercentValue.textContent = `${Number(profitabilitySummary?.currentMarginPercent || 0).toFixed(2)}%`;
+    if (ui.projectProfitabilityCutoff) {
+      const cutoffLabel = profitabilityCutoff?.periodLabel || 'previous period';
+      const cutoffDate = profitabilityCutoff?.periodEndDate ? ` (${profitabilityCutoff.periodEndDate})` : '';
+      ui.projectProfitabilityCutoff.textContent = `Calculated until ${cutoffLabel}${cutoffDate}.`;
+    }
     ui.projectProfitabilityBody.innerHTML = '';
     ui.projectProfitabilityEmpty.hidden = profitabilityBreakdown.length > 0;
     profitabilityBreakdown.forEach((row) => {
-      const isSelected = selectedProfitabilityMonth === row.month;
       const tr = document.createElement('tr');
       tr.innerHTML = `
-        <td>${row.monthLabel || row.month}</td>
-        <td>${formatMoney(row.revenue || 0, 'EUR')}</td>
-        <td>${formatMoney(row.internalCost || 0, 'EUR')}</td>
-        <td>${formatMoney(row.grossMargin || 0, 'EUR')}</td>
+        <td>${row.consultantName || 'Consultant'}</td>
+        <td>${row.projectRole || 'Project Position'}</td>
+        <td>${formatMoney(row.revenueUntilPreviousPeriod || 0, 'EUR')}</td>
+        <td>${formatMoney(row.internalCostUntilPreviousPeriod || 0, 'EUR')}</td>
+        <td>${formatMoney(row.grossMarginUntilPreviousPeriod || 0, 'EUR')}</td>
         <td>${Number(row.marginPercent || 0).toFixed(2)}%</td>
-        <td><button type="button" class="btn-flat teal-text" data-action="profitability-month-detail" data-month="${row.month}">${isSelected ? 'Refresh' : 'View Details'}</button></td>
       `;
       ui.projectProfitabilityBody.appendChild(tr);
     });
-  };
-
-  const renderProfitabilityDetails = () => {
-    if (!ui.projectProfitabilityDetail) return;
-    const hasSelection = Boolean(selectedProfitabilityMonth);
-    ui.projectProfitabilityDetail.hidden = !hasSelection;
-    if (!hasSelection) return;
-    const selected = profitabilityBreakdown.find((row) => row.month === selectedProfitabilityMonth);
-    if (ui.projectProfitabilityDetailTitle) ui.projectProfitabilityDetailTitle.textContent = `Profitability Month Details — ${selected?.monthLabel || selectedProfitabilityMonth}`;
-    if (ui.projectProfitabilityDetailBody) {
-      ui.projectProfitabilityDetailBody.innerHTML = '';
-      profitabilityDetails.forEach((row) => {
-        const tr = document.createElement('tr');
-        tr.innerHTML = `
-          <td>${row.positionName || 'Project Position'}</td>
-          <td>${row.consultantName || 'Open Position'}</td>
-          <td>${Number(row.allocationPercent ?? 100).toFixed(0)}%</td>
-          <td>${formatMoney(row.revenue || 0, row.dailyRateCurrency || 'EUR')}</td>
-          <td>${formatMoney(row.internalCost || 0, row.dailyRateCurrency || 'EUR')}</td>
-          <td>${formatMoney(row.grossMargin || 0, row.dailyRateCurrency || 'EUR')}</td>
-          <td>${Number(row.marginPercent || 0).toFixed(2)}%</td>
-        `;
-        ui.projectProfitabilityDetailBody.appendChild(tr);
-      });
-    }
-    if (ui.projectProfitabilityDetailEmpty) ui.projectProfitabilityDetailEmpty.hidden = profitabilityDetails.length > 0;
   };
 
   const timesheetStatusClass = (status) => {
@@ -952,8 +926,7 @@ if (!isBrowserRuntime) {
       revenueForecastDetails = [];
       profitabilitySummary = null;
       profitabilityBreakdown = [];
-      selectedProfitabilityMonth = '';
-      profitabilityDetails = [];
+      profitabilityCutoff = null;
       renderRevenueSummary();
       renderRevenueActuals();
       renderRevenueSubtabs();
@@ -961,13 +934,10 @@ if (!isBrowserRuntime) {
       renderRevenueInvoicePeriods();
       renderRevenueMonthInvoices();
       renderProfitability();
-      renderProfitabilityDetails();
       return;
     }
     selectedRevenueForecastMonth = '';
     revenueForecastDetails = [];
-    selectedProfitabilityMonth = '';
-    profitabilityDetails = [];
     const [forecastSummaryPayload, actualsPayload, invoicesPayload, invoicePeriodsPayload, forecastPayload, profitabilitySummaryPayload, profitabilityBreakdownPayload] = await Promise.all([
       request(`/api/projects/${projectId}/revenue-forecast-summary`),
       request(`/api/projects/${projectId}/revenue-actuals-summary`),
@@ -975,7 +945,7 @@ if (!isBrowserRuntime) {
       request(`/api/projects/${projectId}/revenue/invoice-periods`),
       request(`/api/projects/${projectId}/revenue-forecast-monthly`),
       request(`/api/projects/${projectId}/profitability-summary`),
-      request(`/api/projects/${projectId}/profitability-monthly`)
+      request(`/api/projects/${projectId}/profitability-breakdown`)
     ]);
     revenueSummary = forecastSummaryPayload || null;
     revenueActualsSummary = actualsPayload || null;
@@ -986,6 +956,7 @@ if (!isBrowserRuntime) {
     revenueForecastBreakdown = forecastPayload?.rows || [];
     profitabilitySummary = profitabilitySummaryPayload || null;
     profitabilityBreakdown = profitabilityBreakdownPayload?.rows || [];
+    profitabilityCutoff = profitabilityBreakdownPayload?.cutoff || null;
     renderRevenueSummary();
     renderRevenueActuals();
     renderRevenueSubtabs();
@@ -994,7 +965,6 @@ if (!isBrowserRuntime) {
     renderRevenueInvoicePeriods();
     renderRevenueMonthInvoices();
     renderProfitability();
-    renderProfitabilityDetails();
   };
 
   const openForecastDetailsModal = () => {
@@ -1047,15 +1017,6 @@ if (!isBrowserRuntime) {
       isForecastDetailsLoading = false;
     }
   }; // loadRevenueForecastMonthDetails
-
-  const loadProfitabilityMonthDetails = async (projectId, month) => {
-    if (!projectId || !month) return;
-    const payload = await request(`/api/projects/${projectId}/profitability-month-details?month=${encodeURIComponent(month)}`);
-    selectedProfitabilityMonth = month;
-    profitabilityDetails = payload?.rows || [];
-    renderProfitability();
-    renderProfitabilityDetails();
-  };
 
   const resetInvoiceModal = (invoice = null, defaults = null) => {
     if (!invoice) {
@@ -3744,8 +3705,7 @@ if (!isBrowserRuntime) {
     revenueForecastDetails = [];
     profitabilitySummary = null;
     profitabilityBreakdown = [];
-    selectedProfitabilityMonth = '';
-    profitabilityDetails = [];
+    profitabilityCutoff = null;
     renderRevenueSummary();
     renderRevenueActuals();
     renderRevenueInvoicePeriods();
@@ -4499,19 +4459,6 @@ if (!isBrowserRuntime) {
     } catch (error) {
       console.debug('[RevenueForecast] Failed to open forecast details modal', error);
       toast(error.message || 'Unable to load forecast month details', 'red darken-1');
-    }
-  });
-
-  ui.projectProfitabilityBody?.addEventListener('click', async (event) => {
-    const button = event.target.closest('button[data-action="profitability-month-detail"]');
-    if (!button) return;
-    const month = String(button.dataset.month || '').trim();
-    const projectId = Number(fields.projectId.value || 0);
-    if (!projectId || !month) return;
-    try {
-      await loadProfitabilityMonthDetails(projectId, month);
-    } catch (error) {
-      toast(error.message || 'Unable to load profitability month details', 'red darken-1');
     }
   });
 

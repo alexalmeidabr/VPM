@@ -2480,33 +2480,152 @@ class VPMHandler(SimpleHTTPRequestHandler):
     margin_percent_total = (total_margin / total_revenue * 100.0) if total_revenue else 0.0
     return {'summary': {'totalForecastRevenue': total_revenue, 'totalForecastCost': total_cost, 'totalForecastGrossMargin': total_margin, 'forecastMarginPercent': margin_percent_total}, 'rows': rows}
 
-  def get_profitability_monthly(self, conn, project_id):
-    profitability_payload = self.calculate_time_material_profitability_forecast(conn, project_id)
-    monthly = {}
-    for row in profitability_payload['rows']:
-      month = row['month']
-      entry = monthly.setdefault(month, {
-        'month': month,
-        'monthLabel': row['monthLabel'],
-        'revenue': 0.0,
-        'internalCost': 0.0,
-        'grossMargin': 0.0,
-        'marginPercent': 0.0
-      })
-      entry['revenue'] += float(row['revenue'] or 0.0)
-      entry['internalCost'] += float(row['internalCost'] or 0.0)
-      entry['grossMargin'] += float(row['grossMargin'] or 0.0)
-    rows = []
-    for month in sorted(monthly.keys()):
-      entry = monthly[month]
-      entry['marginPercent'] = (entry['grossMargin'] / entry['revenue'] * 100.0) if entry['revenue'] else 0.0
-      rows.append(entry)
-    return {'rows': rows}
+  def _previous_period_cutoff_end_date(self):
+    current_month_start = datetime.utcnow().date().replace(day=1)
+    return current_month_start - timedelta(days=1)
 
-  def get_profitability_month_details(self, conn, project_id, month):
-    profitability_payload = self.calculate_time_material_profitability_forecast(conn, project_id)
-    rows = [row for row in profitability_payload['rows'] if str(row.get('month', '')) == str(month or '')]
-    return {'rows': rows}
+  def calculate_time_material_profitability_until_previous_period(self, conn, project_id):
+    project = conn.execute('SELECT id, start_date, end_date, project_type FROM projects WHERE id = ?', (project_id,)).fetchone()
+    if not project or str(project['project_type'] or '').strip().lower() != 'time material':
+      return {
+        'summary': {
+          'totalRevenueUntilPreviousPeriod': 0.0,
+          'totalInternalCostUntilPreviousPeriod': 0.0,
+          'totalGrossMarginUntilPreviousPeriod': 0.0,
+          'currentMarginPercent': 0.0
+        },
+        'rows': [],
+        'cutoff': {'periodEndDate': None, 'periodMonth': None, 'periodLabel': None}
+      }
+
+    project_start = project['start_date']
+    if not project_start:
+      return {
+        'summary': {
+          'totalRevenueUntilPreviousPeriod': 0.0,
+          'totalInternalCostUntilPreviousPeriod': 0.0,
+          'totalGrossMarginUntilPreviousPeriod': 0.0,
+          'currentMarginPercent': 0.0
+        },
+        'rows': [],
+        'cutoff': {'periodEndDate': None, 'periodMonth': None, 'periodLabel': None}
+      }
+
+    cutoff_end = self._previous_period_cutoff_end_date()
+    project_start_date = datetime.strptime(project_start, '%Y-%m-%d').date()
+    project_end_date = datetime.strptime(project['end_date'], '%Y-%m-%d').date() if project['end_date'] else cutoff_end
+    effective_end = min(project_end_date, cutoff_end)
+    if effective_end < project_start_date:
+      return {
+        'summary': {
+          'totalRevenueUntilPreviousPeriod': 0.0,
+          'totalInternalCostUntilPreviousPeriod': 0.0,
+          'totalGrossMarginUntilPreviousPeriod': 0.0,
+          'currentMarginPercent': 0.0
+        },
+        'rows': [],
+        'cutoff': {
+          'periodEndDate': cutoff_end.isoformat(),
+          'periodMonth': cutoff_end.strftime('%Y-%m'),
+          'periodLabel': cutoff_end.strftime('%B %Y')
+        }
+      }
+
+    consultant_rows = {}
+    start_iso = project_start_date.isoformat()
+    end_iso = effective_end.isoformat()
+    for month_start, month_end in self.iterate_months_between(start_iso, end_iso):
+      month_start_iso = month_start.isoformat()
+      month_end_iso = month_end.isoformat()
+      positions = self._project_active_assigned_positions_for_month(conn, project_id, month_start_iso, month_end_iso)
+      billable_positions = [
+        row for row in positions
+        if row['consultant_id'] is not None and bool(row['billable']) and row['daily_rate'] is not None
+      ]
+      if not billable_positions:
+        continue
+
+      hours_map = self._fetch_monthly_project_timesheet_hours_by_consultant(conn, project_id, month_start_iso)
+      by_consultant = {}
+      for row in billable_positions:
+        by_consultant.setdefault(int(row['consultant_id']), []).append(row)
+
+      for consultant_id, consultant_positions in by_consultant.items():
+        consultant_row = consultant_rows.setdefault(consultant_id, {
+          'consultantId': consultant_id,
+          'consultantName': consultant_positions[0]['consultant_name'] or 'Consultant',
+          'roles': set(),
+          'revenueUntilPreviousPeriod': 0.0,
+          'internalCostUntilPreviousPeriod': 0.0
+        })
+        consultant = conn.execute('SELECT salary FROM consultants WHERE id = ?', (consultant_id,)).fetchone()
+        daily_internal_cost = float(consultant['salary'] if consultant and consultant['salary'] is not None else 0.0)
+
+        hours = float(hours_map.get(consultant_id, 0.0))
+        if hours > 0.0:
+          days = hours / 8.0
+          split_days = days / max(len(consultant_positions), 1)
+          for position in consultant_positions:
+            consultant_row['roles'].add(position['project_role'] or 'Project Position')
+            revenue = split_days * float(position['daily_rate'])
+            internal_cost = split_days * daily_internal_cost
+            consultant_row['revenueUntilPreviousPeriod'] += revenue
+            consultant_row['internalCostUntilPreviousPeriod'] += internal_cost
+          continue
+
+        for position in consultant_positions:
+          consultant_row['roles'].add(position['project_role'] or 'Project Position')
+          overlap_start = max(start_iso, month_start_iso, position['start_date'] or month_start_iso)
+          overlap_end = min(end_iso, month_end_iso, position['end_date'] or month_end_iso)
+          if overlap_end < overlap_start:
+            continue
+          working_days = self._working_days_between(overlap_start, overlap_end)
+          days_off = self._consultant_days_off_between(conn, consultant_id, overlap_start, overlap_end)
+          working_days = max(working_days - days_off, 0)
+          allocation = float(position['allocation'] if position['allocation'] is not None else 100.0)
+          billable_days = working_days * max(allocation, 0.0) / 100.0
+          revenue = billable_days * float(position['daily_rate'])
+          internal_cost = billable_days * daily_internal_cost
+          consultant_row['revenueUntilPreviousPeriod'] += revenue
+          consultant_row['internalCostUntilPreviousPeriod'] += internal_cost
+
+    rows = []
+    total_revenue = 0.0
+    total_cost = 0.0
+    for consultant_id in sorted(consultant_rows.keys(), key=lambda cid: str(consultant_rows[cid]['consultantName'] or '').lower()):
+      row = consultant_rows[consultant_id]
+      gross_margin = float(row['revenueUntilPreviousPeriod']) - float(row['internalCostUntilPreviousPeriod'])
+      margin_percent = (gross_margin / float(row['revenueUntilPreviousPeriod']) * 100.0) if float(row['revenueUntilPreviousPeriod']) else 0.0
+      roles = sorted(role for role in row['roles'] if role)
+      rows.append({
+        'consultantId': row['consultantId'],
+        'consultantName': row['consultantName'],
+        'projectRole': ', '.join(roles),
+        'projectRoles': roles,
+        'revenueUntilPreviousPeriod': float(row['revenueUntilPreviousPeriod']),
+        'internalCostUntilPreviousPeriod': float(row['internalCostUntilPreviousPeriod']),
+        'grossMarginUntilPreviousPeriod': gross_margin,
+        'marginPercent': margin_percent
+      })
+      total_revenue += float(row['revenueUntilPreviousPeriod'])
+      total_cost += float(row['internalCostUntilPreviousPeriod'])
+
+    total_margin = total_revenue - total_cost
+    current_margin_percent = (total_margin / total_revenue * 100.0) if total_revenue else 0.0
+    return {
+      'summary': {
+        'totalRevenueUntilPreviousPeriod': total_revenue,
+        'totalInternalCostUntilPreviousPeriod': total_cost,
+        'totalGrossMarginUntilPreviousPeriod': total_margin,
+        'currentMarginPercent': current_margin_percent
+      },
+      'rows': rows,
+      'cutoff': {
+        'periodEndDate': cutoff_end.isoformat(),
+        'periodMonth': cutoff_end.strftime('%Y-%m'),
+        'periodLabel': cutoff_end.strftime('%B %Y')
+      }
+    }
 
   def _fetch_timesheet_detail(self, conn, consultant_id, month_start):
     row = self._ensure_monthly_timesheet(conn, consultant_id, month_start)
@@ -2562,8 +2681,6 @@ class VPMHandler(SimpleHTTPRequestHandler):
     revenue_actuals_summary_match = re.fullmatch(r'/api/projects/(\d+)/revenue-actuals-summary', path)
     revenue_forecast_breakdown_match = re.fullmatch(r'/api/projects/(\d+)/revenue-forecast-breakdown', path)
     profitability_summary_match = re.fullmatch(r'/api/projects/(\d+)/profitability-summary', path)
-    profitability_monthly_match = re.fullmatch(r'/api/projects/(\d+)/profitability-monthly', path)
-    profitability_month_details_match = re.fullmatch(r'/api/projects/(\d+)/profitability-month-details', path)
     profitability_breakdown_match = re.fullmatch(r'/api/projects/(\d+)/profitability-breakdown', path)
     project_invoices_match = re.fullmatch(r'/api/projects/(\d+)/invoices', path)
     invoice_payments_match = re.fullmatch(r'/api/invoices/(\d+)/payments', path)
@@ -2691,33 +2808,16 @@ class VPMHandler(SimpleHTTPRequestHandler):
         if not self._ids_exist(conn, 'projects', [project_id]):
           self._send_json({'error': 'Project not found'}, HTTPStatus.NOT_FOUND)
           return
-        payload = self.calculate_time_material_profitability_forecast(conn, project_id)
+        payload = self.calculate_time_material_profitability_until_previous_period(conn, project_id)
         self._send_json(payload['summary'])
-        return
-      if profitability_monthly_match:
-        project_id = int(profitability_monthly_match.group(1))
-        if not self._ids_exist(conn, 'projects', [project_id]):
-          self._send_json({'error': 'Project not found'}, HTTPStatus.NOT_FOUND)
-          return
-        self._send_json(self.get_profitability_monthly(conn, project_id))
-        return
-      if profitability_month_details_match:
-        project_id = int(profitability_month_details_match.group(1))
-        month = str(query.get('month', [''])[0]).strip()
-        if not self._ids_exist(conn, 'projects', [project_id]):
-          self._send_json({'error': 'Project not found'}, HTTPStatus.NOT_FOUND)
-          return
-        if not re.fullmatch(r'\d{4}-\d{2}', month):
-          self._send_json({'error': 'month query parameter must be YYYY-MM'}, HTTPStatus.BAD_REQUEST)
-          return
-        self._send_json(self.get_profitability_month_details(conn, project_id, month))
         return
       if profitability_breakdown_match:
         project_id = int(profitability_breakdown_match.group(1))
         if not self._ids_exist(conn, 'projects', [project_id]):
           self._send_json({'error': 'Project not found'}, HTTPStatus.NOT_FOUND)
           return
-        self._send_json(self.get_profitability_monthly(conn, project_id))
+        payload = self.calculate_time_material_profitability_until_previous_period(conn, project_id)
+        self._send_json({'rows': payload['rows'], 'cutoff': payload['cutoff']})
         return
       if project_invoices_match:
         project_id = int(project_invoices_match.group(1))
