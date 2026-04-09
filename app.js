@@ -87,6 +87,10 @@ if (!isBrowserRuntime) {
     profitabilityCostValue: document.getElementById('profitability-cost-value'),
     profitabilityMarginValue: document.getElementById('profitability-margin-value'),
     profitabilityMarginPercentValue: document.getElementById('profitability-margin-percent-value'),
+    profitabilityForecastRevenueValue: document.getElementById('profitability-forecast-revenue-value'),
+    profitabilityForecastCostValue: document.getElementById('profitability-forecast-cost-value'),
+    profitabilityForecastMarginValue: document.getElementById('profitability-forecast-margin-value'),
+    profitabilityForecastMarginPercentValue: document.getElementById('profitability-forecast-margin-percent-value'),
     projectProfitabilityCutoff: document.getElementById('project-profitability-cutoff'),
     projectProfitabilityBody: document.getElementById('project-profitability-body'),
     projectProfitabilityEmpty: document.getElementById('project-profitability-empty'),
@@ -802,6 +806,10 @@ if (!isBrowserRuntime) {
     ui.profitabilityCostValue.textContent = formatMoney(profitabilitySummary?.totalInternalCostUntilPreviousPeriod || 0);
     ui.profitabilityMarginValue.textContent = formatMoney(profitabilitySummary?.totalGrossMarginUntilPreviousPeriod || 0);
     ui.profitabilityMarginPercentValue.textContent = `${Number(profitabilitySummary?.currentMarginPercent || 0).toFixed(2)}%`;
+    if (ui.profitabilityForecastRevenueValue) ui.profitabilityForecastRevenueValue.textContent = formatMoney(profitabilitySummary?.totalForecastRevenueUntilProjectEnd || 0);
+    if (ui.profitabilityForecastCostValue) ui.profitabilityForecastCostValue.textContent = formatMoney(profitabilitySummary?.totalForecastInternalCostUntilProjectEnd || 0);
+    if (ui.profitabilityForecastMarginValue) ui.profitabilityForecastMarginValue.textContent = formatMoney(profitabilitySummary?.totalForecastGrossMarginUntilProjectEnd || 0);
+    if (ui.profitabilityForecastMarginPercentValue) ui.profitabilityForecastMarginPercentValue.textContent = `${Number(profitabilitySummary?.forecastMarginPercent || 0).toFixed(2)}%`;
     if (ui.projectProfitabilityCutoff) {
       const cutoffLabel = profitabilityCutoff?.periodLabel || 'previous period';
       const cutoffDate = profitabilityCutoff?.periodEndDate ? ` (${profitabilityCutoff.periodEndDate})` : '';

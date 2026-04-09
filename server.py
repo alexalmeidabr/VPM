@@ -2485,15 +2485,20 @@ class VPMHandler(SimpleHTTPRequestHandler):
     return current_month_start - timedelta(days=1)
 
   def calculate_time_material_profitability_until_previous_period(self, conn, project_id):
+    empty_summary = {
+      'totalRevenueUntilPreviousPeriod': 0.0,
+      'totalInternalCostUntilPreviousPeriod': 0.0,
+      'totalGrossMarginUntilPreviousPeriod': 0.0,
+      'currentMarginPercent': 0.0,
+      'totalForecastRevenueUntilProjectEnd': 0.0,
+      'totalForecastInternalCostUntilProjectEnd': 0.0,
+      'totalForecastGrossMarginUntilProjectEnd': 0.0,
+      'forecastMarginPercent': 0.0
+    }
     project = conn.execute('SELECT id, start_date, end_date, project_type FROM projects WHERE id = ?', (project_id,)).fetchone()
     if not project or str(project['project_type'] or '').strip().lower() != 'time material':
       return {
-        'summary': {
-          'totalRevenueUntilPreviousPeriod': 0.0,
-          'totalInternalCostUntilPreviousPeriod': 0.0,
-          'totalGrossMarginUntilPreviousPeriod': 0.0,
-          'currentMarginPercent': 0.0
-        },
+        'summary': dict(empty_summary),
         'rows': [],
         'cutoff': {'periodEndDate': None, 'periodMonth': None, 'periodLabel': None}
       }
@@ -2501,12 +2506,7 @@ class VPMHandler(SimpleHTTPRequestHandler):
     project_start = project['start_date']
     if not project_start:
       return {
-        'summary': {
-          'totalRevenueUntilPreviousPeriod': 0.0,
-          'totalInternalCostUntilPreviousPeriod': 0.0,
-          'totalGrossMarginUntilPreviousPeriod': 0.0,
-          'currentMarginPercent': 0.0
-        },
+        'summary': dict(empty_summary),
         'rows': [],
         'cutoff': {'periodEndDate': None, 'periodMonth': None, 'periodLabel': None}
       }
@@ -2517,12 +2517,7 @@ class VPMHandler(SimpleHTTPRequestHandler):
     effective_end = min(project_end_date, cutoff_end)
     if effective_end < project_start_date:
       return {
-        'summary': {
-          'totalRevenueUntilPreviousPeriod': 0.0,
-          'totalInternalCostUntilPreviousPeriod': 0.0,
-          'totalGrossMarginUntilPreviousPeriod': 0.0,
-          'currentMarginPercent': 0.0
-        },
+        'summary': dict(empty_summary),
         'rows': [],
         'cutoff': {
           'periodEndDate': cutoff_end.isoformat(),
@@ -2612,12 +2607,18 @@ class VPMHandler(SimpleHTTPRequestHandler):
 
     total_margin = total_revenue - total_cost
     current_margin_percent = (total_margin / total_revenue * 100.0) if total_revenue else 0.0
+    forecast_payload = self.calculate_time_material_profitability_forecast(conn, project_id)
+    forecast_summary = forecast_payload.get('summary', {})
     return {
       'summary': {
         'totalRevenueUntilPreviousPeriod': total_revenue,
         'totalInternalCostUntilPreviousPeriod': total_cost,
         'totalGrossMarginUntilPreviousPeriod': total_margin,
-        'currentMarginPercent': current_margin_percent
+        'currentMarginPercent': current_margin_percent,
+        'totalForecastRevenueUntilProjectEnd': float(forecast_summary.get('totalForecastRevenue', 0.0) or 0.0),
+        'totalForecastInternalCostUntilProjectEnd': float(forecast_summary.get('totalForecastCost', 0.0) or 0.0),
+        'totalForecastGrossMarginUntilProjectEnd': float(forecast_summary.get('totalForecastGrossMargin', 0.0) or 0.0),
+        'forecastMarginPercent': float(forecast_summary.get('forecastMarginPercent', 0.0) or 0.0)
       },
       'rows': rows,
       'cutoff': {
