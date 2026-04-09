@@ -11,29 +11,103 @@ if (!isBrowserRuntime) {
   const sections = {
     projects: document.getElementById('projects-section'),
     consultants: document.getElementById('consultants-section'),
+    'business-partners': document.getElementById('business-partners-section'),
     'time-tracking': document.getElementById('time-tracking-section'),
     'allocation-forecast': document.getElementById('allocation-forecast-section'),
     'mass-update': document.getElementById('mass-update-section'),
     authorization: document.getElementById('authorization-section'),
-    administration: document.getElementById('administration-section')
+    administration: document.getElementById('administration-section'),
+    'backup-restore': document.getElementById('backup-restore-section')
   };
 
   const ui = {
     navMenu: document.getElementById('nav-menu'),
+    sidebarLogoImage: document.getElementById('sidebar-logo-image'),
+    sidebarLogoFallback: document.getElementById('sidebar-logo-fallback'),
+    companyLogoPreviewImage: document.getElementById('company-logo-preview-image'),
+    companyLogoPreviewEmpty: document.getElementById('company-logo-preview-empty'),
+    companyLogoUploadInput: document.getElementById('company-logo-upload-input'),
+    uploadCompanyLogoBtn: document.getElementById('upload-company-logo-btn'),
+    removeCompanyLogoBtn: document.getElementById('remove-company-logo-btn'),
+    downloadBackupBtn: document.getElementById('download-backup-btn'),
+    restoreBackupFileInput: document.getElementById('restore-backup-file-input'),
+    restoreBackupBtn: document.getElementById('restore-backup-btn'),
 
     projectsBody: document.getElementById('projects-body'),
     projectCount: document.getElementById('project-count'),
     projectsEmptyState: document.getElementById('projects-empty-state'),
     projectsPanelCard: document.getElementById('projects-panel-card'),
+    projectMainColumn: document.getElementById('project-main-column'),
     showProjectFormBtn: document.getElementById('show-project-form-btn'),
     projectFormCard: document.getElementById('project-form-card'),
     projectForm: document.getElementById('project-form'),
     projectFormTitle: document.getElementById('project-form-title'),
+    projectFormBasicHeader: document.getElementById('project-form-basic-header'),
+    projectSummaryHeader: document.getElementById('project-summary-header'),
+    projectSummaryName: document.getElementById('project-summary-name'),
+    projectSummaryClient: document.getElementById('project-summary-client'),
+    projectSummaryStatus: document.getElementById('project-summary-status'),
+    projectWorkspaceTabs: document.getElementById('project-workspace-tabs'),
+    projectWorkspaceContent: document.getElementById('project-workspace-content'),
+    projectWorkspacePanels: document.querySelectorAll('[data-workspace-panel]'),
+    projectMembersColumn: document.getElementById('project-members-column'),
+    projectTeamTabHost: document.getElementById('project-team-tab-host'),
+    projectTimelineTabHost: document.getElementById('project-timeline-tab-host'),
+    projectRevenueNotImplemented: document.getElementById('project-revenue-not-implemented'),
+    projectRevenueTimeMaterial: document.getElementById('project-revenue-time-material'),
+    projectRevenueSubtabs: document.querySelectorAll('[data-revenue-subtab]'),
+    projectRevenueSubtabPanels: document.querySelectorAll('[data-revenue-subtab-panel]'),
+    revenueThisMonthValue: document.getElementById('revenue-this-month-value'),
+    revenueNext3MonthsValue: document.getElementById('revenue-next-3-months-value'),
+    revenueForecastTotalValue: document.getElementById('revenue-forecast-total-value'),
+    revenueInvoicedValue: document.getElementById('revenue-invoiced-value'),
+    revenuePaidValue: document.getElementById('revenue-paid-value'),
+    revenueOutstandingValue: document.getElementById('revenue-outstanding-value'),
+    revenueUnbilledValue: document.getElementById('revenue-unbilled-value'),
+    revenueActualsChart: document.getElementById('revenue-actuals-chart'),
+    revenueActualsChartFill: document.getElementById('revenue-actuals-chart-fill'),
+    revenueActualsPaidLabel: document.getElementById('revenue-actuals-paid-label'),
+    revenueActualsOutstandingLabel: document.getElementById('revenue-actuals-outstanding-label'),
+    projectRevenueForecastBody: document.getElementById('project-revenue-forecast-body'),
+    projectRevenueForecastEmpty: document.getElementById('project-revenue-forecast-empty'),
+    forecastDetailsModal: document.getElementById('forecast-details-modal'),
+    forecastDetailsModalTitle: document.getElementById('forecast-details-modal-title'),
+    forecastDetailsModalBody: document.getElementById('forecast-details-modal-body'),
+    forecastDetailsModalEmpty: document.getElementById('forecast-details-modal-empty'),
+    forecastDetailsModalCloseBtn: document.getElementById('forecast-details-modal-close-btn'),
+    projectRevenueInvoicePeriodsBody: document.getElementById('project-revenue-invoice-periods-body'),
+    projectRevenueInvoicePeriodsEmpty: document.getElementById('project-revenue-invoice-periods-empty'),
+    projectRevenueMonthInvoices: document.getElementById('project-revenue-month-invoices'),
+    projectRevenueMonthInvoicesTitle: document.getElementById('project-revenue-month-invoices-title'),
+    projectRevenueMonthInvoicesBody: document.getElementById('project-revenue-month-invoices-body'),
+    projectRevenueMonthInvoicesEmpty: document.getElementById('project-revenue-month-invoices-empty'),
+    projectProfitabilityNotImplemented: document.getElementById('project-profitability-not-implemented'),
+    projectProfitabilityTimeMaterial: document.getElementById('project-profitability-time-material'),
+    profitabilityRevenueValue: document.getElementById('profitability-revenue-value'),
+    profitabilityCostValue: document.getElementById('profitability-cost-value'),
+    profitabilityMarginValue: document.getElementById('profitability-margin-value'),
+    profitabilityMarginPercentValue: document.getElementById('profitability-margin-percent-value'),
+    projectProfitabilityBody: document.getElementById('project-profitability-body'),
+    projectProfitabilityEmpty: document.getElementById('project-profitability-empty'),
+    projectProfitabilityDetail: document.getElementById('project-profitability-detail'),
+    projectProfitabilityDetailTitle: document.getElementById('project-profitability-detail-title'),
+    projectProfitabilityDetailBody: document.getElementById('project-profitability-detail-body'),
+    projectProfitabilityDetailEmpty: document.getElementById('project-profitability-detail-empty'),
+    projectUploadFileBtn: document.getElementById('project-upload-file-btn'),
+    projectFileUploadInput: document.getElementById('project-file-upload-input'),
+    projectFilesBody: document.getElementById('project-files-body'),
+    projectFilesEmptyState: document.getElementById('project-files-empty-state'),
+    projectSaveBtnHeader: document.getElementById('project-save-btn-header'),
+    projectSwitchEditBtnHeader: document.getElementById('project-switch-edit-btn-header'),
+    projectSwitchViewBtnHeader: document.getElementById('project-switch-view-btn-header'),
     projectSaveBtn: document.getElementById('project-save-btn'),
     projectSwitchEditBtn: document.getElementById('project-switch-edit-btn'),
     backToProjectsBtn: document.getElementById('back-to-projects-btn'),
+    projectSummaryBackBtn: document.getElementById('project-summary-back-btn'),
     openConsultantModalBtn: document.getElementById('open-consultant-modal-btn'),
     assignedConsultantsSummary: document.getElementById('assigned-consultants-summary'),
+    showClosedProjectPositionsRow: document.getElementById('show-closed-project-positions-row'),
+    showClosedProjectPositionsToggle: document.getElementById('show-closed-project-positions-toggle'),
     projectMembersList: document.getElementById('project-members-list'),
     projectMembersCard: document.getElementById('project-members-card'),
     projectTimelinePanel: document.getElementById('project-timeline-panel'),
@@ -61,18 +135,33 @@ if (!isBrowserRuntime) {
     consultantAssignmentModal: document.getElementById('consultant-assignment-modal'),
     consultantAreaFilterModal: document.getElementById('consultant-area-filter-modal'),
     projectRoleModal: document.getElementById('project-role-modal'),
+    projectPositionStatusModal: document.getElementById('project-position-status-modal'),
     memberStartDateModal: document.getElementById('member-start-date-modal'),
     memberEndDateModal: document.getElementById('member-end-date-modal'),
     memberAllocationModal: document.getElementById('member-allocation-modal'),
+    memberBillableRowModal: document.getElementById('member-billable-row-modal'),
+    memberBillableModal: document.getElementById('member-billable-modal'),
+    memberDailyRateRowModal: document.getElementById('member-daily-rate-row-modal'),
+    memberDailyRateModal: document.getElementById('member-daily-rate-modal'),
+    memberDailyRateCurrencyModal: document.getElementById('member-daily-rate-currency-modal'),
     consultantPickerList: document.getElementById('consultant-picker-list'),
     saveConsultantAssignmentsBtn: document.getElementById('save-consultant-assignments-btn'),
 
     memberDetailsModal: document.getElementById('member-details-modal'),
+    memberDetailsContent: document.getElementById('member-details-content'),
     memberModalTitle: document.getElementById('member-modal-title'),
     memberEditConsultantId: document.getElementById('member-edit-consultant-id'),
-    memberNameModal: document.getElementById('member-name-modal'),
+    memberConsultantModal: document.getElementById('member-consultant-modal'),
+    memberAreaModal: document.getElementById('member-area-modal'),
     memberProjectRoleModal: document.getElementById('member-project-role-modal'),
+    memberPositionStatusEdit: document.getElementById('member-position-status-edit'),
     memberAllocationEdit: document.getElementById('member-allocation-edit'),
+    memberBillableRowEdit: document.getElementById('member-billable-row-edit'),
+    memberBillableEdit: document.getElementById('member-billable-edit'),
+    memberDailyRateRowEdit: document.getElementById('member-daily-rate-row-edit'),
+    memberDailyRateEdit: document.getElementById('member-daily-rate-edit'),
+    memberDailyRateCurrencyEdit: document.getElementById('member-daily-rate-currency-edit'),
+    memberDailyRateDisplay: document.getElementById('member-daily-rate-display'),
     memberCommentsEdit: document.getElementById('member-comments-edit'),
     memberStartDateEdit: document.getElementById('member-start-date-edit'),
     memberEndDateEdit: document.getElementById('member-end-date-edit'),
@@ -106,9 +195,62 @@ if (!isBrowserRuntime) {
     monthDetailCard: document.getElementById('month-detail-card'),
     monthDetailTitle: document.getElementById('month-detail-title'),
     monthDetailTimeline: document.getElementById('month-detail-timeline'),
+    businessPartnersPanelCard: document.getElementById('business-partners-panel-card'),
+    businessPartnersBody: document.getElementById('business-partners-body'),
+    businessPartnersEmptyState: document.getElementById('business-partners-empty-state'),
+    showBusinessPartnerFormBtn: document.getElementById('show-business-partner-form-btn'),
+    businessPartnerFormCard: document.getElementById('business-partner-form-card'),
+    businessPartnerForm: document.getElementById('business-partner-form'),
+    businessPartnerFormTitle: document.getElementById('business-partner-form-title'),
+    backToBusinessPartnersBtn: document.getElementById('back-to-business-partners-btn'),
+    businessPartnerSaveBtn: document.getElementById('business-partner-save-btn'),
+    addBusinessPartnerContactBtn: document.getElementById('add-business-partner-contact-btn'),
+    businessPartnerContactsList: document.getElementById('business-partner-contacts-list'),
+    bpAddressToggleBtn: document.getElementById('bp-address-toggle-btn'),
+    bpContactsToggleBtn: document.getElementById('bp-contacts-toggle-btn'),
+    bpProjectsToggleBtn: document.getElementById('bp-projects-toggle-btn'),
+    bpAddressToggleIcon: document.getElementById('bp-address-toggle-icon'),
+    bpContactsToggleIcon: document.getElementById('bp-contacts-toggle-icon'),
+    bpProjectsToggleIcon: document.getElementById('bp-projects-toggle-icon'),
+    bpAddressContent: document.getElementById('bp-address-content'),
+    bpContactsContent: document.getElementById('bp-contacts-content'),
+    bpProjectsContent: document.getElementById('bp-projects-content'),
+    businessPartnerProjectsBody: document.getElementById('business-partner-projects-body'),
+    businessPartnerProjectsEmptyState: document.getElementById('business-partner-projects-empty-state'),
+    businessPartnerCommunicationModal: document.getElementById('business-partner-communication-modal'),
+    communicationModalContactName: document.getElementById('communication-modal-contact-name'),
+    communicationEmailsList: document.getElementById('communication-emails-list'),
+    communicationPhonesList: document.getElementById('communication-phones-list'),
+    addCommunicationEmailBtn: document.getElementById('add-communication-email-btn'),
+    addCommunicationPhoneBtn: document.getElementById('add-communication-phone-btn'),
+    saveCommunicationBtn: document.getElementById('save-communication-btn'),
 
     daysOffModal: document.getElementById('days-off-modal'),
     holidayLoadModal: document.getElementById('holiday-load-modal'),
+    manualLineModal: document.getElementById('manual-line-modal'),
+    invoiceModal: document.getElementById('invoice-modal'),
+    invoiceModalTitle: document.getElementById('invoice-modal-title'),
+    invoiceId: document.getElementById('invoice-id'),
+    invoiceRef: document.getElementById('invoice-ref'),
+    invoicePeriodFrom: document.getElementById('invoice-period-from'),
+    invoicePeriodTo: document.getElementById('invoice-period-to'),
+    invoiceDate: document.getElementById('invoice-date'),
+    invoiceDueDate: document.getElementById('invoice-due-date'),
+    invoiceAmount: document.getElementById('invoice-amount'),
+    invoiceStatus: document.getElementById('invoice-status'),
+    invoiceNotes: document.getElementById('invoice-notes'),
+    saveInvoiceBtn: document.getElementById('save-invoice-btn'),
+    paymentModal: document.getElementById('payment-modal'),
+    paymentInvoiceId: document.getElementById('payment-invoice-id'),
+    paymentId: document.getElementById('payment-id'),
+    paymentDate: document.getElementById('payment-date'),
+    paymentAmount: document.getElementById('payment-amount'),
+    paymentNotes: document.getElementById('payment-notes'),
+    savePaymentBtn: document.getElementById('save-payment-btn'),
+    timesheetDetailsModal: document.getElementById('timesheet-details-modal'),
+    timesheetDetailsModalTitle: document.getElementById('timesheet-details-modal-title'),
+    timesheetDetailsModalBody: document.getElementById('timesheet-details-modal-body'),
+    timesheetDetailsModalEmpty: document.getElementById('timesheet-details-modal-empty'),
     availabilityType: document.getElementById('availability-type'),
     availabilityStartDate: document.getElementById('availability-start-date'),
     availabilityEndDate: document.getElementById('availability-end-date'),
@@ -117,9 +259,42 @@ if (!isBrowserRuntime) {
     roleForm: document.getElementById('role-form'),
     areaForm: document.getElementById('area-form'),
     dayOffTypeForm: document.getElementById('day-off-type-form'),
+    businessPartnerTypeForm: document.getElementById('business-partner-type-form'),
+    projectTypeForm: document.getElementById('project-type-form'),
+    showCompanyBranchFormBtn: document.getElementById('show-company-branch-form-btn'),
+    companyBranchModal: document.getElementById('company-branch-modal'),
+    companyBranchModalTitle: document.getElementById('company-branch-modal-title'),
+    companyBranchForm: document.getElementById('company-branch-form'),
+    saveCompanyBranchBtn: document.getElementById('save-company-branch-btn'),
     rolesList: document.getElementById('roles-list'),
     areasList: document.getElementById('areas-list'),
     dayOffTypesList: document.getElementById('day-off-types-list'),
+    businessPartnerTypesList: document.getElementById('business-partner-types-list'),
+    projectTypesList: document.getElementById('project-types-list'),
+    companyBranchesList: document.getElementById('company-branches-list'),
+    timeTrackingListCard: document.getElementById('time-tracking-list-card'),
+    timeTrackingConsultantSelect: document.getElementById('time-tracking-consultant-select'),
+    loadTimesheetsBtn: document.getElementById('load-timesheets-btn'),
+    timesheetMonthCount: document.getElementById('timesheet-month-count'),
+    timesheetToggleOlderBtn: document.getElementById('timesheet-toggle-older-btn'),
+    timesheetsEmptyState: document.getElementById('timesheets-empty-state'),
+    timesheetMonthList: document.getElementById('timesheet-month-list'),
+    timesheetDetailCard: document.getElementById('timesheet-detail-card'),
+    timesheetDetailTitle: document.getElementById('timesheet-detail-title'),
+    backToTimesheetsBtn: document.getElementById('back-to-timesheets-btn'),
+    timesheetPrevWeekBtn: document.getElementById('timesheet-prev-week-btn'),
+    timesheetNextWeekBtn: document.getElementById('timesheet-next-week-btn'),
+    timesheetWeekLabel: document.getElementById('timesheet-week-label'),
+    addManualTimesheetLineBtn: document.getElementById('add-manual-timesheet-line-btn'),
+    timesheetSummaryWrap: document.getElementById('timesheet-summary-wrap'),
+    timesheetSummaryStatus: document.getElementById('timesheet-summary-status'),
+    timesheetPrintBtn: document.getElementById('timesheet-print-btn'),
+    manualLineDayOffTypeSelect: document.getElementById('manual-line-day-off-type-select'),
+    confirmManualLineBtn: document.getElementById('confirm-manual-line-btn'),
+    timesheetSaveDraftBtn: document.getElementById('timesheet-save-draft-btn'),
+    timesheetSaveCompletedBtn: document.getElementById('timesheet-save-completed-btn'),
+    timesheetReopenBtn: document.getElementById('timesheet-reopen-btn'),
+    timesheetTableWrap: document.getElementById('timesheet-table-wrap'),
 
     weekTooltip: document.getElementById('week-tooltip')
   };
@@ -130,7 +305,12 @@ if (!isBrowserRuntime) {
     clientName: document.getElementById('client-name'),
     projectType: document.getElementById('project-type'),
     managerId: document.getElementById('manager-consultant-id'),
-    clientContact: document.getElementById('client-contact'),
+    projectStatus: document.getElementById('project-status'),
+    clientBusinessPartnerId: document.getElementById('client-business-partner-id'),
+    clientContactIds: document.getElementById('client-contact-ids'),
+    deliveryPartnerBusinessPartnerId: document.getElementById('delivery-partner-business-partner-id'),
+    deliveryPartnerContactIds: document.getElementById('delivery-partner-contact-ids'),
+    contractWithBranchId: document.getElementById('contract-with-branch-id'),
     startDate: document.getElementById('start-date'),
     endDate: document.getElementById('end-date'),
 
@@ -140,26 +320,33 @@ if (!isBrowserRuntime) {
     consultantAreaIds: document.getElementById('consultant-area-ids'),
     consultantCompanyRoleId: document.getElementById('consultant-company-role-id'),
     consultantSalary: document.getElementById('consultant-salary'),
+    consultantCompanyBranchId: document.getElementById('consultant-company-branch-id'),
     consultantHolidayLocationId: document.getElementById('consultant-holiday-location-id'),
-
-    timeTrackingConsultantSelect: document.getElementById('time-tracking-consultant-select'),
-    loadTimesheetsBtn: document.getElementById('load-timesheets-btn'),
-    timesheetMonthCount: document.getElementById('timesheet-month-count'),
-    timesheetsEmptyState: document.getElementById('timesheets-empty-state'),
-    timesheetMonthList: document.getElementById('timesheet-month-list'),
-    timesheetDetailCard: document.getElementById('timesheet-detail-card'),
-    timeTrackingListCard: document.getElementById('time-tracking-list-card'),
-    timesheetDetailTitle: document.getElementById('timesheet-detail-title'),
-    backToTimesheetsBtn: document.getElementById('back-to-timesheets-btn'),
-    timesheetPrevWeekBtn: document.getElementById('timesheet-prev-week-btn'),
-    timesheetNextWeekBtn: document.getElementById('timesheet-next-week-btn'),
-    timesheetWeekLabel: document.getElementById('timesheet-week-label'),
-    addManualTimesheetLineBtn: document.getElementById('add-manual-timesheet-line-btn'),
-    timesheetTableWrap: document.getElementById('timesheet-table-wrap'),
 
     roleName: document.getElementById('role-name'),
     areaName: document.getElementById('area-name'),
-    dayOffTypeName: document.getElementById('day-off-type-name')
+    dayOffTypeName: document.getElementById('day-off-type-name'),
+    businessPartnerTypeName: document.getElementById('business-partner-type-name'),
+    projectTypeName: document.getElementById('project-type-name'),
+    businessPartnerId: document.getElementById('business-partner-id'),
+    businessPartnerCompanyName: document.getElementById('business-partner-company-name'),
+    businessPartnerTaxIdentification: document.getElementById('business-partner-tax-identification'),
+    businessPartnerTypeId: document.getElementById('business-partner-type-id'),
+    businessPartnerAddressStreet: document.getElementById('business-partner-address-street'),
+    businessPartnerAddressNumber: document.getElementById('business-partner-address-number'),
+    businessPartnerPostalCode: document.getElementById('business-partner-postal-code'),
+    businessPartnerCity: document.getElementById('business-partner-city'),
+    businessPartnerRegion: document.getElementById('business-partner-region'),
+    businessPartnerCountry: document.getElementById('business-partner-country'),
+    companyBranchId: document.getElementById('company-branch-id'),
+    companyBranchName: document.getElementById('company-branch-name'),
+    companyBranchTaxIdentification: document.getElementById('company-branch-tax-identification'),
+    companyBranchStreetName: document.getElementById('company-branch-street-name'),
+    companyBranchStreetNumber: document.getElementById('company-branch-street-number'),
+    companyBranchPostalCode: document.getElementById('company-branch-postal-code'),
+    companyBranchCity: document.getElementById('company-branch-city'),
+    companyBranchRegion: document.getElementById('company-branch-region'),
+    companyBranchCountry: document.getElementById('company-branch-country')
   };
 
   Object.assign(ui, {
@@ -185,6 +372,18 @@ if (!isBrowserRuntime) {
   let roles = [];
   let areas = [];
   let dayOffTypes = [];
+  let businessPartnerTypes = [];
+  let projectTypes = [];
+  let companyBranches = [];
+  let businessPartners = [];
+  let companyLogo = { hasLogo: false, logoUrl: null };
+  let editingBusinessPartnerContacts = [];
+  let editingCommunicationContactIndex = -1;
+  let editingCommunicationDraft = { emails: [], phoneNumbers: [] };
+  let businessPartnerAddressExpanded = false;
+  let businessPartnerContactsExpanded = false;
+  let businessPartnerProjectsExpanded = false;
+  let businessPartnerViewMode = 'edit';
   let holidayLocations = [];
   let loadedHolidays = [];
   let projectViewMode = 'edit';
@@ -195,12 +394,30 @@ if (!isBrowserRuntime) {
   let selectedTimelineYear = new Date().getFullYear();
   let selectedProjectTimelineYear = new Date().getFullYear();
   let isProjectTimelineExpanded = false;
+  let activeProjectWorkspaceTab = 'overview';
+  let projectFiles = [];
   let selectedProjectWeekDetail = null;
   let selectedProjectPhases = [];
   let selectedProjectMilestones = [];
   let showProjectPhaseForm = false;
   let showProjectMilestoneForm = false;
   let editingProjectPhaseId = null;
+  let showClosedProjectPositions = false;
+  let revenueInvoices = [];
+  let revenueInvoicePeriods = [];
+  let selectedInvoicePeriodMonth = '';
+  let revenueTimesheetDetails = [];
+  let revenueSummary = null;
+  let revenueActualsSummary = null;
+  let revenueForecastBreakdown = [];
+  let selectedRevenueForecastMonth = '';
+  let revenueForecastDetails = [];
+  let isForecastDetailsLoading = false;
+  let activeRevenueSubtab = 'invoices';
+  let profitabilitySummary = null;
+  let profitabilityBreakdown = [];
+  let selectedProfitabilityMonth = '';
+  let profitabilityDetails = [];
   let allocationSimulations = [];
   let allocationState = null;
   let timesheetMonths = [];
@@ -209,8 +426,16 @@ if (!isBrowserRuntime) {
   let activeTimesheetWeekIndex = 0;
   let timeTrackingConsultants = [];
   let hasRequestedTimesheetLoad = false;
+  let visibleOlderTimesheetCount = 0;
+  const projectMembersDefaultParent = ui.projectMembersCard?.parentElement;
+  const projectTimelineDefaultParent = ui.projectTimelinePanel?.parentElement;
 
   const fallbackHolidayCountries = ['AD', 'AT', 'BE', 'CA', 'CH', 'DE', 'DK', 'ES', 'FI', 'FR', 'GB', 'IE', 'IT', 'MX', 'NL', 'NO', 'PL', 'PT', 'SE', 'US'];
+  const countryNamesByCode = {
+    AD: 'Andorra', AT: 'Austria', BE: 'Belgium', CA: 'Canada', CH: 'Switzerland', DE: 'Germany', DK: 'Denmark',
+    ES: 'Spain', FI: 'Finland', FR: 'France', GB: 'United Kingdom', IE: 'Ireland', IT: 'Italy', MX: 'Mexico',
+    NL: 'Netherlands', NO: 'Norway', PL: 'Poland', PT: 'Portugal', SE: 'Sweden', US: 'United States'
+  };
   const fallbackHolidayRegionsByCountry = {
     DE: ['BW', 'BY', 'BE', 'BB', 'HB', 'HH', 'HE', 'MV', 'NI', 'NW', 'RP', 'SL', 'SN', 'ST', 'SH', 'TH'],
     ES: ['AN', 'AR', 'AS', 'CB', 'CE', 'CL', 'CM', 'CN', 'CT', 'EX', 'GA', 'IB', 'MC', 'MD', 'ML', 'NC', 'PV', 'RI', 'VC'],
@@ -239,14 +464,156 @@ if (!isBrowserRuntime) {
     return response.status === 204 ? null : response.json();
   };
 
+  const uploadProjectFile = async (projectId, file) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    const upload = async (baseUrl) => fetch(`${baseUrl}/api/projects/${projectId}/files`, { method: 'POST', body: formData });
+    let response;
+    try {
+      response = await upload(primaryApiBase);
+    } catch (error) {
+      if (!(error instanceof TypeError) || primaryApiBase === fallbackApiBase) throw error;
+      response = await upload(fallbackApiBase);
+      window.localStorage.setItem('vpmApiOrigin', fallbackApiBase);
+    }
+    if (!response.ok) {
+      const payload = await response.json().catch(() => ({ error: 'Upload failed' }));
+      throw new Error(payload.error || 'Upload failed');
+    }
+    return response.json();
+  };
+
+  const uploadCompanyLogo = async (file) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    const upload = async (baseUrl) => fetch(`${baseUrl}/api/company-logo`, { method: 'POST', body: formData });
+    let response;
+    try {
+      response = await upload(primaryApiBase);
+    } catch (error) {
+      if (!(error instanceof TypeError) || primaryApiBase === fallbackApiBase) throw error;
+      response = await upload(fallbackApiBase);
+      window.localStorage.setItem('vpmApiOrigin', fallbackApiBase);
+    }
+    if (!response.ok) {
+      const payload = await response.json().catch(() => ({ error: 'Logo upload failed' }));
+      throw new Error(payload.error || 'Logo upload failed');
+    }
+    return response.json();
+  };
+
+  const downloadBackup = async () => {
+    const fetchBackup = async (baseUrl) => fetch(`${baseUrl}/api/backup/export`);
+    let response;
+    try {
+      response = await fetchBackup(primaryApiBase);
+    } catch (error) {
+      if (!(error instanceof TypeError) || primaryApiBase === fallbackApiBase) throw error;
+      response = await fetchBackup(fallbackApiBase);
+      window.localStorage.setItem('vpmApiOrigin', fallbackApiBase);
+    }
+    if (!response.ok) {
+      const payload = await response.json().catch(() => ({ error: 'Unable to download backup' }));
+      throw new Error(payload.error || 'Unable to download backup');
+    }
+    const blob = await response.blob();
+    const disposition = String(response.headers.get('Content-Disposition') || '');
+    const fileNameMatch = disposition.match(/filename\*=UTF-8''([^;]+)|filename=\"?([^\";]+)\"?/i);
+    const fileNameRaw = fileNameMatch ? (fileNameMatch[1] || fileNameMatch[2]) : '';
+    const fileName = decodeURIComponent(fileNameRaw || `InhousePSA_backup_${new Date().toISOString().slice(0, 10)}.zip`);
+    const url = window.URL.createObjectURL(blob);
+    const anchor = document.createElement('a');
+    anchor.href = url;
+    anchor.download = fileName;
+    document.body.appendChild(anchor);
+    anchor.click();
+    anchor.remove();
+    window.URL.revokeObjectURL(url);
+  };
+
+  const restoreBackup = async (file) => {
+    if (!file) throw new Error('Please choose a backup ZIP file first');
+    const formData = new FormData();
+    formData.append('file', file);
+    const upload = async (baseUrl) => fetch(`${baseUrl}/api/backup/restore`, { method: 'POST', body: formData });
+    let response;
+    try {
+      response = await upload(primaryApiBase);
+    } catch (error) {
+      if (!(error instanceof TypeError) || primaryApiBase === fallbackApiBase) throw error;
+      response = await upload(fallbackApiBase);
+      window.localStorage.setItem('vpmApiOrigin', fallbackApiBase);
+    }
+    if (!response.ok) {
+      const payload = await response.json().catch(() => ({ error: 'Restore failed' }));
+      throw new Error(payload.error || 'Restore failed');
+    }
+    return response.json();
+  };
+
+  const formatFileSize = (sizeBytes) => {
+    const value = Number(sizeBytes || 0);
+    if (!Number.isFinite(value) || value <= 0) return '0 B';
+    if (value < 1024) return `${value} B`;
+    const kb = value / 1024;
+    if (kb < 1024) return `${kb.toFixed(1)} KB`;
+    const mb = kb / 1024;
+    if (mb < 1024) return `${mb.toFixed(1)} MB`;
+    return `${(mb / 1024).toFixed(1)} GB`;
+  };
+
+  const invoiceStatusClass = (status) => ({
+    Draft: 'status-invoice-draft',
+    Issued: 'status-invoice-issued',
+    'Partially Paid': 'status-invoice-partially-paid',
+    Paid: 'status-invoice-paid',
+    Overdue: 'status-invoice-overdue'
+  }[String(status || '').trim()] || 'status-invoice-default');
+
+  const generateInvoicePrintout = (invoiceId) => {
+    if (!invoiceId) return;
+    window.location.assign(`${primaryApiBase}/print/invoice/${invoiceId}`);
+  };
+
   const resetSelect = (key, element) => {
     if (selectInstances[key]) selectInstances[key].destroy();
     if (window.M?.FormSelect) selectInstances[key] = M.FormSelect.init(element);
   };
 
   const managerCandidates = () => consultants.filter((consultant) => consultant.companyRole === 'Project Manager');
+  const positionStatusValues = ['Open', 'Proposed', 'Approved', 'Assigned', 'Closed'];
+  const positionDailyRateCurrencies = ['EUR', 'USD', 'GBP', 'CHF'];
+  const positionStatusClassByValue = (status) => ({
+    Open: 'position-status-open',
+    Proposed: 'position-status-proposed',
+    Approved: 'position-status-approved',
+    Assigned: 'position-status-assigned',
+    Closed: 'position-status-closed'
+  }[status] || 'position-status-open');
+  const getProjectPositionDisplayStatus = (position) => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const endDate = position?.endDate ? new Date(`${position.endDate}T00:00:00`) : null;
+    if (endDate && endDate < today) return 'Closed';
+    const status = String(position?.status || '').trim();
+    return positionStatusValues.includes(status) ? status : (position?.consultantId ? 'Assigned' : 'Open');
+  };
+  const isTimeMaterialProjectType = () => String(fields.projectType.value || '').trim().toLowerCase() === 'time material';
+  const shouldShowPositionRateFields = ({ billable }) => isTimeMaterialProjectType() && billable !== false;
+  const formatPositionDailyRate = (dailyRate, currency) => {
+    const amount = Number(dailyRate);
+    if (!Number.isFinite(amount)) return '—';
+    const code = String(currency || 'EUR').trim().toUpperCase() || 'EUR';
+    try {
+      return new Intl.NumberFormat('en-US', { style: 'currency', currency: code, minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(amount);
+    } catch (error) {
+      return `${code} ${amount.toFixed(2)}`;
+    }
+  };
   const managerConsultantIdFromAssignments = () => {
-    const managerMember = selectedProjectAssignments.find((item) => item.projectRole === 'Project Manager');
+    const managerMember = selectedProjectAssignments.find((item) => item.projectRole === 'Project Manager'
+      && item.consultantId
+      && getProjectPositionDisplayStatus(item) === 'Assigned');
     return managerMember ? Number(managerMember.consultantId) : 0;
   };
   const syncManagerFieldWithAssignments = () => {
@@ -265,16 +632,630 @@ if (!isBrowserRuntime) {
 
   const buildProjectPayload = () => ({
     projectName: fields.projectName.value.trim(),
-    clientName: fields.clientName.value.trim(),
+    clientBusinessPartnerId: fields.clientBusinessPartnerId.value ? Number(fields.clientBusinessPartnerId.value) : null,
+    clientContactIds: selectedIds(fields.clientContactIds),
+    deliveryPartnerBusinessPartnerId: fields.deliveryPartnerBusinessPartnerId.value ? Number(fields.deliveryPartnerBusinessPartnerId.value) : null,
+    deliveryPartnerContactIds: selectedIds(fields.deliveryPartnerContactIds),
+    contractWithBranchId: fields.contractWithBranchId.value ? Number(fields.contractWithBranchId.value) : null,
     projectType: fields.projectType.value,
+    projectStatus: fields.projectStatus?.value || 'Not Started',
     managerConsultantId: managerConsultantIdFromAssignments(),
-    clientContact: fields.clientContact.value.trim(),
     startDate: fields.startDate.value,
     endDate: fields.endDate.value,
-    consultantAssignments: selectedProjectAssignments,
+    projectPositions: selectedProjectAssignments.map((item) => ({
+      id: item.positionId || null,
+      consultantId: item.consultantId ? Number(item.consultantId) : null,
+      areaId: item.areaId ? Number(item.areaId) : null,
+      projectRole: item.projectRole || 'Project Position',
+      startDate: item.startDate || '',
+      endDate: item.endDate || '',
+      allocation: Number(item.allocation ?? 100),
+      billable: item.billable !== false,
+      dailyRate: item.dailyRate === '' || item.dailyRate === null || item.dailyRate === undefined ? null : Number(item.dailyRate),
+      dailyRateCurrency: (item.dailyRate === '' || item.dailyRate === null || item.dailyRate === undefined)
+        ? null
+        : (item.dailyRateCurrency ? String(item.dailyRateCurrency).trim().toUpperCase() : null),
+      comments: item.comments || '',
+      status: item.status || (item.consultantId ? 'Assigned' : 'Open')
+    })),
+    consultantAssignments: selectedProjectAssignments.filter((item) => item.consultantId).map((item) => ({
+      consultantId: Number(item.consultantId),
+      projectRole: item.projectRole || 'Project Position',
+      startDate: item.startDate || '',
+      endDate: item.endDate || '',
+      allocation: Number(item.allocation ?? 100),
+      billable: item.billable !== false,
+      comments: item.comments || ''
+    })),
     projectPhases: selectedProjectPhases,
     projectMilestones: selectedProjectMilestones
   });
+
+  const movePanelToHost = (element, host) => {
+    if (!element || !host || element.parentElement === host) return;
+    host.appendChild(element);
+  };
+
+  const renderProjectFiles = () => {
+    if (!ui.projectFilesBody) return;
+    ui.projectFilesBody.innerHTML = '';
+    if (!projectFiles.length) {
+      if (ui.projectFilesEmptyState) ui.projectFilesEmptyState.hidden = false;
+      return;
+    }
+    if (ui.projectFilesEmptyState) ui.projectFilesEmptyState.hidden = true;
+    projectFiles.forEach((item) => {
+      const row = document.createElement('tr');
+      row.innerHTML = `
+        <td>${item.originalFilename}</td>
+        <td>${formatFileSize(item.fileSize)}</td>
+        <td>${formatDate(item.uploadedAt)}</td>
+        <td><button class="btn-flat blue-text" type="button" data-action="download-project-file" data-id="${item.id}"><i class="material-icons tiny">download</i></button></td>
+      `;
+      ui.projectFilesBody.appendChild(row);
+    });
+  };
+
+  const loadProjectFiles = async (projectId) => {
+    if (!projectId) {
+      projectFiles = [];
+      renderProjectFiles();
+      return;
+    }
+    const payload = await request(`/api/projects/${projectId}/files`);
+    projectFiles = payload?.files || [];
+    renderProjectFiles();
+  };
+
+  const formatMoney = (value, currency = 'EUR') => {
+    const amount = Number(value || 0);
+    try {
+      return new Intl.NumberFormat('en-US', { style: 'currency', currency: String(currency || 'EUR').toUpperCase() }).format(amount);
+    } catch (error) {
+      return `${String(currency || 'EUR').toUpperCase()} ${amount.toFixed(2)}`;
+    }
+  };
+
+  const renderRevenueSummary = () => {
+    if (!ui.revenueThisMonthValue) return;
+    ui.revenueThisMonthValue.textContent = formatMoney(revenueSummary?.revenueThisMonth || 0);
+    ui.revenueNext3MonthsValue.textContent = formatMoney(revenueSummary?.revenueNext3Months || 0);
+    ui.revenueForecastTotalValue.textContent = formatMoney(revenueSummary?.totalForecastRevenueUntilProjectEnd || 0);
+    if (ui.revenueUnbilledValue) ui.revenueUnbilledValue.textContent = formatMoney(revenueSummary?.unbilledForecast || 0);
+  };
+
+  const renderRevenueActuals = () => {
+    if (!ui.revenueInvoicedValue) return;
+    const invoiced = Number(revenueActualsSummary?.totalInvoiced || 0);
+    const paid = Number(revenueActualsSummary?.totalPaid || 0);
+    const outstanding = Number(revenueActualsSummary?.outstanding || 0);
+    ui.revenueInvoicedValue.textContent = formatMoney(invoiced);
+    ui.revenuePaidValue.textContent = formatMoney(paid);
+    ui.revenueOutstandingValue.textContent = formatMoney(outstanding);
+    if (ui.revenueActualsPaidLabel) ui.revenueActualsPaidLabel.textContent = formatMoney(paid);
+    if (ui.revenueActualsOutstandingLabel) ui.revenueActualsOutstandingLabel.textContent = formatMoney(outstanding);
+    if (ui.revenueActualsChart) {
+      const total = paid + outstanding;
+      const paidDeg = total > 0 ? Math.round((paid / total) * 360) : 0;
+      ui.revenueActualsChart.querySelector('.pie-chart-ring')?.style.setProperty('background', `conic-gradient(#26a69a 0deg, #26a69a ${paidDeg}deg, #ff7043 ${paidDeg}deg, #ff7043 360deg)`);
+    }
+  };
+
+  const renderRevenueSubtabs = () => {
+    ui.projectRevenueSubtabs?.forEach((button) => {
+      const key = button.dataset.revenueSubtab;
+      button.classList.toggle('active', key === activeRevenueSubtab);
+    });
+    ui.projectRevenueSubtabPanels?.forEach((panel) => {
+      const key = panel.dataset.revenueSubtabPanel;
+      panel.hidden = key !== activeRevenueSubtab;
+    });
+  };
+
+  const renderRevenueForecastBreakdown = () => {
+    if (!ui.projectRevenueForecastBody) return;
+    ui.projectRevenueForecastBody.innerHTML = '';
+    ui.projectRevenueForecastEmpty.hidden = revenueForecastBreakdown.length > 0;
+    revenueForecastBreakdown.forEach((row) => {
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td>${row.monthLabel || row.month}</td>
+        <td>${Number(row.billableDays || 0).toFixed(2)}</td>
+        <td>${formatMoney(row.revenue || 0, 'EUR')}</td>
+        <td>${Number(row.positionsCount || 0)}</td>
+        <td>${Number(row.consultantsCount || 0)}</td>
+        <td><button type="button" class="btn-flat teal-text" data-action="forecast-month-detail" data-month="${row.month}">View Details</button></td>
+      `;
+      ui.projectRevenueForecastBody.appendChild(tr);
+    });
+  };
+
+  const renderRevenueForecastDetails = () => {
+    const hasSelection = Boolean(selectedRevenueForecastMonth);
+    console.debug('[RevenueForecast] Rendering details into modal container only (no inline detail section).');
+    if (!hasSelection) {
+      if (ui.forecastDetailsModalBody) ui.forecastDetailsModalBody.innerHTML = '';
+      if (ui.forecastDetailsModalEmpty) ui.forecastDetailsModalEmpty.hidden = false;
+      if (ui.forecastDetailsModalTitle) ui.forecastDetailsModalTitle.textContent = 'Revenue Forecast Details';
+      return;
+    }
+    const selected = revenueForecastBreakdown.find((row) => row.month === selectedRevenueForecastMonth);
+    if (ui.forecastDetailsModalTitle) ui.forecastDetailsModalTitle.textContent = `Revenue Forecast Details — ${selected?.monthLabel || selectedRevenueForecastMonth}`;
+    if (ui.forecastDetailsModalBody) {
+      ui.forecastDetailsModalBody.innerHTML = '';
+      revenueForecastDetails.forEach((row) => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td>${row.positionName || 'Project Position'}</td>
+          <td>${row.consultantName || 'Open Position'}</td>
+          <td>${Number(row.allocationPercent ?? 100).toFixed(0)}%</td>
+          <td>${row.dailyRate != null ? formatMoney(row.dailyRate, row.dailyRateCurrency || 'EUR') : '—'}</td>
+          <td>${Number(row.billableDays || 0).toFixed(2)}</td>
+          <td>${formatMoney(row.revenue || 0, row.dailyRateCurrency || 'EUR')}</td>
+        `;
+        ui.forecastDetailsModalBody.appendChild(tr);
+      });
+    }
+    if (ui.forecastDetailsModalEmpty) ui.forecastDetailsModalEmpty.hidden = revenueForecastDetails.length > 0;
+    console.debug(`[RevenueForecast] Modal body populated for month=${selectedRevenueForecastMonth}, rows=${revenueForecastDetails.length}`);
+  };
+
+  const renderProfitability = () => {
+    if (!ui.profitabilityRevenueValue) return;
+    ui.profitabilityRevenueValue.textContent = formatMoney(profitabilitySummary?.totalForecastRevenue || 0);
+    ui.profitabilityCostValue.textContent = formatMoney(profitabilitySummary?.totalForecastCost || 0);
+    ui.profitabilityMarginValue.textContent = formatMoney(profitabilitySummary?.totalForecastGrossMargin || 0);
+    ui.profitabilityMarginPercentValue.textContent = `${Number(profitabilitySummary?.forecastMarginPercent || 0).toFixed(2)}%`;
+    ui.projectProfitabilityBody.innerHTML = '';
+    ui.projectProfitabilityEmpty.hidden = profitabilityBreakdown.length > 0;
+    profitabilityBreakdown.forEach((row) => {
+      const isSelected = selectedProfitabilityMonth === row.month;
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td>${row.monthLabel || row.month}</td>
+        <td>${formatMoney(row.revenue || 0, 'EUR')}</td>
+        <td>${formatMoney(row.internalCost || 0, 'EUR')}</td>
+        <td>${formatMoney(row.grossMargin || 0, 'EUR')}</td>
+        <td>${Number(row.marginPercent || 0).toFixed(2)}%</td>
+        <td><button type="button" class="btn-flat teal-text" data-action="profitability-month-detail" data-month="${row.month}">${isSelected ? 'Refresh' : 'View Details'}</button></td>
+      `;
+      ui.projectProfitabilityBody.appendChild(tr);
+    });
+  };
+
+  const renderProfitabilityDetails = () => {
+    if (!ui.projectProfitabilityDetail) return;
+    const hasSelection = Boolean(selectedProfitabilityMonth);
+    ui.projectProfitabilityDetail.hidden = !hasSelection;
+    if (!hasSelection) return;
+    const selected = profitabilityBreakdown.find((row) => row.month === selectedProfitabilityMonth);
+    if (ui.projectProfitabilityDetailTitle) ui.projectProfitabilityDetailTitle.textContent = `Profitability Month Details — ${selected?.monthLabel || selectedProfitabilityMonth}`;
+    if (ui.projectProfitabilityDetailBody) {
+      ui.projectProfitabilityDetailBody.innerHTML = '';
+      profitabilityDetails.forEach((row) => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td>${row.positionName || 'Project Position'}</td>
+          <td>${row.consultantName || 'Open Position'}</td>
+          <td>${Number(row.allocationPercent ?? 100).toFixed(0)}%</td>
+          <td>${formatMoney(row.revenue || 0, row.dailyRateCurrency || 'EUR')}</td>
+          <td>${formatMoney(row.internalCost || 0, row.dailyRateCurrency || 'EUR')}</td>
+          <td>${formatMoney(row.grossMargin || 0, row.dailyRateCurrency || 'EUR')}</td>
+          <td>${Number(row.marginPercent || 0).toFixed(2)}%</td>
+        `;
+        ui.projectProfitabilityDetailBody.appendChild(tr);
+      });
+    }
+    if (ui.projectProfitabilityDetailEmpty) ui.projectProfitabilityDetailEmpty.hidden = profitabilityDetails.length > 0;
+  };
+
+  const timesheetStatusClass = (status) => {
+    if (status === 'Completed') return 'status-timesheet-completed';
+    if (status === 'Incompleted') return 'status-timesheet-incompleted';
+    return 'status-timesheet-not-started';
+  };
+
+  const consultantTimesheetStatusClass = (status) => {
+    if (status === 'Completed') return 'status-timesheet-completed';
+    if (status === 'Pending') return 'status-timesheet-incompleted';
+    return 'status-timesheet-not-started';
+  };
+
+  const renderTimesheetDetailsModal = (monthLabel) => {
+    if (!ui.timesheetDetailsModalBody) return;
+    if (ui.timesheetDetailsModalTitle) ui.timesheetDetailsModalTitle.textContent = `Timesheet Details – ${monthLabel}`;
+    ui.timesheetDetailsModalBody.innerHTML = '';
+    revenueTimesheetDetails.forEach((item) => {
+      const row = document.createElement('tr');
+      row.innerHTML = `
+        <td>${item.consultantName || 'Consultant'}</td>
+        <td>${item.projectRole || 'Project Position'}</td>
+        <td><span class="status-badge ${consultantTimesheetStatusClass(item.status)}">${item.status || 'Not Started'}</span></td>
+        <td>${Number(item.totalHours || 0).toFixed(2)}</td>
+      `;
+      ui.timesheetDetailsModalBody.appendChild(row);
+    });
+    if (ui.timesheetDetailsModalEmpty) ui.timesheetDetailsModalEmpty.hidden = revenueTimesheetDetails.length > 0;
+  };
+
+  const renderRevenueInvoicePeriods = () => {
+    if (!ui.projectRevenueInvoicePeriodsBody) return;
+    ui.projectRevenueInvoicePeriodsBody.innerHTML = '';
+    ui.projectRevenueInvoicePeriodsEmpty.hidden = revenueInvoicePeriods.length > 0;
+    revenueInvoicePeriods.forEach((period) => {
+      const row = document.createElement('tr');
+      row.innerHTML = `
+        <td>${period.monthLabel || period.month}</td>
+        <td><span class="status-badge ${timesheetStatusClass(period.timesheetStatus)}">${period.timesheetStatus || 'Not Started'}</span></td>
+        <td><button type="button" class="btn-flat blue-text" data-action="view-timesheet-details" data-month="${period.month}" title="View timesheet details"><i class="material-icons tiny">visibility</i></button></td>
+        <td>${period.periodFrom} → ${period.periodTo}</td>
+        <td>${formatMoney(period.proposedAmount || 0, period.currency || 'EUR')}</td>
+        <td>${Number(period.invoiceCount || 0)} invoice(s) · ${formatMoney(period.invoicedTotal || 0, period.currency || 'EUR')}</td>
+        <td>
+          <button type="button" class="btn waves-effect waves-light" data-action="add-invoice-period" data-month="${period.month}">Add Invoice</button>
+          ${Number(period.invoiceCount || 0) > 0 ? `<button type="button" class="btn-flat indigo-text" data-action="view-period-invoices" data-month="${period.month}">View Invoices</button>` : ''}
+        </td>
+      `;
+      ui.projectRevenueInvoicePeriodsBody.appendChild(row);
+    });
+  };
+
+  const renderRevenueMonthInvoices = () => {
+    if (!ui.projectRevenueMonthInvoices) return;
+    if (!selectedInvoicePeriodMonth) {
+      ui.projectRevenueMonthInvoices.hidden = true;
+      return;
+    }
+    const period = revenueInvoicePeriods.find((item) => item.month === selectedInvoicePeriodMonth);
+    const monthInvoices = revenueInvoices.filter((invoice) => {
+      const fromMonth = String(invoice.periodFrom || '').slice(0, 7);
+      const toMonth = String(invoice.periodTo || '').slice(0, 7);
+      return fromMonth <= selectedInvoicePeriodMonth && toMonth >= selectedInvoicePeriodMonth;
+    });
+    ui.projectRevenueMonthInvoices.hidden = false;
+    if (ui.projectRevenueMonthInvoicesTitle) ui.projectRevenueMonthInvoicesTitle.textContent = `Invoices for ${period?.monthLabel || selectedInvoicePeriodMonth}`;
+    if (ui.projectRevenueMonthInvoicesBody) {
+      ui.projectRevenueMonthInvoicesBody.innerHTML = '';
+      monthInvoices.forEach((invoice) => {
+        const row = document.createElement('tr');
+        row.innerHTML = `
+          <td>${invoice.invoiceRef || '—'}</td>
+          <td>${invoice.periodFrom} → ${invoice.periodTo}</td>
+          <td>${formatDate(invoice.invoiceDate)}</td>
+          <td>${invoice.dueDate ? formatDate(invoice.dueDate) : '—'}</td>
+          <td>${formatMoney(invoice.amount)}</td>
+          <td>${formatMoney(invoice.paidAmount)}</td>
+          <td><span class="status-badge ${invoiceStatusClass(invoice.status)}">${invoice.status}</span></td>
+          <td>
+            <button type="button" class="btn-flat blue-text" data-action="edit-invoice" data-id="${invoice.id}" title="Edit"><i class="material-icons tiny">edit</i></button>
+            <button type="button" class="btn-flat teal-text" data-action="add-payment" data-id="${invoice.id}" title="Register Payment"><i class="material-icons tiny">payments</i></button>
+            <button type="button" class="btn-flat indigo-text" data-action="generate-invoice" data-id="${invoice.id}" title="Generate Invoice"><i class="material-icons tiny">print</i></button>
+            <button type="button" class="btn-flat red-text" data-action="delete-invoice" data-id="${invoice.id}" title="Delete"><i class="material-icons tiny">delete</i></button>
+          </td>
+        `;
+        ui.projectRevenueMonthInvoicesBody.appendChild(row);
+      });
+    }
+    if (ui.projectRevenueMonthInvoicesEmpty) ui.projectRevenueMonthInvoicesEmpty.hidden = monthInvoices.length > 0;
+  };
+
+  const loadRevenueData = async (projectId) => {
+    if (!projectId) {
+      revenueSummary = null;
+      revenueActualsSummary = null;
+      revenueInvoices = [];
+      revenueInvoicePeriods = [];
+      selectedInvoicePeriodMonth = '';
+      revenueTimesheetDetails = [];
+      revenueForecastBreakdown = [];
+      selectedRevenueForecastMonth = '';
+      revenueForecastDetails = [];
+      profitabilitySummary = null;
+      profitabilityBreakdown = [];
+      selectedProfitabilityMonth = '';
+      profitabilityDetails = [];
+      renderRevenueSummary();
+      renderRevenueActuals();
+      renderRevenueSubtabs();
+      renderRevenueForecastDetails();
+      renderRevenueInvoicePeriods();
+      renderRevenueMonthInvoices();
+      renderProfitability();
+      renderProfitabilityDetails();
+      return;
+    }
+    selectedRevenueForecastMonth = '';
+    revenueForecastDetails = [];
+    selectedProfitabilityMonth = '';
+    profitabilityDetails = [];
+    const [forecastSummaryPayload, actualsPayload, invoicesPayload, invoicePeriodsPayload, forecastPayload, profitabilitySummaryPayload, profitabilityBreakdownPayload] = await Promise.all([
+      request(`/api/projects/${projectId}/revenue-forecast-summary`),
+      request(`/api/projects/${projectId}/revenue-actuals-summary`),
+      request(`/api/projects/${projectId}/invoices`),
+      request(`/api/projects/${projectId}/revenue/invoice-periods`),
+      request(`/api/projects/${projectId}/revenue-forecast-monthly`),
+      request(`/api/projects/${projectId}/profitability-summary`),
+      request(`/api/projects/${projectId}/profitability-monthly`)
+    ]);
+    revenueSummary = forecastSummaryPayload || null;
+    revenueActualsSummary = actualsPayload || null;
+    revenueInvoices = invoicesPayload?.invoices || [];
+    revenueInvoicePeriods = invoicePeriodsPayload?.periods || [];
+    revenueTimesheetDetails = [];
+    if (selectedInvoicePeriodMonth && !revenueInvoicePeriods.some((item) => item.month === selectedInvoicePeriodMonth)) selectedInvoicePeriodMonth = '';
+    revenueForecastBreakdown = forecastPayload?.rows || [];
+    profitabilitySummary = profitabilitySummaryPayload || null;
+    profitabilityBreakdown = profitabilityBreakdownPayload?.rows || [];
+    renderRevenueSummary();
+    renderRevenueActuals();
+    renderRevenueSubtabs();
+    renderRevenueForecastBreakdown();
+    renderRevenueForecastDetails();
+    renderRevenueInvoicePeriods();
+    renderRevenueMonthInvoices();
+    renderProfitability();
+    renderProfitabilityDetails();
+  };
+
+  const openForecastDetailsModal = () => {
+    const modalElement = ui.forecastDetailsModal;
+    if (!modalElement) {
+      console.debug('[RevenueForecast] Missing forecast details dialog ref.');
+      return;
+    }
+    const isDialog = String(modalElement.tagName || '').toUpperCase() === 'DIALOG';
+    const hasShowModal = typeof modalElement.showModal === 'function';
+    console.debug(`[RevenueForecast] open() tag=${modalElement.tagName} isDialog=${isDialog} hasShowModal=${hasShowModal} open=${Boolean(modalElement.open)}`);
+    if (!isDialog || !hasShowModal) {
+      // Defensive fallback only.
+      modalElement.style.display = 'block';
+      return;
+    }
+    if (modalElement.open) return;
+    modalElement.showModal();
+  };
+
+  const closeForecastDetailsModal = () => {
+    const modalElement = ui.forecastDetailsModal;
+    if (!modalElement) return;
+    const isDialog = String(modalElement.tagName || '').toUpperCase() === 'DIALOG';
+    if (isDialog && typeof modalElement.close === 'function' && modalElement.open) {
+      modalElement.close();
+      return;
+    }
+    modalElement.style.display = 'none';
+  };
+
+  const loadRevenueForecastMonthDetails = async (projectId, month) => {
+    if (!projectId || !month) return;
+    if (isForecastDetailsLoading) {
+      console.debug(`[RevenueForecast] Request ignored because previous load is in progress (month=${month}).`);
+      return;
+    }
+    isForecastDetailsLoading = true;
+    console.debug(`[RevenueForecast] View Details click captured for month=${month}, projectId=${projectId}`);
+    try {
+      const payload = await request(`/api/projects/${projectId}/revenue-forecast-month-details?month=${encodeURIComponent(month)}`);
+      selectedRevenueForecastMonth = month;
+      revenueForecastDetails = payload?.rows || [];
+      console.debug(`[RevenueForecast] Modal data loaded for month=${month}, rows=${revenueForecastDetails.length}`);
+      renderRevenueForecastDetails();
+      console.debug('[RevenueForecast] Opening forecast details modal');
+      openForecastDetailsModal();
+      console.debug('[RevenueForecast] Open flow completed.');
+    } finally {
+      isForecastDetailsLoading = false;
+    }
+  }; // loadRevenueForecastMonthDetails
+
+  const loadProfitabilityMonthDetails = async (projectId, month) => {
+    if (!projectId || !month) return;
+    const payload = await request(`/api/projects/${projectId}/profitability-month-details?month=${encodeURIComponent(month)}`);
+    selectedProfitabilityMonth = month;
+    profitabilityDetails = payload?.rows || [];
+    renderProfitability();
+    renderProfitabilityDetails();
+  };
+
+  const resetInvoiceModal = (invoice = null, defaults = null) => {
+    if (!invoice) {
+      ui.invoiceModalTitle.textContent = 'Add Invoice';
+      ui.invoiceId.value = '';
+      ui.invoiceRef.value = '';
+      ui.invoicePeriodFrom.value = defaults?.periodFrom || fields.startDate.value || '';
+      ui.invoicePeriodTo.value = defaults?.periodTo || fields.endDate.value || '';
+      ui.invoiceDate.value = new Date().toISOString().slice(0, 10);
+      ui.invoiceDueDate.value = '';
+      ui.invoiceAmount.value = defaults?.amount != null ? Number(defaults.amount).toFixed(2) : '';
+      ui.invoiceStatus.value = 'Draft';
+      ui.invoiceNotes.value = defaults?.notes || '';
+    } else {
+      ui.invoiceModalTitle.textContent = 'Edit Invoice';
+      ui.invoiceId.value = invoice.id;
+      ui.invoiceRef.value = invoice.invoiceRef || '';
+      ui.invoicePeriodFrom.value = invoice.periodFrom || '';
+      ui.invoicePeriodTo.value = invoice.periodTo || '';
+      ui.invoiceDate.value = invoice.invoiceDate || '';
+      ui.invoiceDueDate.value = invoice.dueDate || '';
+      ui.invoiceAmount.value = String(invoice.amount ?? '');
+      ui.invoiceStatus.value = invoice.status || 'Draft';
+      ui.invoiceNotes.value = invoice.notes || '';
+    }
+    resetSelect('invoiceStatus', ui.invoiceStatus);
+    updateTextFields();
+  };
+
+  const resetPaymentModal = (invoiceId) => {
+    ui.paymentInvoiceId.value = String(invoiceId || '');
+    ui.paymentId.value = '';
+    ui.paymentDate.value = new Date().toISOString().slice(0, 10);
+    ui.paymentAmount.value = '';
+    ui.paymentNotes.value = '';
+    updateTextFields();
+  };
+
+  const updateProjectWorkspaceUi = (context = 'updateProjectWorkspaceUi') => {
+    const isSavedProject = Boolean(fields.projectId.value);
+    const manageProjectOpen = !ui.projectFormCard.hidden;
+    if (!isSavedProject) activeProjectWorkspaceTab = 'overview';
+    if (ui.projectWorkspaceTabs) ui.projectWorkspaceTabs.hidden = !isSavedProject || !manageProjectOpen;
+
+    const activeTab = isSavedProject ? activeProjectWorkspaceTab : 'overview';
+    const isOverviewTab = activeTab === 'overview';
+    const isTeamTab = isSavedProject && activeTab === 'team';
+    const isTimelineTab = isSavedProject && activeTab === 'timeline';
+    const isRevenueTab = isSavedProject && activeTab === 'revenue';
+    const isProfitabilityTab = isSavedProject && activeTab === 'profitability';
+    const showProjectsList = !ui.projectsPanelCard.hidden;
+    const useWideMainColumn = showProjectsList || isTimelineTab;
+    document.body.classList.toggle('workspace-timeline-wide', isTimelineTab);
+    if (ui.projectMainColumn) {
+      ui.projectMainColumn.classList.toggle('l8', !useWideMainColumn);
+      ui.projectMainColumn.classList.toggle('l12', useWideMainColumn);
+    }
+    ui.projectWorkspaceTabs?.querySelectorAll('[data-workspace-tab]').forEach((tabButton) => {
+      tabButton.classList.toggle('active', tabButton.dataset.workspaceTab === activeTab);
+    });
+    ui.projectWorkspacePanels?.forEach((panel) => {
+      const panelTab = panel.dataset.workspacePanel;
+      const shouldShow = isSavedProject ? panelTab === activeTab : panelTab === 'overview';
+      panel.hidden = !shouldShow;
+    });
+
+    document.body.classList.toggle('workspace-timeline-tab-active', isTimelineTab);
+    if (isTeamTab) movePanelToHost(ui.projectMembersCard, ui.projectTeamTabHost);
+    else movePanelToHost(ui.projectMembersCard, projectMembersDefaultParent);
+
+    if (isTimelineTab) {
+      movePanelToHost(ui.projectTimelinePanel, ui.projectTimelineTabHost);
+      if (!isProjectTimelineExpanded) {
+        isProjectTimelineExpanded = true;
+        updateProjectTimelineExpandUi();
+      }
+      refreshProjectTimeline();
+    } else {
+      movePanelToHost(ui.projectTimelinePanel, projectTimelineDefaultParent);
+      if (isProjectTimelineExpanded) collapseProjectTimeline();
+    }
+
+    if (ui.projectMembersColumn) ui.projectMembersColumn.hidden = !manageProjectOpen || !isOverviewTab;
+    if (ui.projectMembersCard) ui.projectMembersCard.hidden = !manageProjectOpen || (!isOverviewTab && !isTeamTab);
+    if (isRevenueTab) {
+      const isTimeMaterial = isTimeMaterialProjectType();
+      if (ui.projectRevenueTimeMaterial) ui.projectRevenueTimeMaterial.hidden = !isTimeMaterial;
+      if (ui.projectRevenueNotImplemented) ui.projectRevenueNotImplemented.hidden = isTimeMaterial;
+      if (isTimeMaterial) renderRevenueSubtabs();
+    }
+    if (isProfitabilityTab) {
+      const isTimeMaterial = isTimeMaterialProjectType();
+      if (ui.projectProfitabilityTimeMaterial) ui.projectProfitabilityTimeMaterial.hidden = !isTimeMaterial;
+      if (ui.projectProfitabilityNotImplemented) ui.projectProfitabilityNotImplemented.hidden = isTimeMaterial;
+    }
+    console.debug(`[projectWorkspace] context=${context} saved=${isSavedProject} activeTab=${activeTab} overviewTab=${isOverviewTab} teamMain=${isTeamTab} timelineMain=${isTimelineTab}`);
+  };
+
+  const statusClassByValue = (status) => ({
+    'Not Started': 'status-not-started',
+    'In Progress': 'status-in-progress',
+    Delayed: 'status-delayed',
+    Completed: 'status-completed'
+  }[status] || 'status-in-progress');
+
+  const deriveProjectDisplayStatusFromData = ({ startDate = '', projectStatus = 'Not Started', projectPhases = [] } = {}) => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const projectStart = startDate ? new Date(`${startDate}T00:00:00`) : null;
+    if (projectStart && projectStart > today) return 'Not Started';
+    const phaseList = Array.isArray(projectPhases) ? projectPhases : [];
+    const phases = phaseList.filter((item) => item && item.startDate && item.endDate);
+    if (phases.length) {
+      const parsed = phases
+        .map((phase) => ({
+          name: String(phase.name || '').trim(),
+          start: new Date(`${phase.startDate}T00:00:00`),
+          end: new Date(`${phase.endDate}T00:00:00`)
+        }))
+        .sort((a, b) => a.start - b.start);
+      const activePhase = parsed.find((phase) => phase.start <= today && phase.end >= today);
+      if (activePhase) return activePhase.name || 'In Progress';
+      if (parsed.every((phase) => phase.end < today)) return 'Completed';
+      if (today < parsed[0].start) return 'Not Started';
+      return 'In Progress';
+    }
+    return projectStatus || 'Not Started';
+  };
+
+  const deriveProjectDisplayStatus = () => deriveProjectDisplayStatusFromData({
+    startDate: fields.startDate.value,
+    projectStatus: fields.projectStatus?.value || 'Not Started',
+    projectPhases: selectedProjectPhases
+  });
+
+  const updateProjectStatusUi = () => {
+    const hasPhases = (selectedProjectPhases || []).length > 0;
+    const statusWrap = document.getElementById('project-status-field-wrap');
+    if (statusWrap) statusWrap.hidden = hasPhases;
+    if (fields.projectStatus) fields.projectStatus.disabled = hasPhases || projectViewMode === 'view';
+    if (fields.projectStatus) resetSelect('projectStatus', fields.projectStatus);
+    const displayStatus = deriveProjectDisplayStatus();
+    if (ui.projectSummaryStatus) {
+      ui.projectSummaryStatus.textContent = displayStatus;
+      ui.projectSummaryStatus.className = `status-badge ${statusClassByValue(displayStatus)}`;
+    }
+  };
+
+  const updateProjectSummaryHeader = () => {
+    const isSavedProject = Boolean(fields.projectId.value);
+    console.debug(`[updateProjectSummaryHeader] re-render header saved=${isSavedProject} mode=${projectViewMode}`);
+    if (ui.projectFormCard) ui.projectFormCard.classList.toggle('saved-project-mode', isSavedProject);
+    if (ui.projectFormBasicHeader) ui.projectFormBasicHeader.hidden = isSavedProject;
+    if (ui.projectSummaryHeader) ui.projectSummaryHeader.hidden = !isSavedProject;
+    if (ui.projectFormTitle) ui.projectFormTitle.hidden = isSavedProject;
+    if (!isSavedProject) return;
+    const client = findBusinessPartnerById(fields.clientBusinessPartnerId.value);
+    if (ui.projectSummaryName) ui.projectSummaryName.textContent = fields.projectName.value || 'Project';
+    if (ui.projectSummaryClient) ui.projectSummaryClient.textContent = client?.companyName || '—';
+    updateProjectStatusUi();
+  };
+
+  const applyProjectModeUi = (context = 'applyProjectModeUi') => {
+    const readOnly = projectViewMode === 'view';
+    const isSavedProject = Boolean(fields.projectId.value);
+    const summaryHeader = document.getElementById('project-summary-header');
+    const headerSaveBtn = summaryHeader?.querySelector('#project-save-btn-header');
+    const headerPenBtn = summaryHeader?.querySelector('#project-switch-edit-btn-header');
+    const headerEyeBtn = summaryHeader?.querySelector('#project-switch-view-btn-header');
+    const applyButtonVisibility = (el, visible) => {
+      if (!el) return;
+      el.hidden = !visible;
+      el.style.display = visible ? '' : 'none';
+    };
+    ui.projectFormCard?.classList.toggle('form-mode-view', readOnly);
+    ui.projectFormCard?.classList.toggle('form-mode-edit', !readOnly);
+
+    ui.projectSaveBtn.hidden = readOnly;
+    ui.projectSaveBtn.style.display = readOnly ? 'none' : '';
+    if (ui.projectSwitchEditBtn) ui.projectSwitchEditBtn.hidden = !readOnly;
+    applyButtonVisibility(headerSaveBtn, isSavedProject && !readOnly);
+    applyButtonVisibility(headerPenBtn, isSavedProject && readOnly);
+    applyButtonVisibility(headerEyeBtn, isSavedProject && !readOnly);
+
+    [fields.projectName, fields.clientBusinessPartnerId, fields.clientContactIds, fields.projectType, fields.projectStatus, fields.deliveryPartnerBusinessPartnerId, fields.deliveryPartnerContactIds, fields.contractWithBranchId, fields.startDate, fields.endDate]
+      .forEach((el) => { if (el) el.disabled = readOnly; });
+    fields.managerId.disabled = true;
+
+    resetSelect('manager', fields.managerId);
+    resetSelect('clientBusinessPartner', fields.clientBusinessPartnerId);
+    resetSelect('clientContacts', fields.clientContactIds);
+    resetSelect('deliveryPartnerBusinessPartner', fields.deliveryPartnerBusinessPartnerId);
+    resetSelect('deliveryPartnerContacts', fields.deliveryPartnerContactIds);
+    resetSelect('contractWithBranch', fields.contractWithBranchId);
+    resetSelect('projectType', fields.projectType);
+    resetSelect('projectStatus', fields.projectStatus);
+
+    console.debug(`[applyProjectModeUi] context=${context} mode=${projectViewMode} saved=${isSavedProject} refs(save=${Boolean(headerSaveBtn)} pen=${Boolean(headerPenBtn)} eye=${Boolean(headerEyeBtn)}) counts(save=${document.querySelectorAll('#project-save-btn-header').length} pen=${document.querySelectorAll('#project-switch-edit-btn-header').length} eye=${document.querySelectorAll('#project-switch-view-btn-header').length}) saveHidden=${headerSaveBtn?.hidden} saveDisplay=${headerSaveBtn?.style.display} penHidden=${headerPenBtn?.hidden} penDisplay=${headerPenBtn?.style.display} eyeHidden=${headerEyeBtn?.hidden} eyeDisplay=${headerEyeBtn?.style.display} nameDisabled=${fields.projectName.disabled} clientDisabled=${fields.clientBusinessPartnerId.disabled}`);
+    updateProjectWorkspaceUi(`applyProjectModeUi:${context}`);
+  };
 
   const persistProjectPlanningIfEditing = async () => {
     if (!fields.projectId.value) return;
@@ -294,11 +1275,50 @@ if (!isBrowserRuntime) {
     if (ui.showProjectMilestoneFormBtn) ui.showProjectMilestoneFormBtn.hidden = !showPlanning;
     if (ui.projectPhaseFormRow) ui.projectPhaseFormRow.hidden = !showPlanning || !showProjectPhaseForm;
     if (ui.projectMilestoneFormRow) ui.projectMilestoneFormRow.hidden = !showPlanning || !showProjectMilestoneForm;
+    updateProjectStatusUi();
   };
 
   const findConsultantById = (id) => consultants.find((consultant) => Number(consultant.id) === Number(id));
+  const findBusinessPartnerById = (id) => businessPartners.find((partner) => Number(partner.id) === Number(id));
+  const businessPartnerTypeById = (id) => businessPartnerTypes.find((type) => Number(type.id) === Number(id));
+  const businessPartnerTypeName = (id) => businessPartnerTypeById(id)?.name || '—';
   const consultantNameById = (id) => findConsultantById(id)?.name || '—';
   const areaNameById = (id) => areas.find((area) => Number(area.id) === Number(id))?.name || '—';
+  const projectPositionAreaLabel = (position) => {
+    if (position?.areaId) {
+      const areaName = areaNameById(position.areaId);
+      if (areaName && areaName !== '—') return areaName;
+    }
+    return 'Unassigned';
+  };
+  const sortProjectPositionAreaGroups = (groups) => {
+    const normalized = (value) => String(value || '').trim().toLowerCase();
+    const preferredRanks = new Map([
+      ['management', 0],
+      ['tm (transport management)', 1],
+      ['ewm (extended warehouse management)', 2],
+      ['yl (yard logistics)', 3]
+    ]);
+    const developmentLabel = 'development';
+
+    return [...groups].sort((a, b) => {
+      const aLabel = normalized(a.label);
+      const bLabel = normalized(b.label);
+
+      const aIsDevelopment = aLabel === developmentLabel;
+      const bIsDevelopment = bLabel === developmentLabel;
+      if (aIsDevelopment && !bIsDevelopment) return 1;
+      if (!aIsDevelopment && bIsDevelopment) return -1;
+
+      const aRank = preferredRanks.has(aLabel) ? preferredRanks.get(aLabel) : null;
+      const bRank = preferredRanks.has(bLabel) ? preferredRanks.get(bLabel) : null;
+      if (aRank !== null && bRank !== null) return aRank - bRank;
+      if (aRank !== null) return -1;
+      if (bRank !== null) return 1;
+
+      return a.label.localeCompare(b.label);
+    });
+  };
   const roleNameById = (id) => roles.find((role) => Number(role.id) === Number(id))?.name || '—';
   const formatDate = (value) => (value ? new Date(value).toLocaleDateString() : '—');
   const formatSalary = (value) => Number(value).toLocaleString('en-IE', { style: 'currency', currency: 'EUR' });
@@ -390,6 +1410,13 @@ if (!isBrowserRuntime) {
     return d ? d.toLocaleDateString(undefined, { month: 'long', year: 'numeric' }) : monthStart;
   };
 
+  const weekOfMonthLabel = (monthStart, weekIndex) => {
+    const monthWeeks = buildMonthWeeks(monthStart);
+    if (!monthWeeks.length) return '';
+    const safeIndex = Math.max(0, Math.min(weekIndex, monthWeeks.length - 1));
+    return `Week ${safeIndex + 1}`;
+  };
+
   const firstMondayForMonth = (year, monthIndex) => {
     const first = new Date(year, monthIndex, 1);
     const day = first.getDay();
@@ -431,9 +1458,7 @@ if (!isBrowserRuntime) {
   };
 
   async function refreshTimeTrackingConsultantSelectFromApi() {
-    const select = document.getElementById('time-tracking-consultant-select');
-    console.log('refreshTimeTrackingConsultantSelectFromApi called');
-    console.log('time-tracking consultant select found:', Boolean(select));
+    const select = ui.timeTrackingConsultantSelect;
     if (!select) return;
 
     const candidateBases = [
@@ -459,18 +1484,16 @@ if (!isBrowserRuntime) {
       if (!data) throw lastError || new Error('Unable to fetch consultants');
 
       timeTrackingConsultants = Array.isArray(data?.consultants) ? data.consultants : [];
-      console.log('Loaded consultants:', timeTrackingConsultants.length);
       rebuildTimeTrackingConsultantSelect();
     } catch (error) {
       console.error('Failed loading consultants for time tracking:', error);
       timeTrackingConsultants = Array.isArray(consultants) ? consultants : [];
-      console.log('Loaded consultants (fallback cache):', timeTrackingConsultants.length);
       rebuildTimeTrackingConsultantSelect();
     }
   }
 
   function rebuildTimeTrackingConsultantSelect() {
-    const select = document.getElementById('time-tracking-consultant-select');
+    const select = ui.timeTrackingConsultantSelect;
     if (!select) return;
 
     const current = Number(activeTimesheetConsultantId || 0);
@@ -496,7 +1519,6 @@ if (!isBrowserRuntime) {
       hasRequestedTimesheetLoad = false;
     }
 
-    console.log('Select options count:', select.options.length);
     updateTimeTrackingListVisibility();
   }
 
@@ -504,8 +1526,16 @@ if (!isBrowserRuntime) {
     const hasConsultant = Boolean(activeTimesheetConsultantId);
     const hasLoaded = Boolean(hasRequestedTimesheetLoad);
     if (ui.loadTimesheetsBtn) ui.loadTimesheetsBtn.hidden = !hasConsultant;
-    if (ui.timesheetMonthCount) ui.timesheetMonthCount.hidden = !(hasConsultant && hasLoaded);
+    if (ui.timesheetMonthCount) ui.timesheetMonthCount.hidden = true;
     if (ui.timesheetMonthList) ui.timesheetMonthList.hidden = !(hasConsultant && hasLoaded);
+    if (ui.timesheetToggleOlderBtn && (!hasConsultant || !hasLoaded)) ui.timesheetToggleOlderBtn.hidden = true;
+  };
+
+  const normalizedTimesheetStatus = (status) => {
+    const raw = String(status || '').trim().toLowerCase();
+    if (raw === 'in progress') return { label: 'In Progress', className: 'timesheet-status-in-progress' };
+    if (raw === 'completed') return { label: 'Completed', className: 'timesheet-status-completed' };
+    return { label: 'Draft', className: 'timesheet-status-draft' };
   };
 
   const renderTimesheetMonths = () => {
@@ -513,43 +1543,47 @@ if (!isBrowserRuntime) {
     ui.timesheetMonthList.innerHTML = '';
     const hasConsultantSelected = Boolean(activeTimesheetConsultantId);
     if (!hasConsultantSelected) {
-      ui.timesheetMonthCount.textContent = '';
+      if (ui.timesheetMonthCount) ui.timesheetMonthCount.hidden = true;
+      if (ui.timesheetToggleOlderBtn) ui.timesheetToggleOlderBtn.hidden = true;
       ui.timesheetsEmptyState.hidden = true;
       ui.timesheetsEmptyState.textContent = 'Select a consultant to load monthly timesheets.';
       updateTimeTrackingListVisibility();
       return;
     }
     if (!hasRequestedTimesheetLoad) {
-      ui.timesheetMonthCount.textContent = '';
+      if (ui.timesheetMonthCount) ui.timesheetMonthCount.hidden = true;
+      if (ui.timesheetToggleOlderBtn) ui.timesheetToggleOlderBtn.hidden = true;
       ui.timesheetsEmptyState.hidden = true;
       ui.timesheetsEmptyState.textContent = '';
       updateTimeTrackingListVisibility();
       return;
     }
-    ui.timesheetMonthCount.textContent = timesheetMonths.length ? `${timesheetMonths.length} month(s)` : '';
-    ui.timesheetsEmptyState.hidden = Boolean(timesheetMonths.length);
-    ui.timesheetsEmptyState.textContent = 'No monthly timesheets found for the selected consultant.';
+    const sortedMonths = [...timesheetMonths].sort((a, b) => String(b.monthStart || '').localeCompare(String(a.monthStart || '')));
+    const recentMonths = sortedMonths.slice(0, 2);
+    const olderMonths = sortedMonths.slice(2);
+    const visibleOlderMonths = olderMonths.slice(0, visibleOlderTimesheetCount);
+    const visibleMonths = [...recentMonths, ...visibleOlderMonths];
+    const hasMoreOlderMonths = olderMonths.length > visibleOlderMonths.length;
+
+    if (ui.timesheetToggleOlderBtn) {
+      const canShowToggle = Boolean(activeTimesheetConsultantId) && hasRequestedTimesheetLoad;
+      ui.timesheetToggleOlderBtn.hidden = !canShowToggle || !hasMoreOlderMonths;
+      ui.timesheetToggleOlderBtn.textContent = 'See older Timesheets';
+    }
+
+    const emptyMessage = hasMoreOlderMonths
+      ? 'No timesheets for the current or previous month. Click "See older Timesheets" to view earlier months.'
+      : 'No monthly timesheets found for the selected consultant.';
+    ui.timesheetsEmptyState.hidden = Boolean(visibleMonths.length);
+    ui.timesheetsEmptyState.textContent = emptyMessage;
     updateTimeTrackingListVisibility();
-    timesheetMonths.forEach((month) => {
+    visibleMonths.forEach((month) => {
+      const status = normalizedTimesheetStatus(month.status);
       const row = document.createElement('div');
-      row.className = 'timesheet-month-row';
-      row.innerHTML = `<div class="timesheet-month-meta"><div class="timesheet-month-title">${month.label}</div><div class="grey-text">Status: ${month.status || 'Draft'}</div></div><div class="timesheet-actions"><button class="btn" type="button" data-action="open">Open</button><button class="btn-flat red-text" type="button" data-action="delete">Delete</button></div>`;
+      row.className = `timesheet-month-row ${status.className}`;
+      row.innerHTML = `<div class="timesheet-month-meta"><div class="timesheet-month-title">${month.label}</div><div class="grey-text">Status: ${status.label}</div></div><div class="timesheet-actions"><button class="btn" type="button" data-action="open">Open</button></div>`;
       row.querySelector('[data-action="open"]').addEventListener('click', async () => {
         await openMonthlyTimesheet(month.monthStart);
-      });
-      row.querySelector('[data-action="delete"]').addEventListener('click', async () => {
-        if (!window.confirm(`Delete timesheet ${month.label}? This removes all lines and entries.`)) return;
-        try {
-          await request(`/api/monthly-timesheets?consultantId=${activeTimesheetConsultantId}&month=${month.monthStart.slice(0, 7)}`, { method: 'DELETE' });
-          toast('Timesheet deleted', 'teal darken-1');
-          await loadTimesheetMonths(activeTimesheetConsultantId);
-          if (activeTimesheet && activeTimesheet.monthStart === month.monthStart) {
-            activeTimesheet = null;
-            setTimeTrackingView({ showList: true });
-          }
-        } catch (error) {
-          toast(error.message || 'Failed to delete timesheet', 'red darken-1');
-        }
       });
       ui.timesheetMonthList.appendChild(row);
     });
@@ -566,13 +1600,167 @@ if (!isBrowserRuntime) {
     renderTimesheetMonths();
   };
 
+  const saveActiveTimesheetStatus = async (status) => {
+    if (!activeTimesheet?.timesheetId) return;
+    await request('/api/monthly-timesheets/status', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ timesheetId: activeTimesheet.timesheetId, status })
+    });
+    activeTimesheet.status = status;
+    timesheetMonths = timesheetMonths.map((month) => (
+      Number(month.timesheetId) === Number(activeTimesheet.timesheetId)
+        ? { ...month, status }
+        : month
+    ));
+    refreshTimesheetDetailControls();
+    toast(`Timesheet saved as ${status}`, 'teal darken-1');
+  };
+
+  const getTimesheetDisplayStatus = (status) => {
+    const raw = String(status || '').trim().toLowerCase();
+    if (raw === 'completed') return 'Completed';
+    if (raw === 'in progress') return 'In Progress';
+    return 'Draft';
+  };
+
+  const isTimesheetLocked = (status) => getTimesheetDisplayStatus(status) === 'Completed';
+
+  const refreshTimesheetDetailControls = () => {
+    const locked = isTimesheetLocked(activeTimesheet?.status);
+    if (ui.timesheetSummaryStatus) ui.timesheetSummaryStatus.textContent = `• Status: ${getTimesheetDisplayStatus(activeTimesheet?.status)}`;
+    if (ui.timesheetSaveDraftBtn) {
+      ui.timesheetSaveDraftBtn.hidden = locked;
+      ui.timesheetSaveDraftBtn.classList.toggle('timesheet-hidden', locked);
+    }
+    if (ui.timesheetSaveCompletedBtn) {
+      ui.timesheetSaveCompletedBtn.hidden = locked;
+      ui.timesheetSaveCompletedBtn.classList.toggle('timesheet-hidden', locked);
+    }
+    if (ui.timesheetReopenBtn) {
+      ui.timesheetReopenBtn.hidden = !locked;
+      ui.timesheetReopenBtn.classList.toggle('timesheet-hidden', !locked);
+    }
+    if (ui.addManualTimesheetLineBtn) ui.addManualTimesheetLineBtn.disabled = locked;
+  };
+
+  const timesheetLineDescription = (line) => {
+    if (line.projectName) return line.projectName;
+    if (!line.isManual) return line.activity || 'Time Off';
+    return line.activity || 'Manual';
+  };
+
+  const lineTotalForDates = (line, dates) => dates.reduce((sum, dateIso) => sum + Number(line.entries?.[dateIso] || 0), 0);
+  const lineMonthTotal = (line) => lineTotalForDates(line, Object.keys(line.entries || {}));
+
+  const renderTimesheetSummary = () => {
+    if (!ui.timesheetSummaryWrap || !activeTimesheet) return;
+    const lines = activeTimesheet.lines || [];
+    const table = document.createElement('table');
+    table.className = 'striped responsive-table timesheet-summary-table';
+    table.innerHTML = '<thead><tr><th>Description</th><th class="right-align">Total Hours</th></tr></thead>';
+    const tbody = document.createElement('tbody');
+    lines.forEach((line) => {
+      const tr = document.createElement('tr');
+      tr.dataset.lineId = String(line.id);
+      tr.innerHTML = `<td>${timesheetLineDescription(line)}</td><td class="right-align" data-role="month-total">${lineMonthTotal(line).toFixed(1)}</td>`;
+      tbody.appendChild(tr);
+    });
+    table.appendChild(tbody);
+    ui.timesheetSummaryWrap.innerHTML = '';
+    ui.timesheetSummaryWrap.appendChild(table);
+    refreshTimesheetDetailControls();
+  };
+
+  const updateTimesheetSummaryRowTotal = (line) => {
+    if (!ui.timesheetSummaryWrap) return;
+    const totalCell = ui.timesheetSummaryWrap.querySelector(`tr[data-line-id="${line.id}"] [data-role="month-total"]`);
+    if (totalCell) totalCell.textContent = lineMonthTotal(line).toFixed(1);
+  };
+
+  const populateManualLineDayOffTypeSelect = () => {
+    if (!ui.manualLineDayOffTypeSelect) return;
+    const select = ui.manualLineDayOffTypeSelect;
+    select.innerHTML = '<option value="">Select day off type...</option>';
+    [...(dayOffTypes || [])]
+      .sort((a, b) => String(a.name || '').localeCompare(String(b.name || '')))
+      .forEach((type) => {
+        select.add(new Option(type.name, type.name));
+      });
+    select.value = '';
+  };
+
+  const printActiveTimesheet = () => {
+    if (!activeTimesheet) return;
+    const consultantName = findConsultantById(activeTimesheet.consultantId)?.name || 'Consultant';
+    const title = `${consultantName} • ${monthLabel(activeTimesheet.monthStart)}`;
+    const status = activeTimesheet.status || 'Draft';
+    const monthWeeks = buildMonthWeeks(activeTimesheet.monthStart);
+    const dayNames = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+    const lines = activeTimesheet.lines || [];
+    const summaryRows = lines
+      .map((line) => `<tr><td>${timesheetLineDescription(line)}</td><td>${lineMonthTotal(line).toFixed(1)}</td></tr>`)
+      .join('');
+    const weekSections = monthWeeks.map((weekDays, weekIndex) => {
+      const weekStart = weekDays[0];
+      const weekEnd = weekDays[6];
+      const dayKeys = weekDays.map((day) => formatIsoDate(day));
+      const headers = weekDays.map((day, idx) => `<th>${dayNames[idx]}<br>${day.getDate()}</th>`).join('');
+      const rows = lines.map((line) => {
+        const cells = dayKeys.map((key) => `<td>${Number(line.entries?.[key] || 0) ? Number(line.entries?.[key] || 0).toFixed(1) : ''}</td>`).join('');
+        return `<tr><td>${timesheetLineDescription(line)}</td>${cells}<td>${lineTotalForDates(line, dayKeys).toFixed(1)}</td></tr>`;
+      }).join('');
+      return `
+        <h3>Week ${weekIndex + 1}: ${formatDate(weekStart)} - ${formatDate(weekEnd)}</h3>
+        <table>
+          <thead><tr><th>Description</th>${headers}<th>Total</th></tr></thead>
+          <tbody>${rows}</tbody>
+        </table>
+      `;
+    }).join('');
+    const printWindow = window.open('', '_blank', 'width=1100,height=800');
+    if (!printWindow) {
+      toast('Please allow pop-ups to print the timesheet', 'orange darken-2');
+      return;
+    }
+    printWindow.document.write(`
+      <html><head><title>${title}</title>
+      <style>
+        body { font-family: Arial, sans-serif; margin: 24px; color: #263238; }
+        h1, h2, h3 { margin: 0 0 10px; }
+        .meta { margin-bottom: 16px; color: #455a64; }
+        table { width: 100%; border-collapse: collapse; margin-bottom: 18px; }
+        th, td { border: 1px solid #cfd8dc; padding: 6px 8px; text-align: left; font-size: 12px; }
+        thead th { background: #eceff1; }
+      </style></head>
+      <body>
+        <h1>${title}</h1>
+        <div class="meta">Status: ${status}</div>
+        <h2>Month Summary</h2>
+        <table><thead><tr><th>Description</th><th>Total Hours</th></tr></thead><tbody>${summaryRows}</tbody></table>
+        <h2>Week Details</h2>
+        ${weekSections}
+      </body></html>
+    `);
+    printWindow.document.close();
+    printWindow.focus();
+    printWindow.print();
+  };
+
   const renderTimesheetWeek = () => {
     if (!activeTimesheet || !ui.timesheetTableWrap) return;
     const consultant = findConsultantById(activeTimesheet.consultantId);
+    const locked = isTimesheetLocked(activeTimesheet.status);
     const monthWeeks = buildMonthWeeks(activeTimesheet.monthStart);
+    const monthStartDate = parseIsoDate(activeTimesheet.monthStart);
     const currentWeek = monthWeeks[activeTimesheetWeekIndex] || [];
     const weekStart = currentWeek[0];
     const weekEnd = currentWeek[6];
+    const detailMonthLabel = monthLabel(activeTimesheet.monthStart);
+    const detailWeekLabel = weekOfMonthLabel(activeTimesheet.monthStart, activeTimesheetWeekIndex);
+    if (ui.timesheetDetailTitle) {
+      ui.timesheetDetailTitle.textContent = `${consultant?.name || 'Consultant'} • ${detailMonthLabel}${detailWeekLabel ? ` - ${detailWeekLabel}` : ''}`;
+    }
     ui.timesheetWeekLabel.textContent = weekStart && weekEnd ? `${formatDate(weekStart)} - ${formatDate(weekEnd)}` : '';
     ui.timesheetPrevWeekBtn.disabled = activeTimesheetWeekIndex <= 0;
     ui.timesheetNextWeekBtn.disabled = activeTimesheetWeekIndex >= monthWeeks.length - 1;
@@ -588,7 +1776,8 @@ if (!isBrowserRuntime) {
     const tbody = document.createElement('tbody');
     (activeTimesheet.lines || []).forEach((line) => {
       const tr = document.createElement('tr');
-      const lineLabel = line.projectName || 'Manual';
+      tr.dataset.lineId = String(line.id);
+      const lineLabel = timesheetLineDescription(line);
       const activityInput = line.isManual ? `<input class="line-activity-input" type="text" value="${(line.activity || '').replace(/"/g, '&quot;')}" disabled/>` : (line.activity || '');
       tr.innerHTML = `<td><strong>${lineLabel}</strong>${line.isManual ? `<div>${activityInput}</div>` : ''}</td>`;
       let total = 0;
@@ -596,15 +1785,23 @@ if (!isBrowserRuntime) {
         const dayIso = formatIsoDate(day);
         const td = document.createElement('td');
         const context = dayContextForConsultant(consultant, day);
-        if (context.className) td.classList.add(context.className);
+        const holiday = holidayByDateForConsultant(consultant, day);
+        const inMonth = monthStartDate ? (day.getMonth() === monthStartDate.getMonth() && day.getFullYear() === monthStartDate.getFullYear()) : false;
+        const isWeekend = day.getDay() === 0 || day.getDay() === 6;
+        if (inMonth && isWeekend) td.classList.add('timesheet-weekend');
+        if (!inMonth) td.classList.add('timesheet-out-of-month');
+        if (context.className && context.className !== 'context-weekend') td.classList.add(context.className);
         const value = Number(line.entries?.[dayIso] || 0);
         total += value;
-        const inMonth = day.getMonth() === parseIsoDate(activeTimesheet.monthStart).getMonth();
+        const holidayLabel = holiday?.name ? `<div class="timesheet-holiday-label">${holiday.name}</div>` : '';
         td.innerHTML = inMonth
-          ? `<input type="number" min="0" max="24" step="0.5" value="${value || ''}" /><div class="day-context">${context.label}</div>`
+          ? `<input class="timesheet-entry-input ${locked ? 'timesheet-entry-input--locked' : ''}" type="number" min="0" max="24" step="0.5" value="${value || ''}" ${locked ? 'disabled' : ''} />${holidayLabel}`
           : '<span class="grey-text">—</span>';
+        if (locked && inMonth) td.classList.add('timesheet-locked-cell');
         const input = td.querySelector('input');
         if (input) {
+          input.dataset.lineId = String(line.id);
+          input.dataset.dayIso = dayIso;
           input.addEventListener('change', async () => {
             const hours = Number(input.value || 0);
             if (Number.isNaN(hours) || hours < 0 || hours > 24) {
@@ -619,6 +1816,10 @@ if (!isBrowserRuntime) {
                 body: JSON.stringify({ lineId: line.id, date: dayIso, hours })
               });
               line.entries = { ...(line.entries || {}), [dayIso]: hours };
+              const updatedTotal = currentWeek.reduce((sum, weekDay) => sum + Number(line.entries?.[formatIsoDate(weekDay)] || 0), 0);
+              const rowTotalCell = tr.querySelector('[data-role="week-total"]');
+              if (rowTotalCell) rowTotalCell.textContent = updatedTotal.toFixed(1);
+              updateTimesheetSummaryRowTotal(line);
             } catch (error) {
               toast(error.message || 'Failed to save hours', 'red darken-1');
             }
@@ -627,6 +1828,7 @@ if (!isBrowserRuntime) {
         tr.appendChild(td);
       });
       const totalCell = document.createElement('td');
+      totalCell.dataset.role = 'week-total';
       totalCell.textContent = total.toFixed(1);
       tr.appendChild(totalCell);
       tbody.appendChild(tr);
@@ -634,6 +1836,7 @@ if (!isBrowserRuntime) {
     table.appendChild(tbody);
     ui.timesheetTableWrap.innerHTML = '';
     ui.timesheetTableWrap.appendChild(table);
+    renderTimesheetSummary();
   };
 
   const openMonthlyTimesheet = async (monthStartIso) => {
@@ -648,7 +1851,6 @@ if (!isBrowserRuntime) {
       const detail = await request(`/api/monthly-timesheets?consultantId=${activeTimesheetConsultantId}&month=${monthStartIso.slice(0, 7)}`);
       activeTimesheet = detail;
       activeTimesheetWeekIndex = 0;
-      ui.timesheetDetailTitle.textContent = `${consultant?.name || 'Consultant'} • ${monthLabel(monthStartIso)}`;
       setTimeTrackingView({ showList: false });
       renderTimesheetWeek();
       await loadTimesheetMonths(activeTimesheetConsultantId);
@@ -1167,15 +2369,9 @@ if (!isBrowserRuntime) {
     };
 
     const buildAreaGroups = (members) => {
-      const tmAreaName = 'TM (Transport Management)';
-      const managementLabel = 'Management';
-      const buckets = {
-        management: { label: managementLabel, members: [], ids: new Set() },
-        tm: { label: tmAreaName, members: [], ids: new Set() }
-      };
-      const dynamicBuckets = new Map();
+      const buckets = new Map();
       const pushUnique = (bucket, member, consultant) => {
-        const id = Number(member.consultantId);
+        const id = member.consultantId ? `consultant-${Number(member.consultantId)}` : `position-${String(member.positionId || Math.random())}`;
         if (bucket.ids.has(id)) return;
         bucket.ids.add(id);
         bucket.members.push({ member, consultant });
@@ -1183,24 +2379,12 @@ if (!isBrowserRuntime) {
 
       members.forEach((member) => {
         const consultant = findConsultantById(member.consultantId);
-        const areaNames = (consultant?.areaNames || []).length ? consultant.areaNames : (consultant?.areaIds || []).map(areaNameById).filter(Boolean);
-        const lowerAreas = areaNames.map((name) => String(name).trim().toLowerCase());
-
-        if (member.projectRole === 'Project Manager' || lowerAreas.includes(managementLabel.toLowerCase())) {
-          pushUnique(buckets.management, member, consultant);
-        }
-        if (areaNames.includes(tmAreaName)) {
-          pushUnique(buckets.tm, member, consultant);
-        }
-        areaNames.forEach((name) => {
-          const normalized = String(name).trim().toLowerCase();
-          if (!normalized || normalized == tmAreaName.toLowerCase() || normalized === managementLabel.toLowerCase()) return;
-          if (!dynamicBuckets.has(name)) dynamicBuckets.set(name, { label: name, members: [], ids: new Set() });
-          pushUnique(dynamicBuckets.get(name), member, consultant);
-        });
+        const areaLabel = projectPositionAreaLabel(member);
+        if (!buckets.has(areaLabel)) buckets.set(areaLabel, { label: areaLabel, members: [], ids: new Set() });
+        pushUnique(buckets.get(areaLabel), member, consultant);
       });
 
-      return [buckets.management, buckets.tm, ...Array.from(dynamicBuckets.values()).sort((a, b) => a.label.localeCompare(b.label))]
+      return sortProjectPositionAreaGroups(Array.from(buckets.values()))
         .filter((group) => group.members.length);
     };
 
@@ -1210,7 +2394,7 @@ if (!isBrowserRuntime) {
       merged.forEach((member) => {
         const consultant = findConsultantById(member.consultantId);
         container.appendChild(createTimelineRow({
-          label: consultant ? consultant.name : `Consultant ${member.consultantId}`,
+          label: consultant ? consultant.name : `Open Position – ${member.projectRole || 'Project Position'}`,
           startDate: parseIsoDate(member.startDate) || projectStart,
           endDate: parseIsoDate(member.endDate) || projectEnd,
           consultant,
@@ -1255,7 +2439,7 @@ if (!isBrowserRuntime) {
 
       group.members.forEach(({ member, consultant }) => {
         panel.appendChild(createTimelineRow({
-          label: consultant ? consultant.name : `Consultant ${member.consultantId}`,
+          label: consultant ? consultant.name : `Open Position – ${member.projectRole || 'Project Position'}`,
           startDate: parseIsoDate(member.startDate) || projectStart,
           endDate: parseIsoDate(member.endDate) || projectEnd,
           consultant,
@@ -1558,27 +2742,70 @@ if (!isBrowserRuntime) {
   };
 
   const updateAssignedConsultantsSummary = () => {
-    ui.assignedConsultantsSummary.textContent = selectedProjectAssignments.length
-      ? `${selectedProjectAssignments.length} consultant${selectedProjectAssignments.length === 1 ? '' : 's'} assigned`
-      : 'No consultants assigned yet.';
+    const assignedCount = selectedProjectAssignments
+      .filter((item) => getProjectPositionDisplayStatus(item) === 'Assigned').length;
+    ui.assignedConsultantsSummary.textContent = `${assignedCount} position${assignedCount === 1 ? '' : 's'} assigned`;
   };
 
-  const rebuildProjectSelects = ({ managerId = '' } = {}) => {
+  const rebuildProjectSelects = ({ managerId = '', projectType = '', clientBusinessPartnerId = '', clientContactIds = [], deliveryPartnerBusinessPartnerId = '', deliveryPartnerContactIds = [], contractWithBranchId = '' } = {}) => {
     fields.managerId.innerHTML = '<option value="" disabled selected>Select a manager</option>';
     managerCandidates().forEach((consultant) => fields.managerId.add(new Option(consultant.name, consultant.id, false, Number(managerId) === Number(consultant.id))));
+
+    const clientTypeId = businessPartnerTypes.find((type) => String(type.name || '').toLowerCase() === 'client')?.id;
+    const thirdPartyTypeId = businessPartnerTypes.find((type) => String(type.name || '').toLowerCase() === 'third party')?.id;
+    fields.clientBusinessPartnerId.innerHTML = '<option value="" selected>Select client</option>';
+    businessPartners
+      .filter((item) => !clientTypeId || Number(item.businessPartnerTypeId) === Number(clientTypeId))
+      .forEach((item) => fields.clientBusinessPartnerId.add(new Option(item.companyName, item.id, false, Number(clientBusinessPartnerId) === Number(item.id))));
+
+    fields.deliveryPartnerBusinessPartnerId.innerHTML = '<option value="" selected>No delivery partner</option>';
+    businessPartners
+      .filter((item) => !thirdPartyTypeId || Number(item.businessPartnerTypeId) === Number(thirdPartyTypeId))
+      .forEach((item) => fields.deliveryPartnerBusinessPartnerId.add(new Option(item.companyName, item.id, false, Number(deliveryPartnerBusinessPartnerId) === Number(item.id))));
+
+    const selectedClient = findBusinessPartnerById(clientBusinessPartnerId);
+    fields.clientContactIds.innerHTML = '';
+    (selectedClient?.contacts || []).forEach((contact) => {
+      const label = `${contact.name || ''} ${contact.lastName || ''}`.trim() || contact.email || `Contact ${contact.id}`;
+      fields.clientContactIds.add(new Option(label, contact.id, false, clientContactIds.map(Number).includes(Number(contact.id))));
+    });
+
+    const selectedDelivery = findBusinessPartnerById(deliveryPartnerBusinessPartnerId);
+    fields.deliveryPartnerContactIds.innerHTML = '';
+    (selectedDelivery?.contacts || []).forEach((contact) => {
+      const label = `${contact.name || ''} ${contact.lastName || ''}`.trim() || contact.email || `Contact ${contact.id}`;
+      fields.deliveryPartnerContactIds.add(new Option(label, contact.id, false, deliveryPartnerContactIds.map(Number).includes(Number(contact.id))));
+    });
+
+    fields.projectType.innerHTML = '<option value="" disabled>Select type</option>';
+    projectTypes.forEach((type) => fields.projectType.add(new Option(type.name, type.name, false, String(projectType) === String(type.name))));
+    if (projectType && !projectTypes.some((type) => String(type.name) === String(projectType))) {
+      fields.projectType.add(new Option(`${projectType} (Legacy)`, projectType, false, true));
+    }
+    fields.contractWithBranchId.innerHTML = '<option value="" selected>No company branch</option>';
+    companyBranches.forEach((branch) => fields.contractWithBranchId.add(new Option(branch.name, branch.id, false, Number(contractWithBranchId) === Number(branch.id))));
+
     resetSelect('manager', fields.managerId);
+    resetSelect('clientBusinessPartner', fields.clientBusinessPartnerId);
+    resetSelect('clientContacts', fields.clientContactIds);
+    resetSelect('deliveryPartnerBusinessPartner', fields.deliveryPartnerBusinessPartnerId);
+    resetSelect('deliveryPartnerContacts', fields.deliveryPartnerContactIds);
+    resetSelect('contractWithBranch', fields.contractWithBranchId);
     resetSelect('projectType', fields.projectType);
   };
 
-  const rebuildConsultantSelects = ({ areaIds = [], companyRoleId = '', holidayLocationId = '' } = {}) => {
+  const rebuildConsultantSelects = ({ areaIds = [], companyRoleId = '', companyBranchId = '', holidayLocationId = '' } = {}) => {
     fields.consultantAreaIds.innerHTML = '';
     areas.forEach((area) => fields.consultantAreaIds.add(new Option(area.name, area.id, false, areaIds.map(Number).includes(Number(area.id)))));
     fields.consultantCompanyRoleId.innerHTML = '<option value="" disabled selected>Select company role</option>';
     roles.forEach((role) => fields.consultantCompanyRoleId.add(new Option(role.name, role.id, false, Number(companyRoleId) === Number(role.id))));
+    fields.consultantCompanyBranchId.innerHTML = '<option value="" selected>No company branch</option>';
+    companyBranches.forEach((branch) => fields.consultantCompanyBranchId.add(new Option(branch.name, branch.id, false, Number(companyBranchId) === Number(branch.id))));
     fields.consultantHolidayLocationId.innerHTML = '<option value="" selected>No holiday location</option>';
     holidayLocations.forEach((location) => fields.consultantHolidayLocationId.add(new Option(location.label, location.id, false, Number(holidayLocationId) === Number(location.id))));
     resetSelect('consultantAreas', fields.consultantAreaIds);
     resetSelect('consultantCompanyRole', fields.consultantCompanyRoleId);
+    resetSelect('consultantCompanyBranch', fields.consultantCompanyBranchId);
     resetSelect('consultantHolidayLocation', fields.consultantHolidayLocationId);
   };
 
@@ -1593,8 +2820,13 @@ if (!isBrowserRuntime) {
     areas.forEach((area) => ui.consultantAreaFilterModal.add(new Option(area.name, area.id, false, Number(modalSelectedAreaId) === Number(area.id))));
     ui.projectRoleModal.innerHTML = '<option value="" selected disabled>Select project role</option>';
     roles.forEach((role) => ui.projectRoleModal.add(new Option(role.name, role.name)));
+    if (ui.projectPositionStatusModal) {
+      ui.projectPositionStatusModal.innerHTML = '';
+      positionStatusValues.forEach((status) => ui.projectPositionStatusModal.add(new Option(status, status, false, status === 'Open')));
+    }
     resetSelect('assignmentArea', ui.consultantAreaFilterModal);
     resetSelect('assignmentRole', ui.projectRoleModal);
+    if (ui.projectPositionStatusModal) resetSelect('assignmentPositionStatus', ui.projectPositionStatusModal);
   };
 
   const rebuildMemberRoleSelect = (roleName) => {
@@ -1603,9 +2835,91 @@ if (!isBrowserRuntime) {
     resetSelect('memberRole', ui.memberProjectRoleModal);
   };
 
+  const rebuildMemberStatusSelect = (statusValue) => {
+    if (!ui.memberPositionStatusEdit) return;
+    const normalized = positionStatusValues.includes(statusValue) ? statusValue : 'Open';
+    ui.memberPositionStatusEdit.innerHTML = '';
+    positionStatusValues.forEach((status) => ui.memberPositionStatusEdit.add(new Option(status, status, false, status === normalized)));
+    resetSelect('memberPositionStatus', ui.memberPositionStatusEdit);
+  };
+
+  const rebuildMemberAreaSelect = (areaId) => {
+    if (!ui.memberAreaModal) return;
+    ui.memberAreaModal.innerHTML = '';
+    ui.memberAreaModal.add(new Option('Unassigned', '', false, !areaId));
+    areas.forEach((area) => {
+      const selected = areaId ? Number(area.id) === Number(areaId) : false;
+      ui.memberAreaModal.add(new Option(area.name, String(area.id), false, selected));
+    });
+    resetSelect('memberArea', ui.memberAreaModal);
+  };
+
+  const rebuildPositionRateCurrencySelect = (target, selectedCurrency) => {
+    if (!target) return;
+    const normalized = String(selectedCurrency || 'EUR').trim().toUpperCase() || 'EUR';
+    target.innerHTML = '';
+    positionDailyRateCurrencies.forEach((code) => target.add(new Option(code, code, false, code === normalized)));
+    resetSelect(target.id || 'positionRateCurrency', target);
+  };
+
+  const updatePositionRateVisibilityForAdd = () => {
+    const showBillable = isTimeMaterialProjectType();
+    if (ui.memberBillableRowModal) ui.memberBillableRowModal.hidden = !showBillable;
+    if (!showBillable && ui.memberBillableModal) ui.memberBillableModal.checked = false;
+    const billable = ui.memberBillableModal ? ui.memberBillableModal.checked : true;
+    const visible = showBillable && shouldShowPositionRateFields({ billable });
+    if (ui.memberDailyRateRowModal) ui.memberDailyRateRowModal.hidden = !visible;
+  };
+
+  const updatePositionRateVisibilityForEdit = ({ readOnly = false } = {}) => {
+    const showBillable = isTimeMaterialProjectType();
+    if (ui.memberBillableRowEdit) ui.memberBillableRowEdit.hidden = !showBillable;
+    if (!showBillable && ui.memberBillableEdit) ui.memberBillableEdit.checked = false;
+    const billable = ui.memberBillableEdit ? ui.memberBillableEdit.checked : true;
+    const visible = showBillable && shouldShowPositionRateFields({ billable });
+    if (ui.memberDailyRateRowEdit) ui.memberDailyRateRowEdit.hidden = !visible;
+    if (ui.memberDailyRateDisplay) {
+      ui.memberDailyRateDisplay.hidden = !visible || !readOnly;
+      if (!ui.memberDailyRateDisplay.hidden) {
+        ui.memberDailyRateDisplay.textContent = `Daily Rate: ${formatPositionDailyRate(ui.memberDailyRateEdit?.value, ui.memberDailyRateCurrencyEdit?.value)}`;
+      }
+    }
+  };
+
+  const rebuildMemberConsultantSelect = ({ areaId = null, consultantId = null, positionId = '' } = {}) => {
+    if (!ui.memberConsultantModal) return;
+    ui.memberConsultantModal.innerHTML = '';
+    ui.memberConsultantModal.add(new Option('Open Position (no consultant assigned)', '', false, !consultantId));
+
+    const blockedIds = new Set(
+      selectedProjectAssignments
+        .filter((entry) => String(entry.positionId) !== String(positionId) && entry.consultantId)
+        .map((entry) => Number(entry.consultantId))
+    );
+
+    const candidates = consultants.filter((consultant) => {
+      if (blockedIds.has(Number(consultant.id))) return false;
+      if (!areaId) return true;
+      return (consultant.areaIds || []).map(Number).includes(Number(areaId));
+    });
+
+    candidates
+      .sort((a, b) => String(a.name || '').localeCompare(String(b.name || '')))
+      .forEach((consultant) => {
+        const selected = consultantId ? Number(consultant.id) === Number(consultantId) : false;
+        ui.memberConsultantModal.add(new Option(consultant.name, String(consultant.id), false, selected));
+      });
+
+    if (consultantId && !candidates.some((consultant) => Number(consultant.id) === Number(consultantId))) {
+      ui.memberConsultantModal.value = '';
+    }
+
+    resetSelect('memberConsultant', ui.memberConsultantModal);
+  };
+
   const renderConsultantPickerList = () => {
     if (!modalSelectedAreaId) {
-      ui.consultantPickerList.innerHTML = '<p class="grey-text">Select an area to view consultants.</p>';
+      ui.consultantPickerList.innerHTML = '<p class="grey-text">Select an area to view consultants or save as an open position.</p>';
       return;
     }
     const areaId = Number(modalSelectedAreaId);
@@ -1614,11 +2928,18 @@ if (!isBrowserRuntime) {
       const matchesArea = (consultant.areaIds || []).map(Number).includes(areaId);
       return matchesArea && !assignedIds.has(Number(consultant.id));
     });
+    ui.consultantPickerList.innerHTML = '';
+    const openOption = document.createElement('p');
+    openOption.className = 'consultant-picker-item';
+    openOption.innerHTML = `<label><input type="radio" name="project-consultant-choice" data-consultant-id="" ${modalTempConsultantIds.length ? '' : 'checked'} /><span>Open Position (no consultant assigned)</span></label>`;
+    ui.consultantPickerList.appendChild(openOption);
     if (!candidates.length) {
-      ui.consultantPickerList.innerHTML = '<p class="grey-text">No unassigned consultants available in this area.</p>';
+      const info = document.createElement('p');
+      info.className = 'grey-text';
+      info.textContent = 'No available consultants in this area right now.';
+      ui.consultantPickerList.appendChild(info);
       return;
     }
-    ui.consultantPickerList.innerHTML = '';
     candidates.forEach((consultant) => {
       const item = document.createElement('p');
       item.className = 'consultant-picker-item';
@@ -1630,10 +2951,16 @@ if (!isBrowserRuntime) {
   const updateProjectMembersPanel = () => {
     ui.projectMembersList.innerHTML = '';
     syncManagerFieldWithAssignments();
-    const allMembers = [...selectedProjectAssignments];
+    const hasClosedPositions = selectedProjectAssignments.some((item) => getProjectPositionDisplayStatus(item) === 'Closed');
+    if (!hasClosedPositions) showClosedProjectPositions = false;
+    if (ui.showClosedProjectPositionsRow) ui.showClosedProjectPositionsRow.hidden = !hasClosedPositions;
+    if (ui.showClosedProjectPositionsToggle) ui.showClosedProjectPositionsToggle.checked = Boolean(showClosedProjectPositions);
+    const allMembers = showClosedProjectPositions
+      ? [...selectedProjectAssignments]
+      : selectedProjectAssignments.filter((item) => getProjectPositionDisplayStatus(item) !== 'Closed');
 
     if (!allMembers.length) {
-      ui.projectMembersList.innerHTML = '<p class="grey-text">No consultants assigned yet.</p>';
+      ui.projectMembersList.innerHTML = `<p class="grey-text">${selectedProjectAssignments.length ? 'No project positions match the current filter.' : 'No project positions yet.'}</p>`;
       refreshProjectTimeline();
       return;
     }
@@ -1641,32 +2968,40 @@ if (!isBrowserRuntime) {
     const createMemberCard = (member, consultant) => {
       const wrapper = document.createElement('div');
       wrapper.className = 'member-card';
+      const roleLabel = member.projectRole || '—';
+      const commentText = String(member.comments || '').trim();
+      const displayStatus = getProjectPositionDisplayStatus(member);
+      const consultantLabel = consultant?.name || 'Open Position';
+      const canEditPosition = projectViewMode !== 'view';
+      const hasDailyRate = member.dailyRate !== null && member.dailyRate !== undefined && member.dailyRate !== '';
+      const showDailyRate = shouldShowPositionRateFields({ billable: member.billable !== false }) && hasDailyRate;
+      const showBillable = isTimeMaterialProjectType();
+      const dailyRateLabel = showDailyRate ? formatPositionDailyRate(member.dailyRate, member.dailyRateCurrency) : '';
       wrapper.innerHTML = `
         <div class="member-header">
-          <div>
-            <strong>${consultant?.name || 'Unknown Consultant'}</strong>
-            <div class="member-meta">Project Role: ${member.projectRole || '—'}</div>
+          <div class="member-body">
+            <div class="member-title-row">
+              <strong>${consultantLabel}</strong>
+              <span class="member-role-chip">${roleLabel}</span>
+              <span class="position-status-badge ${positionStatusClassByValue(displayStatus)}">${displayStatus}</span>
+            </div>
+            <div class="member-meta member-kpi-row"><span>Allocation: ${Number(member.allocation ?? 100)}%</span>${showBillable ? `<span>Billable: ${member.billable === false ? 'No' : 'Yes'}</span>` : ''}${showDailyRate ? `<span>Daily Rate: ${dailyRateLabel}</span>` : ''}</div>
             <div class="member-meta">Dates: ${formatDate(member.startDate)} - ${formatDate(member.endDate)}</div>
-            <div class="member-meta">Allocation: ${Number(member.allocation ?? 100)}%</div>
+            ${commentText ? `<div class="member-meta">Comments: ${commentText}</div>` : ''}
           </div>
           <div>
-            <button class="btn-flat teal-text" data-action="view-member" data-id="${member.consultantId}"><i class="material-icons tiny">visibility</i></button>
-            <button class="btn-flat blue-text" data-action="edit-member" data-id="${member.consultantId}"><i class="material-icons tiny">edit</i></button><button class="btn-flat red-text" data-action="remove-member" data-id="${member.consultantId}"><i class="material-icons tiny">delete</i></button>
+            <button type="button" class="btn-flat teal-text" data-action="view-member" data-position-id="${member.positionId}"><i class="material-icons tiny">visibility</i></button>
+            ${canEditPosition ? `<button type="button" class="btn-flat blue-text" data-action="edit-member" data-position-id="${member.positionId}"><i class="material-icons tiny">edit</i></button>` : ''}
+            <button type="button" class="btn-flat red-text" data-action="remove-member" data-position-id="${member.positionId}"><i class="material-icons tiny">delete</i></button>
           </div>
         </div>
       `;
       return wrapper;
     };
 
-    const tmAreaName = 'TM (Transport Management)';
-    const managementLabel = 'Management';
-    const buckets = {
-      management: { label: managementLabel, members: [], ids: new Set() },
-      tm: { label: tmAreaName, members: [], ids: new Set() }
-    };
-    const dynamicBuckets = new Map();
+    const buckets = new Map();
     const pushUnique = (bucket, member, consultant) => {
-      const id = Number(member.consultantId);
+      const id = member.consultantId ? `consultant-${Number(member.consultantId)}` : `position-${String(member.positionId || Math.random())}`;
       if (bucket.ids.has(id)) return;
       bucket.ids.add(id);
       bucket.members.push({ member, consultant });
@@ -1674,24 +3009,12 @@ if (!isBrowserRuntime) {
 
     allMembers.forEach((member) => {
       const consultant = findConsultantById(member.consultantId);
-      const areaNames = (consultant?.areaNames || []).length ? consultant.areaNames : (consultant?.areaIds || []).map(areaNameById).filter(Boolean);
-      const lowerAreas = areaNames.map((name) => String(name).trim().toLowerCase());
-
-      if (member.projectRole === 'Project Manager' || lowerAreas.includes(managementLabel.toLowerCase())) {
-        pushUnique(buckets.management, member, consultant);
-      }
-      if (areaNames.includes(tmAreaName)) {
-        pushUnique(buckets.tm, member, consultant);
-      }
-      areaNames.forEach((name) => {
-        const normalized = String(name).trim().toLowerCase();
-        if (!normalized || normalized === tmAreaName.toLowerCase() || normalized === managementLabel.toLowerCase()) return;
-        if (!dynamicBuckets.has(name)) dynamicBuckets.set(name, { label: name, members: [], ids: new Set() });
-        pushUnique(dynamicBuckets.get(name), member, consultant);
-      });
+      const areaLabel = projectPositionAreaLabel(member);
+      if (!buckets.has(areaLabel)) buckets.set(areaLabel, { label: areaLabel, members: [], ids: new Set() });
+      pushUnique(buckets.get(areaLabel), member, consultant);
     });
 
-    const orderedGroups = [buckets.management, buckets.tm, ...Array.from(dynamicBuckets.values()).sort((a, b) => a.label.localeCompare(b.label))]
+    const orderedGroups = sortProjectPositionAreaGroups(Array.from(buckets.values()))
       .filter((group) => group.members.length);
 
     orderedGroups.forEach((group) => {
@@ -1711,23 +3034,38 @@ if (!isBrowserRuntime) {
   };
 
   const renderProjects = () => {
+    console.debug('[renderProjects] entered', { projectCount: projects.length });
     ui.projectsBody.innerHTML = '';
     projects.forEach((project) => {
-      const row = document.createElement('tr');
-      row.innerHTML = `
-        <td>${project.projectName}</td>
-        <td>${project.clientName}</td>
-        <td>${consultantNameById(project.managerConsultantId)}</td>
-        <td>${project.projectType || '—'}</td>
-        <td>${project.clientContact}</td>
-        <td><span class="chip date-chip">${formatDate(project.startDate)} → ${formatDate(project.endDate)}</span></td>
-        <td class="actions-cell">
-          <button class="btn-flat teal-text" data-action="view-project" data-id="${project.id}"><i class="material-icons tiny">visibility</i></button>
-          <button class="btn-flat blue-text" data-action="edit-project" data-id="${project.id}"><i class="material-icons tiny">edit</i></button>
-          <button class="btn-flat red-text" data-action="delete-project" data-id="${project.id}"><i class="material-icons tiny">delete</i></button>
-        </td>
-      `;
-      ui.projectsBody.appendChild(row);
+      try {
+        const row = document.createElement('tr');
+        const client = findBusinessPartnerById(project?.clientBusinessPartnerId);
+        const delivery = findBusinessPartnerById(project?.deliveryPartnerBusinessPartnerId);
+        const displayStatus = deriveProjectDisplayStatusFromData({
+          startDate: project?.startDate || '',
+          projectStatus: project?.projectStatus || 'Not Started',
+          projectPhases: Array.isArray(project?.projectPhases) ? project.projectPhases : []
+        });
+        row.innerHTML = `
+          <td>${project?.projectName || 'Untitled Project'}</td>
+          <td>${client?.companyName || '—'}</td>
+          <td><span class="status-badge ${statusClassByValue(displayStatus)}">${displayStatus}</span></td>
+          <td>${consultantNameById(project?.managerConsultantId)}</td>
+          <td>${project?.projectType || '—'}</td>
+          <td>${delivery?.companyName || '—'}</td>
+          <td><span class="chip date-chip">${formatDate(project?.startDate)} → ${formatDate(project?.endDate)}</span></td>
+          <td class="actions-cell">
+            <div class="actions-group">
+              <button class="btn-flat teal-text" data-action="view-project" data-id="${project?.id}"><i class="material-icons tiny">visibility</i></button>
+              <button class="btn-flat blue-text" data-action="edit-project" data-id="${project?.id}"><i class="material-icons tiny">edit</i></button>
+              <button class="btn-flat red-text" data-action="delete-project" data-id="${project?.id}"><i class="material-icons tiny">delete</i></button>
+            </div>
+          </td>
+        `;
+        ui.projectsBody.appendChild(row);
+      } catch (error) {
+        console.error('[renderProjects] failed for project row', { projectId: project?.id, error });
+      }
     });
     ui.projectCount.textContent = `${projects.length} project${projects.length === 1 ? '' : 's'} tracked`;
     ui.projectsEmptyState.hidden = projects.length > 0;
@@ -1762,6 +3100,8 @@ if (!isBrowserRuntime) {
         <td>${consultant.name}</td>
         <td>${(consultant.areaNames || []).join(', ') || (consultant.areaIds || []).map(areaNameById).join(', ') || '—'}</td>
         <td>${consultant.companyRole || roleNameById(consultant.companyRoleId) || '—'}</td>
+        <td>${formatMoney(consultant.salary || 0)}</td>
+        <td>${consultant.companyBranchName || '—'}</td>
         <td>${holidayLocationById(consultant.holidayLocationId)?.label || '—'}</td>
         <td>
           <button class="btn-flat teal-text" data-action="view-consultant" data-id="${consultant.id}"><i class="material-icons tiny">visibility</i></button>
@@ -1799,6 +3139,87 @@ if (!isBrowserRuntime) {
       li.innerHTML = `${type.name}<button class="btn-flat secondary-content red-text" data-action="delete-day-off-type" data-id="${type.id}"><i class="material-icons tiny">delete</i></button>`;
       ui.dayOffTypesList.appendChild(li);
     });
+
+    ui.businessPartnerTypesList.innerHTML = '';
+    businessPartnerTypes.forEach((type) => {
+      const li = document.createElement('li');
+      li.className = 'collection-item';
+      li.innerHTML = `${type.name}<button class="btn-flat secondary-content red-text" data-action="delete-business-partner-type" data-id="${type.id}"><i class="material-icons tiny">delete</i></button>`;
+      ui.businessPartnerTypesList.appendChild(li);
+    });
+
+    ui.projectTypesList.innerHTML = '';
+    projectTypes.forEach((type) => {
+      const li = document.createElement('li');
+      li.className = 'collection-item';
+      li.innerHTML = `${type.name}<button class="btn-flat secondary-content red-text" data-action="delete-project-type" data-id="${type.id}"><i class="material-icons tiny">delete</i></button>`;
+      ui.projectTypesList.appendChild(li);
+    });
+
+    ui.companyBranchesList.innerHTML = '';
+    companyBranches.forEach((branch) => {
+      const li = document.createElement('li');
+      li.className = 'collection-item company-branch-item';
+      const address = [branch.streetName, branch.streetNumber, branch.postalCode, branch.city, branch.region, branch.country].filter(Boolean).join(', ');
+      li.innerHTML = `
+        <div class="company-branch-item-content">
+          <div class="company-branch-item-title">${branch.name || '—'}</div>
+          <div class="company-branch-item-meta">${branch.taxIdentification ? `Tax ID: ${branch.taxIdentification}` : 'Tax ID: —'}</div>
+          <div class="company-branch-item-meta">${address || 'Address: —'}</div>
+        </div>
+        <div class="company-branch-item-actions">
+          <button class="btn-flat blue-text company-branch-action-btn" data-action="edit-company-branch" data-id="${branch.id}" aria-label="Edit branch ${branch.name || ''}"><i class="material-icons tiny">edit</i></button>
+          <button class="btn-flat red-text company-branch-action-btn" data-action="delete-company-branch" data-id="${branch.id}" aria-label="Delete branch ${branch.name || ''}"><i class="material-icons tiny">delete</i></button>
+        </div>
+      `;
+      ui.companyBranchesList.appendChild(li);
+    });
+  };
+
+  const clearCompanyLogoImages = () => {
+    if (ui.sidebarLogoImage) {
+      ui.sidebarLogoImage.hidden = true;
+      ui.sidebarLogoImage.removeAttribute('src');
+    }
+    if (ui.companyLogoPreviewImage) {
+      ui.companyLogoPreviewImage.hidden = true;
+      ui.companyLogoPreviewImage.removeAttribute('src');
+    }
+  };
+
+  const renderCompanyLogoFallback = () => {
+    clearCompanyLogoImages();
+    if (ui.sidebarLogoFallback) ui.sidebarLogoFallback.hidden = false;
+    if (ui.companyLogoPreviewEmpty) ui.companyLogoPreviewEmpty.hidden = false;
+    if (ui.removeCompanyLogoBtn) ui.removeCompanyLogoBtn.disabled = true;
+  };
+
+  const renderCompanyLogoUi = () => {
+    const hasLogo = Boolean(companyLogo?.hasLogo && companyLogo?.logoUrl);
+    if (!hasLogo) {
+      renderCompanyLogoFallback();
+      return;
+    }
+    const logoUrl = String(companyLogo.logoUrl);
+    const probe = new Image();
+    probe.onload = () => {
+      if (ui.sidebarLogoImage) {
+        ui.sidebarLogoImage.src = logoUrl;
+        ui.sidebarLogoImage.hidden = false;
+      }
+      if (ui.companyLogoPreviewImage) {
+        ui.companyLogoPreviewImage.src = logoUrl;
+        ui.companyLogoPreviewImage.hidden = false;
+      }
+      if (ui.sidebarLogoFallback) ui.sidebarLogoFallback.hidden = true;
+      if (ui.companyLogoPreviewEmpty) ui.companyLogoPreviewEmpty.hidden = true;
+      if (ui.removeCompanyLogoBtn) ui.removeCompanyLogoBtn.disabled = false;
+    };
+    probe.onerror = () => {
+      companyLogo = { hasLogo: false, logoUrl: null };
+      renderCompanyLogoFallback();
+    };
+    probe.src = logoUrl;
   };
 
   const updateProjectTimelineExpandUi = () => {
@@ -1820,10 +3241,235 @@ if (!isBrowserRuntime) {
     updateProjectTimelineExpandUi();
   };
 
-  const showProjectsPanel = () => { collapseProjectTimeline(); ui.projectsPanelCard.hidden = false; ui.projectFormCard.hidden = true; ui.projectMembersCard.hidden = true; };
-  const showManageProjectPanel = () => { ui.projectsPanelCard.hidden = true; ui.projectFormCard.hidden = false; ui.projectMembersCard.hidden = false; };
+  const showProjectsPanel = () => {
+    collapseProjectTimeline();
+    ui.projectsPanelCard.hidden = false;
+    ui.projectFormCard.hidden = true;
+    ui.projectMembersCard.hidden = true;
+    if (ui.projectMembersColumn) ui.projectMembersColumn.hidden = true;
+    updateProjectWorkspaceUi('showProjectsPanel');
+  };
+  const showManageProjectPanel = () => {
+    ui.projectsPanelCard.hidden = true;
+    ui.projectFormCard.hidden = false;
+    ui.projectMembersCard.hidden = false;
+    updateProjectWorkspaceUi('showManageProjectPanel');
+  };
   const showConsultantsPanel = () => { ui.consultantsPanelCard.hidden = false; ui.consultantFormCard.hidden = true; };
   const showManageConsultantsPanel = () => { ui.consultantsPanelCard.hidden = true; ui.consultantFormCard.hidden = false; };
+  const showBusinessPartnersPanel = () => { ui.businessPartnersPanelCard.hidden = false; ui.businessPartnerFormCard.hidden = true; };
+  const showManageBusinessPartnerPanel = () => { ui.businessPartnersPanelCard.hidden = true; ui.businessPartnerFormCard.hidden = false; };
+
+  const setBusinessPartnerFormMode = (mode) => {
+    businessPartnerViewMode = mode;
+    const readOnly = mode === 'view';
+    ui.businessPartnerFormCard?.classList.toggle('form-mode-view', readOnly);
+    ui.businessPartnerFormCard?.classList.toggle('form-mode-edit', !readOnly);
+    [fields.businessPartnerCompanyName, fields.businessPartnerTaxIdentification, fields.businessPartnerTypeId, fields.businessPartnerAddressStreet, fields.businessPartnerAddressNumber, fields.businessPartnerPostalCode, fields.businessPartnerCity, fields.businessPartnerRegion, fields.businessPartnerCountry]
+      .forEach((el) => { if (el) el.disabled = readOnly; });
+    if (ui.addBusinessPartnerContactBtn) ui.addBusinessPartnerContactBtn.hidden = readOnly;
+    if (ui.businessPartnerSaveBtn) ui.businessPartnerSaveBtn.hidden = readOnly;
+    resetSelect('businessPartnerType', fields.businessPartnerTypeId);
+    resetSelect('businessPartnerCountry', fields.businessPartnerCountry);
+    resetSelect('businessPartnerRegion', fields.businessPartnerRegion);
+  };
+
+  const renderBusinessPartnerContactsEditor = () => {
+    if (!ui.businessPartnerContactsList) return;
+    const readOnly = businessPartnerViewMode === 'view';
+    ui.businessPartnerContactsList.innerHTML = '';
+    if (!editingBusinessPartnerContacts.length) {
+      ui.businessPartnerContactsList.innerHTML = '<p class="grey-text">No contact persons yet.</p>';
+      return;
+    }
+    editingBusinessPartnerContacts.forEach((contact, index) => {
+      const emails = (contact.emails || []).filter((item) => String(item || '').trim());
+      const phones = (contact.phoneNumbers || []).filter((item) => String(item || '').trim());
+      const summarize = (values, label) => {
+        if (!values.length) return `${label}: —`;
+        const [first, ...rest] = values;
+        return `${label}: ${first}${rest.length ? ` (+${rest.length} more)` : ''}`;
+      };
+      const hasCommunication = emails.length || phones.length;
+      const actionLabel = hasCommunication ? (readOnly ? 'Communication' : 'Edit Communication') : 'Add Communication';
+      const card = document.createElement('div');
+      card.className = 'member-card bp-contact-card';
+      card.innerHTML = `
+        <div class="row date-row">
+          <div class="input-field col s12 m4"><input type="text" data-contact-index="${index}" data-field="name" value="${contact.name || ''}" ${readOnly ? 'disabled' : ''} /><label class="active">Name</label></div>
+          <div class="input-field col s12 m4"><input type="text" data-contact-index="${index}" data-field="lastName" value="${contact.lastName || ''}" ${readOnly ? 'disabled' : ''} /><label class="active">Last Name</label></div>
+          <div class="col s12 m3 bp-communication-summary">
+            <div class="grey-text text-darken-1">${hasCommunication ? summarize(emails, 'Emails') : 'No communication details'}</div>
+            <div class="grey-text text-darken-1">${hasCommunication ? summarize(phones, 'Phones') : ''}</div>
+            <button class="btn-flat blue-text" type="button" data-action="open-communication" data-contact-index="${index}">${actionLabel}</button>
+          </div>
+          <div class="col s12 m1 right-align" style="margin-top:1.5rem;"><button class="btn-flat red-text ${readOnly ? 'timesheet-hidden' : ''}" type="button" data-action="remove-contact" data-contact-index="${index}"><i class="material-icons tiny">delete</i></button></div>
+        </div>
+      `;
+      ui.businessPartnerContactsList.appendChild(card);
+    });
+  };
+
+  const renderBusinessPartnerSections = () => {
+    if (ui.bpAddressContent) ui.bpAddressContent.hidden = !businessPartnerAddressExpanded;
+    if (ui.bpContactsContent) ui.bpContactsContent.hidden = !businessPartnerContactsExpanded;
+    if (ui.bpProjectsContent) ui.bpProjectsContent.hidden = !businessPartnerProjectsExpanded;
+    if (ui.bpAddressToggleIcon) ui.bpAddressToggleIcon.textContent = businessPartnerAddressExpanded ? 'expand_more' : 'chevron_right';
+    if (ui.bpContactsToggleIcon) ui.bpContactsToggleIcon.textContent = businessPartnerContactsExpanded ? 'expand_more' : 'chevron_right';
+    if (ui.bpProjectsToggleIcon) ui.bpProjectsToggleIcon.textContent = businessPartnerProjectsExpanded ? 'expand_more' : 'chevron_right';
+  };
+
+  const renderBusinessPartnerProjects = () => {
+    if (!ui.businessPartnerProjectsBody || !ui.businessPartnerProjectsEmptyState) return;
+    const businessPartnerId = Number(fields.businessPartnerId.value || 0);
+    ui.businessPartnerProjectsBody.innerHTML = '';
+    if (!businessPartnerId) {
+      ui.businessPartnerProjectsEmptyState.hidden = false;
+      return;
+    }
+    const relatedProjects = projects.filter((project) => Number(project.clientBusinessPartnerId) === businessPartnerId || Number(project.deliveryPartnerBusinessPartnerId) === businessPartnerId);
+    relatedProjects.forEach((project) => {
+      const client = findBusinessPartnerById(project.clientBusinessPartnerId);
+      const delivery = findBusinessPartnerById(project.deliveryPartnerBusinessPartnerId);
+      const row = document.createElement('tr');
+      row.innerHTML = `
+        <td>${project.projectName || '—'}</td>
+        <td>${client?.companyName || '—'}</td>
+        <td>${consultantNameById(project.managerConsultantId)}</td>
+        <td>${delivery?.companyName || '—'}</td>
+        <td>${formatDate(project.startDate)}</td>
+        <td>${formatDate(project.endDate)}</td>
+      `;
+      ui.businessPartnerProjectsBody.appendChild(row);
+    });
+    ui.businessPartnerProjectsEmptyState.hidden = relatedProjects.length > 0;
+  };
+
+  const renderCommunicationModalRows = () => {
+    if (!ui.communicationEmailsList || !ui.communicationPhonesList) return;
+    const readOnly = businessPartnerViewMode === 'view';
+    const emails = editingCommunicationDraft.emails.length ? editingCommunicationDraft.emails : [''];
+    const phones = editingCommunicationDraft.phoneNumbers.length ? editingCommunicationDraft.phoneNumbers : [''];
+    ui.communicationEmailsList.innerHTML = emails.map((email, index) => `
+      <div class="row date-row bp-comm-row">
+        <div class="input-field col s10"><input type="email" data-comm-field="email" data-index="${index}" value="${email || ''}" ${readOnly ? 'disabled' : ''} /><label class="active">Email</label></div>
+        <div class="col s2 right-align" style="margin-top:1.5rem;"><button class="btn-flat red-text ${readOnly ? 'timesheet-hidden' : ''}" type="button" data-action="remove-comm-email" data-index="${index}"><i class="material-icons tiny">remove_circle</i></button></div>
+      </div>
+    `).join('');
+    ui.communicationPhonesList.innerHTML = phones.map((phone, index) => `
+      <div class="row date-row bp-comm-row">
+        <div class="input-field col s10"><input type="text" data-comm-field="phone" data-index="${index}" value="${phone || ''}" ${readOnly ? 'disabled' : ''} /><label class="active">Phone Number</label></div>
+        <div class="col s2 right-align" style="margin-top:1.5rem;"><button class="btn-flat red-text ${readOnly ? 'timesheet-hidden' : ''}" type="button" data-action="remove-comm-phone" data-index="${index}"><i class="material-icons tiny">remove_circle</i></button></div>
+      </div>
+    `).join('');
+    if (ui.addCommunicationEmailBtn) ui.addCommunicationEmailBtn.hidden = readOnly;
+    if (ui.addCommunicationPhoneBtn) ui.addCommunicationPhoneBtn.hidden = readOnly;
+    if (ui.saveCommunicationBtn) ui.saveCommunicationBtn.hidden = readOnly;
+    updateTextFields();
+  };
+
+  const openCommunicationModalForContact = (contactIndex) => {
+    const contact = editingBusinessPartnerContacts[contactIndex];
+    if (!contact) return;
+    editingCommunicationContactIndex = contactIndex;
+    editingCommunicationDraft = {
+      emails: [...(contact.emails || (contact.email ? [contact.email] : []))],
+      phoneNumbers: [...(contact.phoneNumbers || [])]
+    };
+    if (ui.communicationModalContactName) {
+      const label = `${contact.name || ''} ${contact.lastName || ''}`.trim();
+      ui.communicationModalContactName.textContent = label || 'Contact';
+    }
+    renderCommunicationModalRows();
+    modals.businessPartnerCommunication?.open();
+  };
+
+  const rebuildBusinessPartnerRegionSelect = ({ countryCode = '', regionValue = '' } = {}) => {
+    const normalizedCountry = String(countryCode || '').toUpperCase();
+    const regions = fallbackHolidayRegionsByCountry[normalizedCountry] || [];
+    fields.businessPartnerRegion.innerHTML = '<option value="" selected>No region</option>';
+    regions.forEach((region) => fields.businessPartnerRegion.add(new Option(region, region, false, String(region) === String(regionValue))));
+    fields.businessPartnerRegion.disabled = !normalizedCountry || !regions.length;
+    if (!regions.length) fields.businessPartnerRegion.value = '';
+    resetSelect('businessPartnerRegion', fields.businessPartnerRegion);
+  };
+
+  const rebuildCompanyBranchRegionSelect = ({ countryCode = '', regionValue = '' } = {}) => {
+    const normalizedCountry = String(countryCode || '').toUpperCase();
+    const regions = fallbackHolidayRegionsByCountry[normalizedCountry] || [];
+    fields.companyBranchRegion.innerHTML = '<option value="" selected>No region</option>';
+    regions.forEach((region) => fields.companyBranchRegion.add(new Option(region, region, false, String(region) === String(regionValue))));
+    fields.companyBranchRegion.disabled = !normalizedCountry || !regions.length;
+    if (!regions.length) fields.companyBranchRegion.value = '';
+    resetSelect('companyBranchRegion', fields.companyBranchRegion);
+  };
+
+  const rebuildCompanyBranchCountrySelect = (countryValue = '') => {
+    const countryCodes = [...new Set([...(fallbackHolidayCountries || []), ...Object.keys(countryNamesByCode)])].sort();
+    fields.companyBranchCountry.innerHTML = '<option value="" selected>No country</option>';
+    countryCodes.forEach((code) => fields.companyBranchCountry.add(new Option(`${code} - ${countryNamesByCode[code] || code}`, code)));
+    if (countryValue && !countryNamesByCode[countryValue]) {
+      fields.companyBranchCountry.add(new Option(countryValue, countryValue, false, true));
+    }
+    fields.companyBranchCountry.value = countryValue || '';
+    resetSelect('companyBranchCountry', fields.companyBranchCountry);
+  };
+
+  const resetCompanyBranchForm = () => {
+    ui.companyBranchForm?.reset();
+    if (fields.companyBranchId) fields.companyBranchId.value = '';
+    if (ui.companyBranchModalTitle) ui.companyBranchModalTitle.textContent = 'Add Company Branch';
+    rebuildCompanyBranchCountrySelect('');
+    fields.companyBranchRegion.innerHTML = '<option value="" selected>No region</option>';
+    fields.companyBranchRegion.disabled = true;
+    resetSelect('companyBranchRegion', fields.companyBranchRegion);
+    updateTextFields();
+  };
+
+  const resetBusinessPartnerForm = () => {
+    ui.businessPartnerForm?.reset();
+    fields.businessPartnerId.value = '';
+    editingBusinessPartnerContacts = [];
+    const countryCodes = [...new Set([...(fallbackHolidayCountries || []), ...Object.keys(countryNamesByCode)])].sort();
+    fields.businessPartnerCountry.innerHTML = '<option value="" selected>No country</option>';
+    countryCodes.forEach((code) => fields.businessPartnerCountry.add(new Option(`${code} - ${countryNamesByCode[code] || code}`, code)));
+    fields.businessPartnerRegion.innerHTML = '<option value="" selected>No region</option>';
+    fields.businessPartnerRegion.disabled = true;
+    fields.businessPartnerTypeId.innerHTML = '<option value="" selected>No type</option>';
+    businessPartnerTypes.forEach((type) => fields.businessPartnerTypeId.add(new Option(type.name, type.id)));
+    resetSelect('businessPartnerCountry', fields.businessPartnerCountry);
+    resetSelect('businessPartnerRegion', fields.businessPartnerRegion);
+    resetSelect('businessPartnerType', fields.businessPartnerTypeId);
+    businessPartnerAddressExpanded = false;
+    businessPartnerContactsExpanded = false;
+    businessPartnerProjectsExpanded = false;
+    renderBusinessPartnerSections();
+    renderBusinessPartnerProjects();
+    setBusinessPartnerFormMode('edit');
+    renderBusinessPartnerContactsEditor();
+    updateTextFields();
+    showBusinessPartnersPanel();
+  };
+
+  const renderBusinessPartners = () => {
+    ui.businessPartnersBody.innerHTML = '';
+    businessPartners.forEach((partner) => {
+      const row = document.createElement('tr');
+      row.innerHTML = `
+        <td>${partner.companyName}</td>
+        <td>${businessPartnerTypeName(partner.businessPartnerTypeId)}</td>
+        <td>${partner.city || '—'}</td>
+        <td>${partner.country || '—'}</td>
+        <td>
+          <button class="btn-flat teal-text" data-action="view-business-partner" data-id="${partner.id}"><i class="material-icons tiny">visibility</i></button>
+          <button class="btn-flat blue-text" data-action="edit-business-partner" data-id="${partner.id}"><i class="material-icons tiny">edit</i></button>
+          <button class="btn-flat red-text" data-action="delete-business-partner" data-id="${partner.id}"><i class="material-icons tiny">delete</i></button>
+        </td>
+      `;
+      ui.businessPartnersBody.appendChild(row);
+    });
+    ui.businessPartnersEmptyState.hidden = businessPartners.length > 0;
+  };
 
   const setTimeTrackingView = ({ showList }) => {
     if (ui.timeTrackingListCard) ui.timeTrackingListCard.hidden = !showList;
@@ -1834,9 +3480,6 @@ if (!isBrowserRuntime) {
     projectViewMode = mode;
     const readOnly = mode === 'view';
     ui.projectFormTitle.textContent = readOnly ? 'Manage Project (View)' : 'Manage Project';
-    ui.projectSaveBtn.hidden = readOnly;
-    ui.projectSaveBtn.style.display = readOnly ? 'none' : '';
-    if (ui.projectSwitchEditBtn) ui.projectSwitchEditBtn.hidden = !readOnly;
     ui.openConsultantModalBtn.disabled = readOnly;
     ui.openConsultantModalBtn.hidden = readOnly;
     if (ui.addProjectPhaseBtn) ui.addProjectPhaseBtn.disabled = readOnly;
@@ -1848,16 +3491,17 @@ if (!isBrowserRuntime) {
       showProjectMilestoneForm = false;
     }
     updateProjectPlanningUi();
-    [fields.projectName, fields.clientName, fields.projectType, fields.clientContact, fields.startDate, fields.endDate].forEach((el) => { el.disabled = readOnly; });
-    fields.managerId.disabled = true;
-    resetSelect('manager', fields.managerId);
-    resetSelect('projectType', fields.projectType);
+    updateProjectSummaryHeader();
+    applyProjectModeUi('setProjectFormMode');
+    updateProjectStatusUi();
     updateProjectMembersPanel();
   };
 
   const setConsultantFormMode = (mode) => {
     consultantViewMode = mode;
     const readOnly = mode === 'view';
+    ui.consultantFormCard?.classList.toggle('form-mode-view', readOnly);
+    ui.consultantFormCard?.classList.toggle('form-mode-edit', !readOnly);
     ui.consultantFormTitle.textContent = readOnly ? 'Manage Consultant (View)' : 'Manage Consultant';
     ui.consultantModeLabel.textContent = readOnly ? 'Read-only mode' : 'Edit mode';
     ui.consultantSaveBtn.hidden = readOnly;
@@ -1865,12 +3509,13 @@ if (!isBrowserRuntime) {
     if (ui.consultantSwitchEditBtn) ui.consultantSwitchEditBtn.hidden = !readOnly;
     ui.openDaysOffModalBtn.disabled = readOnly;
     if (ui.openHolidaysModalBtn) ui.openHolidaysModalBtn.disabled = readOnly;
-    [fields.consultantName, fields.consultantStartDate, fields.consultantAreaIds, fields.consultantCompanyRoleId, fields.consultantSalary].forEach((el) => {
+    [fields.consultantName, fields.consultantStartDate, fields.consultantAreaIds, fields.consultantCompanyRoleId, fields.consultantSalary, fields.consultantCompanyBranchId].forEach((el) => {
       el.disabled = readOnly;
     });
-    fields.consultantHolidayLocationId.disabled = true;
+    fields.consultantHolidayLocationId.disabled = readOnly;
     resetSelect('consultantAreas', fields.consultantAreaIds);
     resetSelect('consultantCompanyRole', fields.consultantCompanyRoleId);
+    resetSelect('consultantCompanyBranch', fields.consultantCompanyBranchId);
     resetSelect('consultantHolidayLocation', fields.consultantHolidayLocationId);
   };
 
@@ -2076,6 +3721,7 @@ if (!isBrowserRuntime) {
   const resetProjectForm = () => {
     ui.projectForm.reset();
     fields.projectId.value = '';
+    if (fields.projectStatus) fields.projectStatus.value = 'Not Started';
     selectedProjectAssignments = [];
     selectedProjectPhases = [];
     selectedProjectMilestones = [];
@@ -2084,8 +3730,34 @@ if (!isBrowserRuntime) {
     editingProjectPhaseId = null;
     modalSelectedAreaId = '';
     modalTempConsultantIds = [];
+    showClosedProjectPositions = false;
+    if (ui.showClosedProjectPositionsToggle) ui.showClosedProjectPositionsToggle.checked = false;
+    activeProjectWorkspaceTab = 'overview';
+    projectFiles = [];
+    revenueInvoices = [];
+    revenueInvoicePeriods = [];
+    selectedInvoicePeriodMonth = '';
+    revenueSummary = null;
+    revenueActualsSummary = null;
+    revenueForecastBreakdown = [];
+    selectedRevenueForecastMonth = '';
+    revenueForecastDetails = [];
+    profitabilitySummary = null;
+    profitabilityBreakdown = [];
+    selectedProfitabilityMonth = '';
+    profitabilityDetails = [];
+    renderRevenueSummary();
+    renderRevenueActuals();
+    renderRevenueInvoicePeriods();
+    renderRevenueMonthInvoices();
+    renderRevenueForecastBreakdown();
+    renderRevenueForecastDetails();
+    renderProfitability();
+    renderProfitabilityDetails();
+    renderProjectFiles();
     updateAssignedConsultantsSummary();
     rebuildProjectSelects();
+    if (fields.projectStatus) resetSelect('projectStatus', fields.projectStatus);
     rebuildProjectPlanningSelects();
     setProjectFormMode('edit');
     updateProjectMembersPanel();
@@ -2093,6 +3765,7 @@ if (!isBrowserRuntime) {
     refreshProjectTimeline();
     renderProjectWeekDetail('', '', '');
     collapseProjectTimeline();
+    updateProjectWorkspaceUi('resetProjectForm');
     showProjectsPanel();
     updateTextFields();
   };
@@ -2129,38 +3802,89 @@ if (!isBrowserRuntime) {
       { key: 'roles', path: '/api/roles', prop: 'roles', fallback: [] },
       { key: 'areas', path: '/api/areas', prop: 'areas', fallback: [] },
       { key: 'dayOffTypes', path: '/api/day-off-types', prop: 'dayOffTypes', fallback: [] },
+      { key: 'businessPartnerTypes', path: '/api/business-partner-types', prop: 'businessPartnerTypes', fallback: [] },
+      { key: 'projectTypes', path: '/api/project-types', prop: 'projectTypes', fallback: [] },
+      { key: 'companyBranches', path: '/api/company-branches', prop: 'companyBranches', fallback: [] },
+      { key: 'businessPartners', path: '/api/business-partners', prop: 'businessPartners', fallback: [] },
       { key: 'holidayLocations', path: '/api/holiday-locations', prop: 'holidayLocations', fallback: [] },
-      { key: 'allocationSimulations', path: '/api/allocation-simulations', prop: 'simulations', fallback: [] }
+      { key: 'allocationSimulations', path: '/api/allocation-simulations', prop: 'simulations', fallback: [] },
+      { key: 'companyLogo', path: '/api/company-logo', prop: 'companyLogo', fallback: { hasLogo: false, logoUrl: null } }
     ];
 
     const results = await Promise.allSettled(endpoints.map((item) => request(item.path)));
     const loaded = {};
     const failed = [];
 
+    const extractCollection = (payload, preferredProp, fallback = []) => {
+      if (Array.isArray(payload)) return payload;
+      if (!payload || typeof payload !== 'object') return fallback;
+      if (Array.isArray(payload[preferredProp])) return payload[preferredProp];
+      if (Array.isArray(payload.items)) return payload.items;
+      if (Array.isArray(payload.data)) return payload.data;
+      return fallback;
+    };
+
+    const extractCompanyLogo = (payload) => {
+      if (!payload || typeof payload !== 'object') return { hasLogo: false, logoUrl: null };
+      return {
+        hasLogo: Boolean(payload.hasLogo),
+        logoUrl: payload.logoUrl || null
+      };
+    };
+
     results.forEach((result, index) => {
       const endpoint = endpoints[index];
-      if (result.status === 'fulfilled') loaded[endpoint.key] = result.value?.[endpoint.prop] || endpoint.fallback;
-      else {
+      if (result.status === 'fulfilled') {
+        loaded[endpoint.key] = endpoint.key === 'companyLogo'
+          ? extractCompanyLogo(result.value)
+          : extractCollection(result.value, endpoint.prop, endpoint.fallback);
+        if (endpoint.key === 'projects') {
+          console.debug('[loadAll] raw /api/projects response', result.value);
+          console.debug('[loadAll] Array.isArray(projectsRes.projects)', Array.isArray(result.value?.projects));
+          console.debug('[loadAll] normalized projects length', loaded[endpoint.key].length);
+        }
+      } else {
         loaded[endpoint.key] = endpoint.fallback;
         failed.push(endpoint.path);
+        if (endpoint.key === 'projects') {
+          console.error('[loadAll] /api/projects request failed', result.reason);
+        }
       }
     });
 
-    projects = loaded.projects;
+    console.debug('[loadAll] /api/projects payload', loaded.projects);
+    projects = Array.isArray(loaded.projects) ? loaded.projects : [];
+    console.debug('[loadAll] projects loaded', { count: projects.length });
     consultants = loaded.consultants;
     timeTrackingConsultants = loaded.consultants;
     roles = loaded.roles;
     areas = loaded.areas;
     dayOffTypes = loaded.dayOffTypes;
+    businessPartnerTypes = loaded.businessPartnerTypes;
+    projectTypes = loaded.projectTypes;
+    companyBranches = loaded.companyBranches;
+    businessPartners = loaded.businessPartners;
     holidayLocations = loaded.holidayLocations;
     allocationSimulations = loaded.allocationSimulations;
+    companyLogo = loaded.companyLogo || { hasLogo: false, logoUrl: null };
 
     renderProjects();
+    console.debug('[loadAll] empty state visible', projects.length === 0);
     renderConsultants();
+    renderBusinessPartners();
     renderAdminLists();
+    renderCompanyLogoUi();
     await refreshTimelines();
-    rebuildProjectSelects({ managerId: fields.managerId.value });
-    rebuildConsultantSelects({ areaIds: selectedIds(fields.consultantAreaIds), companyRoleId: fields.consultantCompanyRoleId.value, holidayLocationId: fields.consultantHolidayLocationId.value });
+    rebuildProjectSelects({
+      managerId: fields.managerId.value,
+      projectType: fields.projectType.value,
+      clientBusinessPartnerId: fields.clientBusinessPartnerId.value,
+      clientContactIds: selectedIds(fields.clientContactIds),
+      deliveryPartnerBusinessPartnerId: fields.deliveryPartnerBusinessPartnerId.value,
+      deliveryPartnerContactIds: selectedIds(fields.deliveryPartnerContactIds),
+      contractWithBranchId: fields.contractWithBranchId.value
+    });
+    rebuildConsultantSelects({ areaIds: selectedIds(fields.consultantAreaIds), companyRoleId: fields.consultantCompanyRoleId.value, companyBranchId: fields.consultantCompanyBranchId.value, holidayLocationId: fields.consultantHolidayLocationId.value });
     rebuildHolidayCountryRegionControls({ consultantHolidayLocationId: fields.consultantHolidayLocationId.value });
     rebuildAssignmentModalSelects();
     rebuildDayOffTypeSelect();
@@ -2174,9 +3898,80 @@ if (!isBrowserRuntime) {
 
   ui.showProjectFormBtn.addEventListener('click', () => { resetProjectForm(); showManageProjectPanel(); });
   ui.backToProjectsBtn.addEventListener('click', showProjectsPanel);
+  ui.projectSummaryBackBtn?.addEventListener('click', showProjectsPanel);
+  ui.projectWorkspaceTabs?.addEventListener('click', (event) => {
+    const tabButton = event.target.closest('[data-workspace-tab]');
+    if (!tabButton) return;
+    activeProjectWorkspaceTab = tabButton.dataset.workspaceTab || 'overview';
+    updateProjectWorkspaceUi('workspaceTabClick');
+  });
+  ui.projectUploadFileBtn?.addEventListener('click', () => {
+    if (!fields.projectId.value) {
+      toast('Save the project before uploading files', 'orange darken-2');
+      return;
+    }
+    ui.projectFileUploadInput?.click();
+  });
+  ui.projectFileUploadInput?.addEventListener('change', async () => {
+    const file = ui.projectFileUploadInput?.files?.[0];
+    if (!file || !fields.projectId.value) return;
+    try {
+      await uploadProjectFile(fields.projectId.value, file);
+      await loadProjectFiles(fields.projectId.value);
+      toast('File uploaded', 'teal darken-1');
+    } catch (error) {
+      toast(error.message || 'Failed to upload file', 'red darken-1');
+    } finally {
+      if (ui.projectFileUploadInput) ui.projectFileUploadInput.value = '';
+    }
+  });
+  ui.projectFilesBody?.addEventListener('click', (event) => {
+    const button = event.target.closest('button[data-action="download-project-file"]');
+    if (!button || !fields.projectId.value) return;
+    const fileId = Number(button.dataset.id);
+    if (!fileId) return;
+    window.location.href = `${primaryApiBase}/api/projects/${fields.projectId.value}/files/${fileId}/download`;
+  });
+  ui.projectSaveBtnHeader?.addEventListener('click', () => ui.projectForm.requestSubmit());
+  ui.projectSwitchEditBtnHeader?.addEventListener('click', () => {
+    console.debug('[ProjectMode:switchToEdit] from header pen');
+    setProjectFormMode('edit');
+    console.debug(`[switchToEdit] mode now ${projectViewMode}`);
+  });
+  ui.projectSwitchViewBtnHeader?.addEventListener('click', () => {
+    console.debug('[ProjectMode:switchToView] from header eye');
+    setProjectFormMode('view');
+    console.debug(`[switchToView] mode now ${projectViewMode}`);
+  });
   fields.startDate.addEventListener('change', updateProjectMembersPanel);
+  fields.startDate.addEventListener('change', updateProjectStatusUi);
   fields.endDate.addEventListener('change', updateProjectMembersPanel);
-  fields.projectName.addEventListener('input', updateProjectTimelineExpandUi);
+  fields.endDate.addEventListener('change', updateProjectStatusUi);
+  fields.clientBusinessPartnerId.addEventListener('change', () => {
+    rebuildProjectSelects({
+      managerId: fields.managerId.value,
+      projectType: fields.projectType.value,
+      clientBusinessPartnerId: fields.clientBusinessPartnerId.value,
+      clientContactIds: [],
+      deliveryPartnerBusinessPartnerId: fields.deliveryPartnerBusinessPartnerId.value,
+      deliveryPartnerContactIds: selectedIds(fields.deliveryPartnerContactIds),
+      contractWithBranchId: fields.contractWithBranchId.value
+    });
+    updateProjectSummaryHeader();
+  });
+  fields.deliveryPartnerBusinessPartnerId.addEventListener('change', () => {
+    rebuildProjectSelects({
+      managerId: fields.managerId.value,
+      projectType: fields.projectType.value,
+      clientBusinessPartnerId: fields.clientBusinessPartnerId.value,
+      clientContactIds: selectedIds(fields.clientContactIds),
+      deliveryPartnerBusinessPartnerId: fields.deliveryPartnerBusinessPartnerId.value,
+      deliveryPartnerContactIds: [],
+      contractWithBranchId: fields.contractWithBranchId.value
+    });
+  });
+  fields.projectName.addEventListener('input', () => { updateProjectTimelineExpandUi(); updateProjectSummaryHeader(); });
+  fields.projectStatus?.addEventListener('change', updateProjectStatusUi);
   ui.toggleProjectTimelineExpandBtn?.addEventListener('click', () => {
     isProjectTimelineExpanded = !isProjectTimelineExpanded;
     showProjectPhaseForm = false;
@@ -2269,9 +4064,14 @@ if (!isBrowserRuntime) {
     modalTempConsultantIds = [];
     modalSelectedAreaId = '';
     ui.projectRoleModal.value = '';
+    if (ui.projectPositionStatusModal) ui.projectPositionStatusModal.value = 'Open';
     ui.memberStartDateModal.value = fields.startDate.value;
     ui.memberEndDateModal.value = fields.endDate.value;
     ui.memberAllocationModal.value = '100';
+    if (ui.memberBillableModal) ui.memberBillableModal.checked = true;
+    if (ui.memberDailyRateModal) ui.memberDailyRateModal.value = '';
+    rebuildPositionRateCurrencySelect(ui.memberDailyRateCurrencyModal, 'EUR');
+    updatePositionRateVisibilityForAdd();
     rebuildAssignmentModalSelects();
     renderConsultantPickerList();
     modals.consultantAssignment?.open();
@@ -2285,6 +4085,10 @@ if (!isBrowserRuntime) {
   ui.consultantPickerList.addEventListener('change', (event) => {
     const option = event.target.closest('input[type="radio"][data-consultant-id]');
     if (!option) return;
+    if (!option.dataset.consultantId) {
+      modalTempConsultantIds = [];
+      return;
+    }
     const id = Number(option.dataset.consultantId);
     modalTempConsultantIds = Number.isNaN(id) ? [] : [id];
   });
@@ -2292,7 +4096,6 @@ if (!isBrowserRuntime) {
   ui.saveConsultantAssignmentsBtn.addEventListener('click', async () => {
     const role = ui.projectRoleModal.value;
     if (!role) { toast('Project Role is required', 'red darken-1'); return; }
-    if (modalTempConsultantIds.length !== 1) { toast('Select exactly one consultant', 'red darken-1'); return; }
     const start = ui.memberStartDateModal.value;
     const end = ui.memberEndDateModal.value;
     if (start && end && start > end) { toast('Start date cannot be after end date', 'red darken-1'); return; }
@@ -2302,8 +4105,23 @@ if (!isBrowserRuntime) {
       return;
     }
 
-    const selectedConsultantId = Number(modalTempConsultantIds[0]);
-    selectedProjectAssignments.push({ consultantId: selectedConsultantId, projectRole: role, startDate: start, endDate: end, allocation, comments: '' });
+    const selectedConsultantId = modalTempConsultantIds.length ? Number(modalTempConsultantIds[0]) : null;
+    const selectedStatus = ui.projectPositionStatusModal?.value || (selectedConsultantId ? 'Assigned' : 'Open');
+    const dailyRateValue = ui.memberDailyRateModal?.value ? Number(ui.memberDailyRateModal.value) : null;
+    selectedProjectAssignments.push({
+      positionId: `${Date.now()}-${Math.random()}`,
+      consultantId: selectedConsultantId,
+      areaId: modalSelectedAreaId ? Number(modalSelectedAreaId) : null,
+      projectRole: role,
+      startDate: start,
+      endDate: end,
+      allocation,
+      billable: ui.memberBillableModal ? ui.memberBillableModal.checked : true,
+      dailyRate: dailyRateValue,
+      dailyRateCurrency: dailyRateValue !== null && ui.memberDailyRateCurrencyModal?.value ? String(ui.memberDailyRateCurrencyModal.value).trim().toUpperCase() : null,
+      comments: '',
+      status: selectedStatus
+    });
 
     try {
       if (fields.projectId.value) {
@@ -2316,27 +4134,22 @@ if (!isBrowserRuntime) {
       updateAssignedConsultantsSummary();
       updateProjectMembersPanel();
       modals.consultantAssignment?.close();
-      toast(fields.projectId.value ? 'Project member saved' : 'Project member added', 'teal darken-1');
+      toast(fields.projectId.value ? 'Project position saved' : 'Project position added', 'teal darken-1');
     } catch (error) {
-      toast(error.message || 'Failed to save project member', 'red darken-1');
+      toast(error.message || 'Failed to save project position', 'red darken-1');
     }
   });
 
   ui.projectMembersList.addEventListener('click', async (event) => {
     const button = event.target.closest('button[data-action]');
     if (!button) return;
-    const consultantId = Number(button.dataset.id);
-    const member = selectedProjectAssignments.find((item) => Number(item.consultantId) === consultantId) || {
-      consultantId,
-      projectRole: 'Project Manager',
-      startDate: fields.startDate.value,
-      endDate: fields.endDate.value,
-      allocation: 100,
-      comments: ''
-    };
+    const positionId = String(button.dataset.positionId || '');
+    const member = selectedProjectAssignments.find((item) => String(item.positionId) === positionId);
+    if (!member) return;
+    const consultantId = member.consultantId ? Number(member.consultantId) : 0;
 
     if (button.dataset.action === 'remove-member') {
-      selectedProjectAssignments = selectedProjectAssignments.filter((item) => Number(item.consultantId) !== consultantId);
+      selectedProjectAssignments = selectedProjectAssignments.filter((item) => String(item.positionId) !== positionId);
       try {
         if (fields.projectId.value) {
           const payload = buildProjectPayload();
@@ -2347,37 +4160,88 @@ if (!isBrowserRuntime) {
         }
         updateAssignedConsultantsSummary();
         updateProjectMembersPanel();
-        toast('Project member removed', 'orange darken-2');
+        toast('Project position removed', 'orange darken-2');
       } catch (error) {
-        toast(error.message || 'Failed to remove project member', 'red darken-1');
+        toast(error.message || 'Failed to remove project position', 'red darken-1');
       }
+      return;
+    }
+    if (button.dataset.action === 'edit-member' && projectViewMode === 'view') {
+      toast('Switch project to Edit mode to modify project positions', 'blue-grey darken-2');
       return;
     }
 
     const readOnly = button.dataset.action === 'view-member';
-    ui.memberModalTitle.textContent = readOnly ? 'View Project Member' : 'Edit Project Member';
-    ui.memberEditConsultantId.value = consultantId;
-    ui.memberNameModal.value = consultantNameById(consultantId);
+    ui.memberModalTitle.textContent = readOnly ? 'View Project Position' : 'Edit Project Position';
+    ui.memberDetailsContent?.classList.toggle('form-mode-view', readOnly);
+    ui.memberDetailsContent?.classList.toggle('form-mode-edit', !readOnly);
+    ui.memberEditConsultantId.value = positionId;
     ui.memberAllocationEdit.value = Number(member.allocation ?? 100);
+    if (ui.memberBillableEdit) ui.memberBillableEdit.checked = member.billable !== false;
     ui.memberCommentsEdit.value = member.comments || '';
     ui.memberStartDateEdit.value = member.startDate || '';
     ui.memberEndDateEdit.value = member.endDate || '';
-    rebuildMemberRoleSelect(member.projectRole || 'Project Member');
+    if (ui.memberDailyRateEdit) ui.memberDailyRateEdit.value = member.dailyRate ?? '';
+    rebuildMemberStatusSelect(getProjectPositionDisplayStatus(member));
+    rebuildPositionRateCurrencySelect(ui.memberDailyRateCurrencyEdit, member.dailyRateCurrency || 'EUR');
+    rebuildMemberAreaSelect(member.areaId);
+    rebuildMemberConsultantSelect({ areaId: member.areaId, consultantId, positionId });
+    rebuildMemberRoleSelect(member.projectRole || 'Project Position');
+    updatePositionRateVisibilityForEdit({ readOnly });
 
+    if (ui.memberAreaModal) ui.memberAreaModal.disabled = readOnly;
+    if (ui.memberConsultantModal) ui.memberConsultantModal.disabled = readOnly;
     ui.memberProjectRoleModal.disabled = readOnly;
+    if (ui.memberPositionStatusEdit) ui.memberPositionStatusEdit.disabled = readOnly;
     ui.memberAllocationEdit.disabled = readOnly;
+    if (ui.memberBillableEdit) ui.memberBillableEdit.disabled = readOnly;
+    if (ui.memberDailyRateEdit) ui.memberDailyRateEdit.disabled = readOnly;
+    if (ui.memberDailyRateCurrencyEdit) ui.memberDailyRateCurrencyEdit.disabled = readOnly;
     ui.memberCommentsEdit.disabled = readOnly;
     ui.memberStartDateEdit.disabled = readOnly;
     ui.memberEndDateEdit.disabled = readOnly;
     ui.saveMemberDetailsBtn.hidden = readOnly;
+    if (ui.memberAreaModal) resetSelect('memberArea', ui.memberAreaModal);
+    if (ui.memberConsultantModal) resetSelect('memberConsultant', ui.memberConsultantModal);
+    if (ui.memberPositionStatusEdit) resetSelect('memberPositionStatus', ui.memberPositionStatusEdit);
     resetSelect('memberRole', ui.memberProjectRoleModal);
     updateTextFields();
     modals.memberDetails?.open();
   });
 
+  if (ui.memberAreaModal) {
+    ui.memberAreaModal.addEventListener('change', () => {
+      const positionId = String(ui.memberEditConsultantId.value || '');
+      const selectedConsultantId = ui.memberConsultantModal?.value ? Number(ui.memberConsultantModal.value) : null;
+      const selectedAreaId = ui.memberAreaModal.value ? Number(ui.memberAreaModal.value) : null;
+      rebuildMemberConsultantSelect({ areaId: selectedAreaId, consultantId: selectedConsultantId, positionId });
+    });
+  }
+  if (ui.memberBillableModal) {
+    ui.memberBillableModal.addEventListener('change', updatePositionRateVisibilityForAdd);
+  }
+  if (ui.memberBillableEdit) {
+    ui.memberBillableEdit.addEventListener('change', () => {
+      const readOnly = ui.saveMemberDetailsBtn.hidden;
+      updatePositionRateVisibilityForEdit({ readOnly });
+    });
+  }
+  if (ui.showClosedProjectPositionsToggle) {
+    ui.showClosedProjectPositionsToggle.addEventListener('change', () => {
+      showClosedProjectPositions = Boolean(ui.showClosedProjectPositionsToggle.checked);
+      updateProjectMembersPanel();
+    });
+  }
+  fields.projectType.addEventListener('change', () => {
+    updatePositionRateVisibilityForAdd();
+    const readOnly = ui.saveMemberDetailsBtn.hidden;
+    updatePositionRateVisibilityForEdit({ readOnly });
+    updateProjectMembersPanel();
+  });
+
   ui.saveMemberDetailsBtn.addEventListener('click', async () => {
-    const consultantId = Number(ui.memberEditConsultantId.value);
-    const item = selectedProjectAssignments.find((member) => Number(member.consultantId) === consultantId);
+    const positionId = String(ui.memberEditConsultantId.value || '');
+    const item = selectedProjectAssignments.find((member) => String(member.positionId) === positionId);
     if (!item) { modals.memberDetails?.close(); return; }
     if (ui.memberStartDateEdit.value && ui.memberEndDateEdit.value && ui.memberStartDateEdit.value > ui.memberEndDateEdit.value) {
       toast('Start date cannot be after end date', 'red darken-1');
@@ -2390,7 +4254,18 @@ if (!isBrowserRuntime) {
     }
 
     item.projectRole = ui.memberProjectRoleModal.value;
+    item.areaId = ui.memberAreaModal?.value ? Number(ui.memberAreaModal.value) : null;
+    item.status = ui.memberPositionStatusEdit?.value || item.status || 'Open';
+    item.consultantId = ui.memberConsultantModal?.value ? Number(ui.memberConsultantModal.value) : null;
+    if (item.consultantId && (!item.status || item.status === 'Open')) {
+      item.status = 'Assigned';
+    } else if (!item.consultantId && item.status === 'Assigned') {
+      item.status = 'Open';
+    }
     item.allocation = allocation;
+    item.billable = ui.memberBillableEdit ? ui.memberBillableEdit.checked : true;
+    item.dailyRate = ui.memberDailyRateEdit?.value ? Number(ui.memberDailyRateEdit.value) : null;
+    item.dailyRateCurrency = item.dailyRate !== null && ui.memberDailyRateCurrencyEdit?.value ? String(ui.memberDailyRateCurrencyEdit.value).trim().toUpperCase() : null;
     item.comments = ui.memberCommentsEdit.value.trim();
     item.startDate = ui.memberStartDateEdit.value;
     item.endDate = ui.memberEndDateEdit.value;
@@ -2405,9 +4280,9 @@ if (!isBrowserRuntime) {
       }
       updateProjectMembersPanel();
       modals.memberDetails?.close();
-      toast('Project member updated', 'teal darken-1');
+      toast('Project position updated', 'teal darken-1');
     } catch (error) {
-      toast(error.message || 'Failed to save project member', 'red darken-1');
+      toast(error.message || 'Failed to save project position', 'red darken-1');
     }
   });
 
@@ -2443,6 +4318,7 @@ if (!isBrowserRuntime) {
       areaIds: selectedIds(fields.consultantAreaIds),
       companyRoleId: Number(fields.consultantCompanyRoleId.value),
       salary: fields.consultantSalary.value || 0,
+      companyBranchId: fields.consultantCompanyBranchId.value ? Number(fields.consultantCompanyBranchId.value) : null,
       holidayLocationId: fields.consultantHolidayLocationId.value ? Number(fields.consultantHolidayLocationId.value) : null
     };
 
@@ -2530,19 +4406,30 @@ if (!isBrowserRuntime) {
 
     fields.projectId.value = project.id;
     fields.projectName.value = project.projectName;
-    fields.clientName.value = project.clientName;
     fields.projectType.value = project.projectType || '';
+    if (fields.projectStatus) fields.projectStatus.value = project.projectStatus || 'Not Started';
     fields.managerId.value = project.managerConsultantId || '';
-    fields.clientContact.value = project.clientContact;
+    fields.clientBusinessPartnerId.value = project.clientBusinessPartnerId || '';
+    fields.deliveryPartnerBusinessPartnerId.value = project.deliveryPartnerBusinessPartnerId || '';
+    fields.contractWithBranchId.value = project.contractWithBranchId || '';
     fields.startDate.value = project.startDate;
     fields.endDate.value = project.endDate;
-    selectedProjectAssignments = (project.consultantAssignments || []).map((item) => ({
-      consultantId: Number(item.consultantId),
-      projectRole: item.projectRole || 'Project Member',
+    showClosedProjectPositions = false;
+    if (ui.showClosedProjectPositionsToggle) ui.showClosedProjectPositionsToggle.checked = false;
+    const projectPositions = project.projectPositions || project.consultantAssignments || [];
+    selectedProjectAssignments = projectPositions.map((item) => ({
+      positionId: String(item.id || `${Date.now()}-${Math.random()}`),
+      consultantId: item.consultantId ? Number(item.consultantId) : null,
+      areaId: item.areaId ? Number(item.areaId) : null,
+      projectRole: item.projectRole || 'Project Position',
       startDate: item.startDate || '',
       endDate: item.endDate || '',
       allocation: Number(item.allocation ?? 100),
-      comments: item.comments || ''
+      billable: item.billable !== false,
+      dailyRate: item.dailyRate === '' || item.dailyRate === null || item.dailyRate === undefined ? null : Number(item.dailyRate),
+      dailyRateCurrency: item.dailyRateCurrency ? String(item.dailyRateCurrency).trim().toUpperCase() : null,
+      comments: item.comments || '',
+      status: item.status || (item.consultantId ? 'Assigned' : 'Open')
     }));
     selectedProjectPhases = (project.projectPhases || []).map((item) => ({ id: String(item.id || Date.now() + Math.random()), name: item.name || '', startDate: item.startDate || '', endDate: item.endDate || '' }));
     selectedProjectMilestones = (project.projectMilestones || []).map((item) => ({ id: String(item.id || Date.now() + Math.random()), phaseId: item.phaseId ? String(item.phaseId) : '', name: item.name || '', startDate: item.startDate || '', endDate: item.endDate || '' }));
@@ -2550,27 +4437,212 @@ if (!isBrowserRuntime) {
 
     if (project.managerConsultantId && !selectedProjectAssignments.some((item) => item.projectRole === 'Project Manager')) {
       selectedProjectAssignments.unshift({
+        positionId: `${Date.now()}-pm`,
         consultantId: Number(project.managerConsultantId),
         projectRole: 'Project Manager',
         startDate: project.startDate,
         endDate: project.endDate,
         allocation: 100,
-        comments: ''
+        billable: true,
+        dailyRate: null,
+        dailyRateCurrency: null,
+        comments: '',
+        status: 'Assigned'
       });
     }
 
     selectedProjectTimelineYear = new Date().getFullYear();
     updateAssignedConsultantsSummary();
-    rebuildProjectSelects({ managerId: project.managerConsultantId });
-    setProjectFormMode(button.dataset.action === 'view-project' ? 'view' : 'edit');
+    rebuildProjectSelects({
+      managerId: project.managerConsultantId,
+      projectType: project.projectType || '',
+      clientBusinessPartnerId: project.clientBusinessPartnerId || '',
+      clientContactIds: (project.clientContacts || []).map((item) => Number(item.id)),
+      deliveryPartnerBusinessPartnerId: project.deliveryPartnerBusinessPartnerId || '',
+      deliveryPartnerContactIds: (project.deliveryPartnerContacts || []).map((item) => Number(item.id)),
+      contractWithBranchId: project.contractWithBranchId || ''
+    });
+    const targetMode = button.dataset.action === 'view-project' ? 'view' : 'edit';
     showProjectPhaseForm = false;
     showProjectMilestoneForm = false;
+    activeProjectWorkspaceTab = 'overview';
     showManageProjectPanel();
     collapseProjectTimeline();
     updateProjectTimelineExpandUi();
-    updateProjectMembersPanel();
     renderProjectWeekDetail('', '', '');
+    console.debug(`[ProjectMode:openProject] action=${button.dataset.action} targetMode=${targetMode} projectId=${project.id}`);
+    setProjectFormMode(targetMode);
+    await loadProjectFiles(project.id);
+    await loadRevenueData(project.id);
+    applyProjectModeUi('openProject-final');
     updateTextFields();
+  });
+
+  ui.projectRevenueSubtabs?.forEach((button) => {
+    button.addEventListener('click', () => {
+      const next = button.dataset.revenueSubtab;
+      if (!next) return;
+      activeRevenueSubtab = next;
+      renderRevenueSubtabs();
+    });
+  });
+
+  ui.projectRevenueForecastBody?.addEventListener('click', async (event) => {
+    const button = event.target.closest('button[data-action="forecast-month-detail"]');
+    if (!button) return;
+    const month = String(button.dataset.month || '').trim();
+    const projectId = Number(fields.projectId.value || 0);
+    if (!projectId || !month) return;
+    console.debug(`[RevenueForecast] Delegated forecast detail button click month=${month}, projectId=${projectId}`);
+    try {
+      await loadRevenueForecastMonthDetails(projectId, month);
+    } catch (error) {
+      console.debug('[RevenueForecast] Failed to open forecast details modal', error);
+      toast(error.message || 'Unable to load forecast month details', 'red darken-1');
+    }
+  });
+
+  ui.projectProfitabilityBody?.addEventListener('click', async (event) => {
+    const button = event.target.closest('button[data-action="profitability-month-detail"]');
+    if (!button) return;
+    const month = String(button.dataset.month || '').trim();
+    const projectId = Number(fields.projectId.value || 0);
+    if (!projectId || !month) return;
+    try {
+      await loadProfitabilityMonthDetails(projectId, month);
+    } catch (error) {
+      toast(error.message || 'Unable to load profitability month details', 'red darken-1');
+    }
+  });
+
+  ui.projectRevenueInvoicePeriodsBody?.addEventListener('click', async (event) => {
+    const button = event.target.closest('button[data-action]');
+    if (!button) return;
+    const month = String(button.dataset.month || '').trim();
+    const period = revenueInvoicePeriods.find((item) => String(item.month) === month);
+    const projectId = Number(fields.projectId.value || 0);
+    if (!projectId || !period) return;
+
+    if (button.dataset.action === 'add-invoice-period') {
+      selectedInvoicePeriodMonth = month;
+      renderRevenueMonthInvoices();
+      resetInvoiceModal(null, {
+        periodFrom: period.periodFrom,
+        periodTo: period.periodTo,
+        amount: period.proposedAmount
+      });
+      modals.invoice?.open();
+      return;
+    }
+    if (button.dataset.action === 'view-period-invoices') {
+      selectedInvoicePeriodMonth = month;
+      renderRevenueMonthInvoices();
+      return;
+    }
+    if (button.dataset.action === 'view-timesheet-details') {
+      try {
+        const payload = await request(`/api/projects/${projectId}/revenue/timesheet-details?month=${encodeURIComponent(month)}`);
+        revenueTimesheetDetails = payload?.details || [];
+        renderTimesheetDetailsModal(period.monthLabel || month);
+        modals.timesheetDetails?.open();
+      } catch (error) {
+        toast(error.message || 'Unable to load timesheet details', 'red darken-1');
+      }
+      return;
+    }
+  });
+
+  ui.projectRevenueMonthInvoicesBody?.addEventListener('click', async (event) => {
+    const button = event.target.closest('button[data-action]');
+    if (!button) return;
+    const invoiceId = Number(button.dataset.id);
+    const invoice = revenueInvoices.find((item) => Number(item.id) === invoiceId);
+    if (!invoice) return;
+
+    if (button.dataset.action === 'edit-invoice') {
+      resetInvoiceModal(invoice);
+      modals.invoice?.open();
+      return;
+    }
+    if (button.dataset.action === 'add-payment') {
+      resetPaymentModal(invoiceId);
+      modals.payment?.open();
+      return;
+    }
+    if (button.dataset.action === 'generate-invoice') {
+      generateInvoicePrintout(invoiceId);
+      return;
+    }
+    if (button.dataset.action === 'delete-invoice') {
+      const confirmed = window.confirm(`Delete invoice "${invoice.invoiceRef || invoice.id}"?`);
+      if (!confirmed) return;
+      try {
+        await request(`/api/invoices/${invoiceId}`, { method: 'DELETE' });
+        await loadRevenueData(fields.projectId.value);
+        toast('Invoice deleted', 'orange darken-2');
+      } catch (error) {
+        toast(error.message || 'Failed to delete invoice', 'red darken-1');
+      }
+    }
+  });
+
+  ui.saveInvoiceBtn?.addEventListener('click', async () => {
+    const projectId = Number(fields.projectId.value);
+    if (!projectId) return;
+    const payload = {
+      invoiceRef: ui.invoiceRef.value.trim(),
+      periodFrom: ui.invoicePeriodFrom.value,
+      periodTo: ui.invoicePeriodTo.value,
+      invoiceDate: ui.invoiceDate.value,
+      dueDate: ui.invoiceDueDate.value,
+      amount: Number(ui.invoiceAmount.value || 0),
+      status: ui.invoiceStatus.value,
+      notes: ui.invoiceNotes.value.trim()
+    };
+    if (!payload.periodFrom || !payload.periodTo || !payload.invoiceDate) {
+      toast('Period and invoice date are required', 'red darken-1');
+      return;
+    }
+    try {
+      const invoiceId = Number(ui.invoiceId.value || 0);
+      await request(invoiceId ? `/api/invoices/${invoiceId}` : `/api/projects/${projectId}/invoices`, {
+        method: invoiceId ? 'PUT' : 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      modals.invoice?.close();
+      await loadRevenueData(projectId);
+      toast(invoiceId ? 'Invoice updated' : 'Invoice added', 'teal darken-1');
+    } catch (error) {
+      toast(error.message || 'Failed to save invoice', 'red darken-1');
+    }
+  });
+
+  ui.savePaymentBtn?.addEventListener('click', async () => {
+    const invoiceId = Number(ui.paymentInvoiceId.value || 0);
+    if (!invoiceId) return;
+    const payload = {
+      paymentDate: ui.paymentDate.value,
+      amount: Number(ui.paymentAmount.value || 0),
+      notes: ui.paymentNotes.value.trim()
+    };
+    if (!payload.paymentDate || !(payload.amount > 0)) {
+      toast('Payment date and amount are required', 'red darken-1');
+      return;
+    }
+    try {
+      const paymentId = Number(ui.paymentId.value || 0);
+      await request(paymentId ? `/api/payments/${paymentId}` : `/api/invoices/${invoiceId}/payments`, {
+        method: paymentId ? 'PUT' : 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      modals.payment?.close();
+      await loadRevenueData(fields.projectId.value);
+      toast('Payment saved', 'teal darken-1');
+    } catch (error) {
+      toast(error.message || 'Failed to save payment', 'red darken-1');
+    }
   });
 
   ui.consultantsBody.addEventListener('click', async (event) => {
@@ -2597,7 +4669,7 @@ if (!isBrowserRuntime) {
     fields.consultantName.value = consultant.name;
     fields.consultantSalary.value = consultant.salary;
     fields.consultantStartDate.value = consultant.startDate || '';
-    rebuildConsultantSelects({ areaIds: consultant.areaIds || [], companyRoleId: consultant.companyRoleId || '', holidayLocationId: consultant.holidayLocationId || '' });
+    rebuildConsultantSelects({ areaIds: consultant.areaIds || [], companyRoleId: consultant.companyRoleId || '', companyBranchId: consultant.companyBranchId || '', holidayLocationId: consultant.holidayLocationId || '' });
     rebuildHolidayCountryRegionControls({ consultantHolidayLocationId: consultant.holidayLocationId || '' });
     setConsultantFormMode(button.dataset.action === 'view-consultant' ? 'view' : 'edit');
     await refreshTimelines();
@@ -2644,6 +4716,106 @@ if (!isBrowserRuntime) {
     }
   });
 
+  ui.businessPartnerTypeForm.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    try {
+      await request('/api/business-partner-types', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: fields.businessPartnerTypeName.value.trim() }) });
+      ui.businessPartnerTypeForm.reset();
+      await loadAll();
+      toast('Business partner type added', 'teal darken-1');
+    } catch (error) {
+      toast(error.message || 'Failed to add business partner type', 'red darken-1');
+    }
+  });
+
+  ui.projectTypeForm?.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    try {
+      await request('/api/project-types', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: fields.projectTypeName.value.trim() }) });
+      ui.projectTypeForm.reset();
+      await loadAll();
+      toast('Project type added', 'teal darken-1');
+    } catch (error) {
+      toast(error.message || 'Failed to add project type', 'red darken-1');
+    }
+  });
+
+  ui.showCompanyBranchFormBtn?.addEventListener('click', () => {
+    resetCompanyBranchForm();
+    modals.companyBranch?.open();
+  });
+
+  ui.sidebarLogoImage?.addEventListener('error', () => {
+    companyLogo = { hasLogo: false, logoUrl: null };
+    renderCompanyLogoFallback();
+  });
+  ui.companyLogoPreviewImage?.addEventListener('error', () => {
+    companyLogo = { hasLogo: false, logoUrl: null };
+    renderCompanyLogoFallback();
+  });
+  ui.uploadCompanyLogoBtn?.addEventListener('click', () => {
+    ui.companyLogoUploadInput?.click();
+  });
+  ui.companyLogoUploadInput?.addEventListener('change', async () => {
+    const file = ui.companyLogoUploadInput.files?.[0];
+    if (!file) return;
+    try {
+      const payload = await uploadCompanyLogo(file);
+      companyLogo = { hasLogo: Boolean(payload?.hasLogo), logoUrl: payload?.logoUrl || null };
+      renderCompanyLogoUi();
+      toast('Company logo updated', 'teal darken-1');
+    } catch (error) {
+      toast(error.message || 'Failed to upload company logo', 'red darken-1');
+    } finally {
+      ui.companyLogoUploadInput.value = '';
+    }
+  });
+  ui.removeCompanyLogoBtn?.addEventListener('click', async () => {
+    try {
+      await request('/api/company-logo', { method: 'DELETE' });
+      companyLogo = { hasLogo: false, logoUrl: null };
+      renderCompanyLogoUi();
+      toast('Company logo removed', 'orange darken-2');
+    } catch (error) {
+      toast(error.message || 'Failed to remove company logo', 'red darken-1');
+    }
+  });
+
+  fields.companyBranchCountry?.addEventListener('change', () => {
+    rebuildCompanyBranchRegionSelect({ countryCode: fields.companyBranchCountry.value, regionValue: '' });
+  });
+
+  ui.saveCompanyBranchBtn?.addEventListener('click', async () => {
+    const payload = {
+      name: fields.companyBranchName.value.trim(),
+      taxIdentification: fields.companyBranchTaxIdentification.value.trim(),
+      streetName: fields.companyBranchStreetName.value.trim(),
+      streetNumber: fields.companyBranchStreetNumber.value.trim(),
+      postalCode: fields.companyBranchPostalCode.value.trim(),
+      city: fields.companyBranchCity.value.trim(),
+      region: fields.companyBranchRegion.value.trim(),
+      country: fields.companyBranchCountry.value.trim()
+    };
+    try {
+      const editing = Boolean(fields.companyBranchId.value);
+      await request(editing ? `/api/company-branches/${fields.companyBranchId.value}` : '/api/company-branches', {
+        method: editing ? 'PUT' : 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      await loadAll();
+      modals.companyBranch?.close();
+      resetCompanyBranchForm();
+      toast(editing ? 'Company branch updated' : 'Company branch added', 'teal darken-1');
+    } catch (error) {
+      toast(error.message || 'Failed to save company branch', 'red darken-1');
+    }
+  });
+  ui.companyBranchForm?.addEventListener('submit', (event) => {
+    event.preventDefault();
+    ui.saveCompanyBranchBtn?.click();
+  });
+
   ui.rolesList.addEventListener('click', async (event) => {
     const button = event.target.closest('button[data-action="delete-role"]');
     if (!button) return;
@@ -2678,6 +4850,257 @@ if (!isBrowserRuntime) {
     } catch (error) {
       toast(error.message || 'Failed to delete day off type', 'red darken-1');
     }
+  });
+
+  ui.businessPartnerTypesList.addEventListener('click', async (event) => {
+    const button = event.target.closest('button[data-action="delete-business-partner-type"]');
+    if (!button) return;
+    try {
+      await request(`/api/business-partner-types/${button.dataset.id}`, { method: 'DELETE' });
+      await loadAll();
+      toast('Business partner type removed', 'orange darken-2');
+    } catch (error) {
+      toast(error.message || 'Failed to delete business partner type', 'red darken-1');
+    }
+  });
+
+  ui.projectTypesList?.addEventListener('click', async (event) => {
+    const button = event.target.closest('button[data-action="delete-project-type"]');
+    if (!button) return;
+    try {
+      await request(`/api/project-types/${button.dataset.id}`, { method: 'DELETE' });
+      await loadAll();
+      toast('Project type removed', 'orange darken-2');
+    } catch (error) {
+      toast(error.message || 'Failed to delete project type', 'red darken-1');
+    }
+  });
+
+  ui.companyBranchesList?.addEventListener('click', async (event) => {
+    const button = event.target.closest('button[data-action]');
+    if (!button) return;
+    const id = Number(button.dataset.id);
+    const branch = companyBranches.find((item) => Number(item.id) === id);
+    if (!branch) return;
+    if (button.dataset.action === 'edit-company-branch') {
+      resetCompanyBranchForm();
+      if (ui.companyBranchModalTitle) ui.companyBranchModalTitle.textContent = 'Edit Company Branch';
+      fields.companyBranchId.value = branch.id;
+      fields.companyBranchName.value = branch.name || '';
+      fields.companyBranchTaxIdentification.value = branch.taxIdentification || '';
+      fields.companyBranchStreetName.value = branch.streetName || '';
+      fields.companyBranchStreetNumber.value = branch.streetNumber || '';
+      fields.companyBranchPostalCode.value = branch.postalCode || '';
+      fields.companyBranchCity.value = branch.city || '';
+      const countryValue = String(branch.country || '').trim();
+      rebuildCompanyBranchCountrySelect(countryValue);
+      rebuildCompanyBranchRegionSelect({ countryCode: countryValue, regionValue: branch.region || '' });
+      updateTextFields();
+      modals.companyBranch?.open();
+      return;
+    }
+    if (button.dataset.action === 'delete-company-branch') {
+      try {
+        await request(`/api/company-branches/${id}`, { method: 'DELETE' });
+        await loadAll();
+        toast('Company branch removed', 'orange darken-2');
+      } catch (error) {
+        toast(error.message || 'Failed to delete company branch', 'red darken-1');
+      }
+    }
+  });
+
+  ui.showBusinessPartnerFormBtn?.addEventListener('click', () => {
+    resetBusinessPartnerForm();
+    showManageBusinessPartnerPanel();
+  });
+  ui.backToBusinessPartnersBtn?.addEventListener('click', showBusinessPartnersPanel);
+  ui.bpAddressToggleBtn?.addEventListener('click', () => {
+    businessPartnerAddressExpanded = !businessPartnerAddressExpanded;
+    renderBusinessPartnerSections();
+  });
+  ui.bpContactsToggleBtn?.addEventListener('click', () => {
+    businessPartnerContactsExpanded = !businessPartnerContactsExpanded;
+    renderBusinessPartnerSections();
+  });
+  ui.bpProjectsToggleBtn?.addEventListener('click', () => {
+    businessPartnerProjectsExpanded = !businessPartnerProjectsExpanded;
+    renderBusinessPartnerSections();
+  });
+  fields.businessPartnerCountry?.addEventListener('change', () => {
+    rebuildBusinessPartnerRegionSelect({ countryCode: fields.businessPartnerCountry.value, regionValue: '' });
+  });
+
+  ui.addBusinessPartnerContactBtn?.addEventListener('click', () => {
+    editingBusinessPartnerContacts.push({ name: '', lastName: '', emails: [], phoneNumbers: [] });
+    renderBusinessPartnerContactsEditor();
+    updateTextFields();
+  });
+
+  ui.businessPartnerContactsList?.addEventListener('input', (event) => {
+    const input = event.target.closest('[data-contact-index][data-field]');
+    if (!input) return;
+    const index = Number(input.dataset.contactIndex);
+    const field = input.dataset.field;
+    const current = editingBusinessPartnerContacts[index];
+    if (!current) return;
+    current[field] = input.value;
+  });
+
+  ui.businessPartnerContactsList?.addEventListener('click', (event) => {
+    const button = event.target.closest('button[data-action]');
+    if (!button) return;
+    const index = Number(button.dataset.contactIndex);
+    if (button.dataset.action === 'remove-contact') {
+      editingBusinessPartnerContacts = editingBusinessPartnerContacts.filter((_, idx) => idx !== index);
+      renderBusinessPartnerContactsEditor();
+      updateTextFields();
+      return;
+    }
+    if (button.dataset.action === 'open-communication') {
+      openCommunicationModalForContact(index);
+    }
+  });
+
+  ui.communicationEmailsList?.addEventListener('input', (event) => {
+    const input = event.target.closest('input[data-comm-field="email"]');
+    if (!input) return;
+    editingCommunicationDraft.emails[Number(input.dataset.index)] = input.value;
+  });
+
+  ui.communicationPhonesList?.addEventListener('input', (event) => {
+    const input = event.target.closest('input[data-comm-field="phone"]');
+    if (!input) return;
+    editingCommunicationDraft.phoneNumbers[Number(input.dataset.index)] = input.value;
+  });
+
+  ui.businessPartnerCommunicationModal?.addEventListener('click', (event) => {
+    const button = event.target.closest('button[data-action]');
+    if (!button) return;
+    if (button.dataset.action === 'remove-comm-email') {
+      editingCommunicationDraft.emails = editingCommunicationDraft.emails.filter((_, idx) => idx !== Number(button.dataset.index));
+      renderCommunicationModalRows();
+      return;
+    }
+    if (button.dataset.action === 'remove-comm-phone') {
+      editingCommunicationDraft.phoneNumbers = editingCommunicationDraft.phoneNumbers.filter((_, idx) => idx !== Number(button.dataset.index));
+      renderCommunicationModalRows();
+    }
+  });
+
+  ui.addCommunicationEmailBtn?.addEventListener('click', () => {
+    editingCommunicationDraft.emails = [...(editingCommunicationDraft.emails || []), ''];
+    renderCommunicationModalRows();
+  });
+
+  ui.addCommunicationPhoneBtn?.addEventListener('click', () => {
+    editingCommunicationDraft.phoneNumbers = [...(editingCommunicationDraft.phoneNumbers || []), ''];
+    renderCommunicationModalRows();
+  });
+
+  ui.saveCommunicationBtn?.addEventListener('click', () => {
+    if (businessPartnerViewMode === 'view') return;
+    const contact = editingBusinessPartnerContacts[editingCommunicationContactIndex];
+    if (!contact) return;
+    contact.emails = (editingCommunicationDraft.emails || []).map((item) => String(item || '').trim()).filter(Boolean);
+    contact.phoneNumbers = (editingCommunicationDraft.phoneNumbers || []).map((item) => String(item || '').trim()).filter(Boolean);
+    contact.email = contact.emails[0] || '';
+    renderBusinessPartnerContactsEditor();
+    modals.businessPartnerCommunication?.close();
+  });
+
+  ui.businessPartnerForm?.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    const payload = {
+      companyName: fields.businessPartnerCompanyName.value.trim(),
+      taxIdentification: fields.businessPartnerTaxIdentification.value.trim(),
+      businessPartnerTypeId: fields.businessPartnerTypeId.value ? Number(fields.businessPartnerTypeId.value) : null,
+      addressStreet: fields.businessPartnerAddressStreet.value.trim(),
+      addressNumber: fields.businessPartnerAddressNumber.value.trim(),
+      postalCode: fields.businessPartnerPostalCode.value.trim(),
+      city: fields.businessPartnerCity.value.trim(),
+      region: fields.businessPartnerRegion.value.trim(),
+      country: fields.businessPartnerCountry.value.trim(),
+      contacts: editingBusinessPartnerContacts.map((contact) => ({
+        ...contact,
+        emails: (contact.emails || (contact.email ? [contact.email] : [])).map((item) => String(item || '').trim()).filter(Boolean),
+        phoneNumbers: (contact.phoneNumbers || []).map((item) => String(item || '').trim()).filter(Boolean)
+      }))
+    };
+    try {
+      const editing = Boolean(fields.businessPartnerId.value);
+      await request(editing ? `/api/business-partners/${fields.businessPartnerId.value}` : '/api/business-partners', {
+        method: editing ? 'PUT' : 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      await loadAll();
+      resetBusinessPartnerForm();
+      toast(editing ? 'Business partner updated' : 'Business partner added', 'teal darken-1');
+    } catch (error) {
+      toast(error.message || 'Failed to save business partner', 'red darken-1');
+    }
+  });
+
+  ui.businessPartnersBody?.addEventListener('click', async (event) => {
+    const button = event.target.closest('button[data-action]');
+    if (!button) return;
+    const id = Number(button.dataset.id);
+    const partner = findBusinessPartnerById(id);
+    if (!partner) return;
+    if (button.dataset.action === 'delete-business-partner') {
+      if (!window.confirm(`Delete business partner "${partner.companyName}"?`)) return;
+      try {
+        await request(`/api/business-partners/${id}`, { method: 'DELETE' });
+        await loadAll();
+        toast('Business partner removed', 'orange darken-2');
+      } catch (error) {
+        toast(error.message || 'Failed to delete business partner', 'red darken-1');
+      }
+      return;
+    }
+    fields.businessPartnerId.value = partner.id;
+    fields.businessPartnerCompanyName.value = partner.companyName || '';
+    fields.businessPartnerTaxIdentification.value = partner.taxIdentification || '';
+    fields.businessPartnerTypeId.value = partner.businessPartnerTypeId || '';
+    fields.businessPartnerAddressStreet.value = partner.addressStreet || '';
+    fields.businessPartnerAddressNumber.value = partner.addressNumber || '';
+    fields.businessPartnerPostalCode.value = partner.postalCode || '';
+    fields.businessPartnerCity.value = partner.city || '';
+    const rawCountry = String(partner.country || '').trim();
+    const normalizedCountryCode = (() => {
+      const raw = String(partner.country || '').trim();
+      if (!raw) return '';
+      if (countryNamesByCode[raw.toUpperCase()]) return raw.toUpperCase();
+      const prefix = raw.split('-')[0]?.trim().toUpperCase();
+      if (countryNamesByCode[prefix]) return prefix;
+      return '';
+    })();
+    if (!normalizedCountryCode && rawCountry) {
+      fields.businessPartnerCountry.add(new Option(rawCountry, rawCountry, false, true));
+    }
+    fields.businessPartnerCountry.value = normalizedCountryCode || rawCountry;
+    resetSelect('businessPartnerCountry', fields.businessPartnerCountry);
+    rebuildBusinessPartnerRegionSelect({ countryCode: normalizedCountryCode || rawCountry, regionValue: partner.region || '' });
+    editingBusinessPartnerContacts = (partner.contacts || []).map((c) => ({
+      name: c.name || '',
+      lastName: c.lastName || '',
+      email: c.email || '',
+      emails: c.emails || (c.email ? [c.email] : []),
+      phoneNumbers: c.phoneNumbers || []
+    }));
+    fields.businessPartnerTypeId.innerHTML = '<option value="" selected>No type</option>';
+    businessPartnerTypes.forEach((type) => fields.businessPartnerTypeId.add(new Option(type.name, type.id, false, Number(type.id) === Number(partner.businessPartnerTypeId))));
+    resetSelect('businessPartnerType', fields.businessPartnerTypeId);
+    businessPartnerAddressExpanded = false;
+    businessPartnerContactsExpanded = false;
+    businessPartnerProjectsExpanded = false;
+    renderBusinessPartnerSections();
+    renderBusinessPartnerProjects();
+    setBusinessPartnerFormMode(button.dataset.action === 'view-business-partner' ? 'view' : 'edit');
+    renderBusinessPartnerContactsEditor();
+    updateTextFields();
+    showManageBusinessPartnerPanel();
   });
 
 
@@ -2813,19 +5236,22 @@ if (!isBrowserRuntime) {
 
 
   ui.projectSwitchEditBtn?.addEventListener('click', () => {
+    console.debug('[ProjectMode:switchToEdit] from legacy pen');
     setProjectFormMode('edit');
+    console.debug(`[switchToEditLegacy] mode now ${projectViewMode}`);
   });
 
   ui.consultantSwitchEditBtn?.addEventListener('click', () => {
     setConsultantFormMode('edit');
   });
 
-  const timeTrackingConsultantSelectEl = document.getElementById('time-tracking-consultant-select');
+  const timeTrackingConsultantSelectEl = ui.timeTrackingConsultantSelect;
   timeTrackingConsultantSelectEl?.addEventListener('change', () => {
     const selectedId = Number(timeTrackingConsultantSelectEl.value || 0);
     activeTimesheetConsultantId = selectedId;
     activeTimesheet = null;
     hasRequestedTimesheetLoad = false;
+    visibleOlderTimesheetCount = 0;
     timesheetMonths = [];
     setTimeTrackingView({ showList: true });
     renderTimesheetMonths();
@@ -2842,7 +5268,13 @@ if (!isBrowserRuntime) {
   ui.loadTimesheetsBtn?.addEventListener('click', async () => {
     if (!activeTimesheetConsultantId) return;
     hasRequestedTimesheetLoad = true;
+    visibleOlderTimesheetCount = 0;
     await loadTimesheetMonths(activeTimesheetConsultantId);
+  });
+
+  ui.timesheetToggleOlderBtn?.addEventListener('click', () => {
+    visibleOlderTimesheetCount += 3;
+    renderTimesheetMonths();
   });
 
   ui.backToTimesheetsBtn?.addEventListener('click', () => {
@@ -2865,27 +5297,100 @@ if (!isBrowserRuntime) {
 
   ui.addManualTimesheetLineBtn?.addEventListener('click', async () => {
     if (!activeTimesheet?.timesheetId) return;
-    const activity = window.prompt('Activity description');
-    if (!activity || !activity.trim()) {
-      toast('Activity is required for manual line', 'orange darken-2');
+    if (isTimesheetLocked(activeTimesheet.status)) {
+      toast('Completed timesheets cannot be edited', 'orange darken-2');
+      return;
+    }
+    if (!dayOffTypes.length) {
+      toast('No day off types available. Add one in Administration first.', 'orange darken-2');
+      return;
+    }
+    populateManualLineDayOffTypeSelect();
+    modals.manualLine?.open();
+  });
+
+  ui.confirmManualLineBtn?.addEventListener('click', async () => {
+    if (!activeTimesheet?.timesheetId) return;
+    const activity = String(ui.manualLineDayOffTypeSelect?.value || '').trim();
+    if (!activity) {
+      toast('Select a day off type to add a manual line', 'orange darken-2');
       return;
     }
     try {
       await request('/api/monthly-timesheets/manual-line', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ timesheetId: activeTimesheet.timesheetId, activity: activity.trim() })
+        body: JSON.stringify({ timesheetId: activeTimesheet.timesheetId, activity })
       });
+      modals.manualLine?.close();
       await openMonthlyTimesheet(activeTimesheet.monthStart);
     } catch (error) {
       toast(error.message || 'Failed to add manual line', 'red darken-1');
     }
   });
 
+  ui.timesheetSaveDraftBtn?.addEventListener('click', async () => {
+    try {
+      await saveActiveTimesheetStatus('In Progress');
+    } catch (error) {
+      toast(error.message || 'Failed to save timesheet status', 'red darken-1');
+    }
+  });
+
+  ui.timesheetSaveCompletedBtn?.addEventListener('click', async () => {
+    try {
+      await saveActiveTimesheetStatus('Completed');
+      renderTimesheetWeek();
+    } catch (error) {
+      toast(error.message || 'Failed to save timesheet status', 'red darken-1');
+    }
+  });
+
+  ui.timesheetReopenBtn?.addEventListener('click', async () => {
+    try {
+      await saveActiveTimesheetStatus('In Progress');
+      renderTimesheetWeek();
+    } catch (error) {
+      toast(error.message || 'Failed to reopen timesheet', 'red darken-1');
+    }
+  });
+
+  ui.timesheetPrintBtn?.addEventListener('click', () => {
+    printActiveTimesheet();
+  });
+
   ui.navMenu.addEventListener('click', (event) => {
     const item = event.target.closest('li[data-section]');
     if (!item) return;
     setSection(item.dataset.section);
+  });
+
+  ui.downloadBackupBtn?.addEventListener('click', async () => {
+    try {
+      await downloadBackup();
+      toast('Backup downloaded', 'teal darken-1');
+    } catch (error) {
+      toast(error.message || 'Unable to download backup', 'red darken-1');
+    }
+  });
+
+  ui.restoreBackupBtn?.addEventListener('click', async () => {
+    const file = ui.restoreBackupFileInput?.files?.[0];
+    if (!file) {
+      toast('Please select a backup ZIP file', 'red darken-1');
+      return;
+    }
+    const confirmed = window.confirm('Restore will replace current data. A safety backup will be created first. Continue?');
+    if (!confirmed) return;
+    try {
+      const payload = await restoreBackup(file);
+      toast(`Backup restored successfully (${payload?.safetyBackup || 'safety backup created'})`, 'teal darken-1');
+      if (ui.restoreBackupFileInput) ui.restoreBackupFileInput.value = '';
+      await loadAll();
+      setSection('projects');
+    } catch (error) {
+      toast(error.message || 'Unable to restore backup', 'red darken-1');
+    }
   });
 
   ui.createAllocationSimulationBtn?.addEventListener('click', async () => {
@@ -2961,11 +5466,38 @@ if (!isBrowserRuntime) {
     modals.memberDetails = M.Modal.init(ui.memberDetailsModal);
     modals.daysOff = M.Modal.init(ui.daysOffModal);
     modals.holidayLoad = M.Modal.init(ui.holidayLoadModal);
+    modals.manualLine = M.Modal.init(ui.manualLineModal);
+    modals.invoice = M.Modal.init(ui.invoiceModal);
+    modals.payment = M.Modal.init(ui.paymentModal);
+    modals.timesheetDetails = M.Modal.init(ui.timesheetDetailsModal);
+    modals.businessPartnerCommunication = M.Modal.init(ui.businessPartnerCommunicationModal);
+    modals.companyBranch = M.Modal.init(ui.companyBranchModal);
   }
+
+  ui.forecastDetailsModalCloseBtn?.addEventListener('click', () => {
+    closeForecastDetailsModal();
+  });
+
+  ui.forecastDetailsModal?.addEventListener('click', (event) => {
+    if (event.target === ui.forecastDetailsModal) closeForecastDetailsModal();
+  });
+
+  ui.forecastDetailsModal?.addEventListener('cancel', (event) => {
+    console.debug('[RevenueForecast] Dialog cancel event captured (Escape/backdrop).');
+    event.preventDefault();
+    closeForecastDetailsModal();
+  });
+
+  ui.forecastDetailsModal?.addEventListener('close', () => {
+    console.debug('[RevenueForecast] Dialog close event observed.');
+    ui.forecastDetailsModal?.style.removeProperty('display');
+  });
 
   setSection('projects');
   updateProjectTimelineExpandUi();
   resetProjectForm();
   resetConsultantForm();
+  resetBusinessPartnerForm();
   loadAll().catch((error) => toast(error.message || 'Unable to load data', 'red darken-1'));
 }
+;

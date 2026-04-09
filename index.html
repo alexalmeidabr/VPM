@@ -10,15 +10,20 @@
   </head>
   <body class="blue-grey lighten-5 app-shell">
     <aside class="sidebar-panel blue-grey darken-3">
-      <div class="sidebar-header">VPM • Workspace</div>
+      <div class="sidebar-header" id="sidebar-branding">
+        <img id="sidebar-logo-image" alt="Company logo" hidden />
+        <span id="sidebar-logo-fallback">VPM • Workspace</span>
+      </div>
       <ul class="collection" id="nav-menu">
         <li class="collection-item active" data-section="projects">Projects</li>
         <li class="collection-item" data-section="consultants">Consultants</li>
+        <li class="collection-item" data-section="business-partners">Business Partners</li>
         <li class="collection-item" data-section="time-tracking">Time Tracking</li>
         <li class="collection-item" data-section="allocation-forecast">Allocation Forecast</li>
         <li class="collection-item" data-section="mass-update">Mass Update</li>
         <li class="collection-item" data-section="authorization">Authorization</li>
         <li class="collection-item" data-section="administration">Administration</li>
+        <li class="collection-item" data-section="backup-restore">Backup & Restore</li>
       </ul>
       <button class="sidebar-settings" type="button">Settings</button>
     </aside>
@@ -26,7 +31,7 @@
     <main class="main-content section">
       <section id="projects-section">
         <div class="row projects-layout-row">
-          <div class="col s12 l8">
+          <div class="col s12 l8" id="project-main-column">
             <div class="card" id="projects-panel-card">
               <div class="card-content">
                 <div class="section-header">
@@ -37,7 +42,7 @@
                 <div class="table-container projects-table-container">
                   <table class="striped responsive-table">
                     <thead>
-                      <tr><th>Project</th><th>Client</th><th>Manager</th><th>Type</th><th>Client Contact</th><th>Dates</th><th>Actions</th></tr>
+                      <tr><th>Project</th><th>Client</th><th>Status</th><th>Manager</th><th>Type</th><th>Delivery Partner</th><th>Dates</th><th>Actions</th></tr>
                     </thead>
                     <tbody id="projects-body"></tbody>
                   </table>
@@ -48,21 +53,53 @@
 
             <div class="card" id="project-form-card" hidden>
               <div class="card-content">
-                <div class="section-header">
+                <div class="section-header" id="project-form-basic-header">
                   <div class="title-with-action">
                     <span class="card-title" id="project-form-title">Manage Project</span>
+                  </div>
+                  <div class="title-with-action">
                     <button class="btn waves-effect waves-light" type="submit" form="project-form" id="project-save-btn" aria-label="Save Project"><i class="material-icons">save</i></button>
                     <button class="btn-flat" type="button" id="project-switch-edit-btn" aria-label="Switch to edit mode" hidden><i class="material-icons">edit</i></button>
                   </div>
                   <button class="btn-flat" type="button" id="back-to-projects-btn">Back to Projects</button>
                 </div>
+                <div id="project-summary-header" class="project-summary-header" hidden>
+                  <div>
+                    <h5 id="project-summary-name">Project</h5>
+                    <div class="project-summary-subline"><span class="grey-text" id="project-summary-client">—</span><span id="project-summary-status" class="status-badge status-not-started">Not Started</span></div>
+                  </div>
+                  <div class="project-summary-actions">
+                    <button class="btn waves-effect waves-light" type="submit" form="project-form" id="project-save-btn-header" aria-label="Save Project"><i class="material-icons">save</i></button>
+                    <button class="btn-flat" type="button" id="project-switch-edit-btn-header" aria-label="Switch to edit mode" hidden><i class="material-icons">edit</i></button>
+                    <button class="btn-flat" type="button" id="project-switch-view-btn-header" aria-label="Switch to view mode" hidden><i class="material-icons">visibility</i></button>
+                    <button class="btn-flat" type="button" id="project-summary-back-btn">Back to Projects</button>
+                  </div>
+                </div>
+                <div id="project-workspace-tabs" class="project-workspace-tabs" hidden>
+                  <button type="button" class="project-workspace-tab active" data-workspace-tab="overview">Overview</button>
+                  <button type="button" class="project-workspace-tab" data-workspace-tab="team">Team</button>
+                  <button type="button" class="project-workspace-tab" data-workspace-tab="timeline">Timeline</button>
+                  <button type="button" class="project-workspace-tab" data-workspace-tab="revenue">Revenue</button>
+                  <button type="button" class="project-workspace-tab" data-workspace-tab="profitability">Profitability</button>
+                  <button type="button" class="project-workspace-tab" data-workspace-tab="files">Files</button>
+                </div>
+                <div id="project-workspace-content" class="project-workspace-content">
+                  <div id="project-workspace-overview" class="project-workspace-panel" data-workspace-panel="overview">
                 <form id="project-form">
                   <input type="hidden" id="project-id" />
                   <div class="input-field"><input id="project-name" type="text" required /><label for="project-name">Project Name</label></div>
-                  <div class="input-field"><input id="client-name" type="text" required /><label for="client-name">Client Name</label></div>
-                  <div class="input-field"><select id="project-type" required><option value="" disabled selected>Select type</option><option value="Time Material">Time Material</option><option value="Fixed Price">Fixed Price</option></select><label for="project-type">Type</label></div>
+                  <div class="row project-overview-pair-row">
+                    <div class="input-field col s12 m6"><select id="client-business-partner-id"></select><label for="client-business-partner-id">Client</label></div>
+                    <div class="input-field col s12 m6"><select id="client-contact-ids" multiple></select><label for="client-contact-ids">Client Contacts</label></div>
+                  </div>
+                  <div class="input-field"><select id="project-type" required><option value="" disabled selected>Select type</option></select><label for="project-type">Type</label></div>
                   <div class="input-field"><select id="manager-consultant-id" required></select><label for="manager-consultant-id">Manager</label></div>
-                  <div class="input-field"><input id="client-contact" type="text" required /><label for="client-contact">Client Contact</label></div>
+                  <div class="input-field" id="project-status-field-wrap"><select id="project-status"><option value="Not Started">Not Started</option><option value="In Progress">In Progress</option><option value="Delayed">Delayed</option><option value="Completed">Completed</option></select><label for="project-status">Project Status</label></div>
+                  <div class="row project-overview-pair-row">
+                    <div class="input-field col s12 m6"><select id="delivery-partner-business-partner-id"></select><label for="delivery-partner-business-partner-id">Delivery Partner</label></div>
+                    <div class="input-field col s12 m6"><select id="delivery-partner-contact-ids" multiple></select><label for="delivery-partner-contact-ids">Delivery Partner Contacts</label></div>
+                  </div>
+                  <div class="input-field"><select id="contract-with-branch-id"></select><label for="contract-with-branch-id">Contract With</label></div>
                   <div class="row date-row">
                     <div class="input-field col s12 m6"><input id="start-date" type="date" required /><label class="active" for="start-date">Start Date</label></div>
                     <div class="input-field col s12 m6"><input id="end-date" type="date" required /><label class="active" for="end-date">End Date</label></div>
@@ -103,22 +140,251 @@
                     <div id="project-week-detail-timeline" class="week-detail-timeline"></div>
                   </div>
                 </div>
+                  </div>
+                  <div id="project-workspace-team" class="project-workspace-panel" data-workspace-panel="team" hidden>
+                    <div id="project-team-tab-host"></div>
+                  </div>
+                  <div id="project-workspace-timeline" class="project-workspace-panel" data-workspace-panel="timeline" hidden>
+                    <div id="project-timeline-tab-host"></div>
+                  </div>
+                  <div id="project-workspace-revenue" class="project-workspace-panel" data-workspace-panel="revenue" hidden>
+                    <div id="project-revenue-not-implemented" class="project-workspace-placeholder" hidden>Revenue Management V1 is not yet implemented for this project type.</div>
+                    <div id="project-revenue-time-material" hidden>
+                      <div id="project-revenue-subtabs" class="project-subtabs">
+                        <button type="button" class="project-workspace-tab project-subtab active" data-revenue-subtab="invoices">Invoices</button>
+                        <button type="button" class="project-workspace-tab project-subtab" data-revenue-subtab="forecast">Forecast</button>
+                        <button type="button" class="project-workspace-tab project-subtab" data-revenue-subtab="actuals">Actuals</button>
+                      </div>
+                      <div id="project-revenue-subtab-invoices" data-revenue-subtab-panel="invoices">
+                        <div class="section-header">
+                          <h6>Monthly Billing Periods</h6>
+                        </div>
+                        <div class="table-container">
+                          <table class="striped responsive-table">
+                            <thead>
+                              <tr><th>Month</th><th>Timesheet Status</th><th>Details</th><th>Period</th><th>Proposed Amount</th><th>Invoices</th><th>Actions</th></tr>
+                            </thead>
+                            <tbody id="project-revenue-invoice-periods-body"></tbody>
+                          </table>
+                        </div>
+                        <p class="grey-text text-darken-1 empty-message" id="project-revenue-invoice-periods-empty">No billing periods available.</p>
+                        <div id="project-revenue-month-invoices" class="month-detail-card" hidden>
+                          <div class="section-header">
+                            <h6 id="project-revenue-month-invoices-title">Invoices for Month</h6>
+                          </div>
+                          <div class="table-container">
+                            <table class="striped responsive-table">
+                              <thead>
+                                <tr><th>Invoice Ref</th><th>Period</th><th>Invoice Date</th><th>Due Date</th><th>Amount</th><th>Paid Amount</th><th>Status</th><th>Actions</th></tr>
+                              </thead>
+                              <tbody id="project-revenue-month-invoices-body"></tbody>
+                            </table>
+                          </div>
+                          <p class="grey-text text-darken-1 empty-message" id="project-revenue-month-invoices-empty">No invoices for this month yet.</p>
+                        </div>
+                      </div>
+                      <div id="project-revenue-subtab-forecast" data-revenue-subtab-panel="forecast" hidden>
+                        <div class="section-header">
+                          <h6>Revenue Forecast KPIs</h6>
+                        </div>
+                        <div class="revenue-summary-grid">
+                          <div class="revenue-summary-card"><span class="grey-text">Revenue This Month</span><strong id="revenue-this-month-value">€0.00</strong></div>
+                          <div class="revenue-summary-card"><span class="grey-text">Revenue Next 3 Months</span><strong id="revenue-next-3-months-value">€0.00</strong></div>
+                          <div class="revenue-summary-card"><span class="grey-text">Total Forecast Until Project End</span><strong id="revenue-forecast-total-value">€0.00</strong></div>
+                        </div>
+                        <div class="section-header">
+                          <h6>Monthly Forecast Breakdown</h6>
+                        </div>
+                        <div class="table-container">
+                          <table class="striped responsive-table">
+                            <thead>
+                              <tr><th>Month</th><th>Billable Days</th><th>Revenue</th><th>Positions</th><th>Consultants</th><th>Details</th></tr>
+                            </thead>
+                            <tbody id="project-revenue-forecast-body"></tbody>
+                          </table>
+                        </div>
+                        <p class="grey-text text-darken-1 empty-message" id="project-revenue-forecast-empty">No forecast rows available.</p>
+                      </div>
+                      <div id="project-revenue-subtab-actuals" data-revenue-subtab-panel="actuals" hidden>
+                        <div class="section-header">
+                          <h6>Revenue Actuals</h6>
+                        </div>
+                        <div class="revenue-summary-grid">
+                          <div class="revenue-summary-card"><span class="grey-text">Total Invoiced</span><strong id="revenue-invoiced-value">€0.00</strong></div>
+                          <div class="revenue-summary-card"><span class="grey-text">Total Paid</span><strong id="revenue-paid-value">€0.00</strong></div>
+                          <div class="revenue-summary-card"><span class="grey-text">Outstanding</span><strong id="revenue-outstanding-value">€0.00</strong></div>
+                          <div class="revenue-summary-card"><span class="grey-text">Unbilled Forecast</span><strong id="revenue-unbilled-value">€0.00</strong></div>
+                        </div>
+                        <div class="section-header">
+                          <h6>Paid vs Outstanding</h6>
+                        </div>
+                        <div id="revenue-actuals-chart" class="simple-pie-chart">
+                          <div class="pie-chart-ring"><div id="revenue-actuals-chart-fill" class="pie-chart-fill"></div></div>
+                          <div class="pie-chart-legend">
+                            <div><span class="legend-dot paid"></span>Paid: <strong id="revenue-actuals-paid-label">€0.00</strong></div>
+                            <div><span class="legend-dot outstanding"></span>Outstanding: <strong id="revenue-actuals-outstanding-label">€0.00</strong></div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  <div id="project-workspace-profitability" class="project-workspace-panel" data-workspace-panel="profitability" hidden>
+                    <div id="project-profitability-not-implemented" class="project-workspace-placeholder" hidden>Profitability V1 is not yet implemented for this project type.</div>
+                    <div id="project-profitability-time-material" hidden>
+                      <div class="section-header"><h6>Profitability KPIs</h6></div>
+                      <div class="revenue-summary-grid">
+                        <div class="revenue-summary-card"><span class="grey-text">Total Forecast Revenue</span><strong id="profitability-revenue-value">€0.00</strong></div>
+                        <div class="revenue-summary-card"><span class="grey-text">Total Forecast Cost</span><strong id="profitability-cost-value">€0.00</strong></div>
+                        <div class="revenue-summary-card"><span class="grey-text">Total Forecast Gross Margin</span><strong id="profitability-margin-value">€0.00</strong></div>
+                        <div class="revenue-summary-card"><span class="grey-text">Forecast Margin %</span><strong id="profitability-margin-percent-value">0%</strong></div>
+                      </div>
+                      <div class="section-header"><h6>Monthly Profitability Breakdown</h6></div>
+                      <div class="table-container">
+                        <table class="striped responsive-table">
+                          <thead>
+                            <tr><th>Month</th><th>Revenue</th><th>Internal Cost</th><th>Gross Margin</th><th>Margin %</th><th>Details</th></tr>
+                          </thead>
+                          <tbody id="project-profitability-body"></tbody>
+                        </table>
+                      </div>
+                      <p class="grey-text text-darken-1 empty-message" id="project-profitability-empty">No profitability rows available.</p>
+                      <div id="project-profitability-detail" class="month-detail-card" hidden>
+                        <div class="section-header"><h6 id="project-profitability-detail-title">Profitability Month Details</h6></div>
+                        <div class="table-container">
+                          <table class="striped responsive-table">
+                            <thead>
+                              <tr><th>Position</th><th>Consultant</th><th>Allocation %</th><th>Revenue</th><th>Internal Cost</th><th>Gross Margin</th><th>Margin %</th></tr>
+                            </thead>
+                            <tbody id="project-profitability-detail-body"></tbody>
+                          </table>
+                        </div>
+                        <p class="grey-text text-darken-1 empty-message" id="project-profitability-detail-empty">No month details available.</p>
+                      </div>
+                    </div>
+                  </div>
+                  <div id="project-workspace-files" class="project-workspace-panel" data-workspace-panel="files" hidden>
+                    <div class="section-header">
+                      <h6>Project Files</h6>
+                      <button class="btn waves-effect waves-light" id="project-upload-file-btn" type="button">Upload File</button>
+                      <input type="file" id="project-file-upload-input" hidden />
+                    </div>
+                    <div class="table-container">
+                      <table class="striped responsive-table">
+                        <thead>
+                          <tr><th>Name</th><th>Size</th><th>Uploaded On</th><th>Actions</th></tr>
+                        </thead>
+                        <tbody id="project-files-body"></tbody>
+                      </table>
+                    </div>
+                    <p id="project-files-empty-state" class="grey-text text-darken-1 empty-message">No files uploaded for this project.</p>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
 
-          <div class="col s12 l4">
+          <div class="col s12 l4" id="project-members-column">
             <div class="card sticky-members-panel" id="project-members-card" hidden>
               <div class="card-content">
                 <div class="section-header">
                   <div class="title-with-action">
-                    <span class="card-title">Project Members</span>
-                    <span class="grey-text" id="assigned-consultants-summary">No consultants assigned yet.</span>
+                    <span class="card-title">Project Positions</span>
+                    <span class="grey-text" id="assigned-consultants-summary">No project positions yet.</span>
                   </div>
-                  <button class="btn waves-effect waves-light" type="button" id="open-consultant-modal-btn">Add Consultant</button>
+                  <div id="show-closed-project-positions-row" class="project-members-toggle-row switch" hidden>
+                    <label for="show-closed-project-positions-toggle">
+                      Hide Closed
+                      <input id="show-closed-project-positions-toggle" type="checkbox" />
+                      <span class="lever"></span>
+                      Show Closed
+                    </label>
+                  </div>
+                  <button class="btn waves-effect waves-light" type="button" id="open-consultant-modal-btn">Add Position</button>
                 </div>
                 <div id="project-members-list" class="project-members-list"></div>
               </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section id="business-partners-section" hidden>
+        <div class="card" id="business-partners-panel-card">
+          <div class="card-content">
+            <div class="section-header">
+              <span class="card-title">Business Partners</span>
+              <button class="btn waves-effect waves-light" id="show-business-partner-form-btn" type="button">Add Business Partner<i class="material-icons right">add</i></button>
+            </div>
+            <div class="table-container">
+              <table class="striped responsive-table">
+                <thead><tr><th>Company</th><th>Type</th><th>City</th><th>Country</th><th>Actions</th></tr></thead>
+                <tbody id="business-partners-body"></tbody>
+              </table>
+            </div>
+            <p id="business-partners-empty-state" class="center-align grey-text text-darken-1 empty-message">No business partners yet.</p>
+          </div>
+        </div>
+
+        <div class="card" id="business-partner-form-card" hidden>
+          <div class="card-content">
+            <div class="section-header">
+              <span class="card-title" id="business-partner-form-title">Manage Business Partner</span>
+              <button class="btn-flat" type="button" id="back-to-business-partners-btn">Back to Business Partners</button>
+            </div>
+            <form id="business-partner-form">
+              <input type="hidden" id="business-partner-id" />
+              <div class="input-field"><input id="business-partner-company-name" type="text" required /><label for="business-partner-company-name">Company Name</label></div>
+              <div class="input-field"><input id="business-partner-tax-identification" type="text" /><label for="business-partner-tax-identification">Tax Identification</label></div>
+              <div class="input-field"><select id="business-partner-type-id"></select><label for="business-partner-type-id">Business Partner Type</label></div>
+              <div class="bp-collapsible-section">
+                <button class="bp-collapsible-header" type="button" id="bp-address-toggle-btn">
+                  <span>Address Information</span>
+                  <i class="material-icons" id="bp-address-toggle-icon">chevron_right</i>
+                </button>
+                <div id="bp-address-content" hidden>
+                  <div class="row date-row">
+                    <div class="input-field col s12 m8"><input id="business-partner-address-street" type="text" /><label for="business-partner-address-street">Street Name</label></div>
+                    <div class="input-field col s12 m4"><input id="business-partner-address-number" type="text" /><label for="business-partner-address-number">Number</label></div>
+                  </div>
+                  <div class="row date-row">
+                    <div class="input-field col s12 m4"><input id="business-partner-postal-code" type="text" /><label for="business-partner-postal-code">Postal Code</label></div>
+                    <div class="input-field col s12 m4"><input id="business-partner-city" type="text" /><label for="business-partner-city">City</label></div>
+                    <div class="input-field col s12 m4"><select id="business-partner-region"></select><label for="business-partner-region">Region</label></div>
+                  </div>
+                  <div class="input-field"><select id="business-partner-country"></select><label for="business-partner-country">Country</label></div>
+                </div>
+              </div>
+            </form>
+            <div class="bp-collapsible-section">
+              <button class="bp-collapsible-header" type="button" id="bp-contacts-toggle-btn">
+                <span>Contact Persons</span>
+                <i class="material-icons" id="bp-contacts-toggle-icon">chevron_right</i>
+              </button>
+              <div id="bp-contacts-content" hidden>
+                <div class="section-header">
+                  <h6>Contact Persons</h6>
+                  <button class="btn blue-grey" type="button" id="add-business-partner-contact-btn">Add Contact Person</button>
+                </div>
+                <div id="business-partner-contacts-list"></div>
+              </div>
+            </div>
+            <div class="bp-collapsible-section">
+              <button class="bp-collapsible-header" type="button" id="bp-projects-toggle-btn">
+                <span>Projects</span>
+                <i class="material-icons" id="bp-projects-toggle-icon">chevron_right</i>
+              </button>
+              <div id="bp-projects-content" hidden>
+                <div class="table-container">
+                  <table class="striped responsive-table">
+                    <thead><tr><th>Project Name</th><th>Client</th><th>Manager</th><th>Delivery Partner</th><th>Start Date</th><th>End Date</th></tr></thead>
+                    <tbody id="business-partner-projects-body"></tbody>
+                  </table>
+                </div>
+                <p id="business-partner-projects-empty-state" class="grey-text text-darken-1">No related projects found.</p>
+              </div>
+            </div>
+            <div class="right-align" style="margin-top: 1rem;">
+              <button class="btn" type="submit" form="business-partner-form" id="business-partner-save-btn">Save Business Partner</button>
             </div>
           </div>
         </div>
@@ -134,7 +400,7 @@
             <p class="grey-text" id="consultant-count"></p>
             <div class="table-container">
               <table class="striped responsive-table">
-                <thead><tr><th>Name</th><th>Area</th><th>Company Role</th><th>Holiday Location</th><th>Actions</th></tr></thead>
+                <thead><tr><th>Name</th><th>Area</th><th>Company Role</th><th>Daily Internal Cost</th><th>Company Branch</th><th>Holiday Location</th><th>Actions</th></tr></thead>
                 <tbody id="consultants-body"></tbody>
               </table>
             </div>
@@ -171,7 +437,8 @@
               <div class="input-field"><input id="consultant-start-date" type="date" required /><label class="active" for="consultant-start-date">Start Date</label></div>
               <div class="input-field"><select id="consultant-area-ids" multiple required></select><label for="consultant-area-ids">Area</label></div>
               <div class="input-field"><select id="consultant-company-role-id" required></select><label for="consultant-company-role-id">Company Role</label></div>
-              <input id="consultant-salary" type="hidden" value="0" />
+              <div class="input-field"><input id="consultant-salary" type="number" min="0" step="0.01" value="0" /><label class="active" for="consultant-salary">Daily Internal Cost</label></div>
+              <div class="input-field"><select id="consultant-company-branch-id"></select><label for="consultant-company-branch-id">Company Branch</label></div>
               <div class="input-field"><select id="consultant-holiday-location-id"></select><label for="consultant-holiday-location-id">Holiday Location</label></div>
             </form>
 
@@ -211,9 +478,12 @@
               </select>
             </div>
             <button class="btn" id="load-timesheets-btn" type="button" hidden>Load Timesheets</button>
-            <p class="grey-text" id="timesheet-month-count" hidden></p>
-            <div id="timesheets-empty-state" class="center-align grey-text text-darken-1 empty-message" hidden>Select a consultant to load monthly timesheets.</div>
-            <div id="timesheet-month-list" class="timesheet-month-list" hidden></div>
+            <div class="timesheet-month-panel">
+              <p class="grey-text" id="timesheet-month-count" hidden></p>
+              <button class="btn-flat timesheet-toggle-link" id="timesheet-toggle-older-btn" type="button" hidden>See older Timesheets</button>
+              <div id="timesheets-empty-state" class="grey-text text-darken-1 empty-message" hidden>Select a consultant to load monthly timesheets.</div>
+              <div id="timesheet-month-list" class="timesheet-month-list" hidden></div>
+            </div>
           </div>
         </div>
 
@@ -230,6 +500,19 @@
               <button class="btn" type="button" id="add-manual-timesheet-line-btn">Add Manual Line</button>
             </div>
             <div id="timesheet-table-wrap" class="table-container"></div>
+            <div class="timesheet-summary-panel">
+              <div class="section-header timesheet-summary-header">
+                <span class="card-title timesheet-summary-title">Month Summary</span>
+                <span class="timesheet-summary-status" id="timesheet-summary-status">• Status: Draft</span>
+              </div>
+              <div id="timesheet-summary-wrap"></div>
+              <div class="timesheet-summary-actions">
+                <button class="btn blue-grey timesheet-status-btn" type="button" id="timesheet-print-btn">Print</button>
+                <button class="btn blue-grey lighten-1 timesheet-status-btn" type="button" id="timesheet-save-draft-btn">Save as Draft</button>
+                <button class="btn teal timesheet-status-btn" type="button" id="timesheet-save-completed-btn">Save as Completed</button>
+                <button class="btn orange darken-2 timesheet-status-btn" type="button" id="timesheet-reopen-btn" hidden>Reopen Timesheet</button>
+              </div>
+            </div>
           </div>
         </div>
       </section>
@@ -272,20 +555,81 @@
           <div class="card-content">
             <span class="card-title">Administration</span>
             <div class="row">
-              <div class="col s12 m4">
+              <div class="col s12 m3">
                 <h6>Manage Roles</h6>
                 <form id="role-form" class="inline-form"><div class="input-field inline-input"><input id="role-name" type="text" required /><label for="role-name">New Role</label></div><button class="btn" type="submit">Add</button></form>
                 <ul class="collection" id="roles-list"></ul>
               </div>
-              <div class="col s12 m4">
+              <div class="col s12 m3">
                 <h6>Manage Areas</h6>
                 <form id="area-form" class="inline-form"><div class="input-field inline-input"><input id="area-name" type="text" required /><label for="area-name">New Area</label></div><button class="btn" type="submit">Add</button></form>
                 <ul class="collection" id="areas-list"></ul>
               </div>
-              <div class="col s12 m4">
+              <div class="col s12 m3">
                 <h6>Manage Day Off Types</h6>
                 <form id="day-off-type-form" class="inline-form"><div class="input-field inline-input"><input id="day-off-type-name" type="text" required /><label for="day-off-type-name">New Type</label></div><button class="btn" type="submit">Add</button></form>
                 <ul class="collection" id="day-off-types-list"></ul>
+              </div>
+              <div class="col s12 m3">
+                <h6>Manage Business Partner Types</h6>
+                <form id="business-partner-type-form" class="inline-form"><div class="input-field inline-input"><input id="business-partner-type-name" type="text" required /><label for="business-partner-type-name">New Type</label></div><button class="btn" type="submit">Add</button></form>
+                <ul class="collection" id="business-partner-types-list"></ul>
+              </div>
+              <div class="col s12 m3">
+                <h6>Manage Project Types</h6>
+                <form id="project-type-form" class="inline-form"><div class="input-field inline-input"><input id="project-type-name" type="text" required /><label for="project-type-name">New Type</label></div><button class="btn" type="submit">Add</button></form>
+                <ul class="collection" id="project-types-list"></ul>
+              </div>
+              <div class="col s12 m4">
+                <h6>Manage Company Branches</h6>
+                <button class="btn waves-effect waves-light" id="show-company-branch-form-btn" type="button">Add Company Branch<i class="material-icons right">add</i></button>
+                <ul class="collection" id="company-branches-list"></ul>
+              </div>
+              <div class="col s12 m4">
+                <h6>Manage Company Logo</h6>
+                <div class="company-logo-admin-panel">
+                  <div class="company-logo-preview-wrap">
+                    <img id="company-logo-preview-image" alt="Current company logo" hidden />
+                    <p id="company-logo-preview-empty" class="grey-text text-darken-1">No logo uploaded</p>
+                  </div>
+                  <div class="company-logo-actions">
+                    <input id="company-logo-upload-input" type="file" accept="image/png,image/jpeg,image/svg+xml" hidden />
+                    <button class="btn waves-effect waves-light" id="upload-company-logo-btn" type="button">Upload / Replace Logo</button>
+                    <button class="btn-flat red-text" id="remove-company-logo-btn" type="button">Remove</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section id="backup-restore-section" hidden>
+        <div class="card">
+          <div class="card-content">
+            <span class="card-title">Backup & Restore</span>
+            <p class="grey-text text-darken-1">Create a full ZIP backup for migration/disaster recovery, or restore from a previously exported backup.</p>
+            <div class="row">
+              <div class="col s12 m6">
+                <div class="card-panel blue-grey lighten-5">
+                  <h6>Download Backup</h6>
+                  <p class="grey-text text-darken-1">Downloads a ZIP that includes the full <code>projects.db</code> database and backup metadata.</p>
+                  <button class="btn waves-effect waves-light" id="download-backup-btn" type="button">Download Backup</button>
+                </div>
+              </div>
+              <div class="col s12 m6">
+                <div class="card-panel red lighten-5">
+                  <h6>Restore Backup</h6>
+                  <p class="grey-text text-darken-2"><strong>Warning:</strong> restore replaces current app data. A safety backup of current data is created first. Restore is all-or-nothing.</p>
+                  <div class="file-field input-field">
+                    <div class="btn">
+                      <span>Select ZIP</span>
+                      <input id="restore-backup-file-input" type="file" accept=".zip,application/zip" />
+                    </div>
+                    <div class="file-path-wrapper"><input class="file-path validate" type="text" placeholder="Upload backup ZIP" /></div>
+                  </div>
+                  <button class="btn red darken-1 waves-effect waves-light" id="restore-backup-btn" type="button">Restore Backup</button>
+                </div>
               </div>
             </div>
           </div>
@@ -293,28 +637,67 @@
       </section>
     </main>
 
+    <div id="company-branch-modal" class="modal">
+      <div class="modal-content">
+        <h5 id="company-branch-modal-title">Manage Company Branch</h5>
+        <form id="company-branch-form">
+          <input id="company-branch-id" type="hidden" />
+          <div class="input-field"><input id="company-branch-name" type="text" required /><label for="company-branch-name">Branch Name</label></div>
+          <div class="input-field"><input id="company-branch-tax-identification" type="text" /><label for="company-branch-tax-identification">Tax Identification</label></div>
+          <div class="row date-row">
+            <div class="input-field col s12 m8"><input id="company-branch-street-name" type="text" /><label for="company-branch-street-name">Street Name</label></div>
+            <div class="input-field col s12 m4"><input id="company-branch-street-number" type="text" /><label for="company-branch-street-number">Number</label></div>
+          </div>
+          <div class="row date-row">
+            <div class="input-field col s12 m4"><input id="company-branch-postal-code" type="text" /><label for="company-branch-postal-code">Postal Code</label></div>
+            <div class="input-field col s12 m4"><input id="company-branch-city" type="text" /><label for="company-branch-city">City</label></div>
+            <div class="input-field col s12 m4"><select id="company-branch-region"></select><label for="company-branch-region">Region</label></div>
+          </div>
+          <div class="input-field"><select id="company-branch-country"></select><label for="company-branch-country">Country</label></div>
+        </form>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-flat modal-close" type="button">Cancel</button>
+        <button class="btn waves-effect waves-light" id="save-company-branch-btn" type="button">Save</button>
+      </div>
+    </div>
+
     <div id="consultant-assignment-modal" class="modal">
       <div class="modal-content">
-        <h5>Add Consultants</h5>
+        <h5>Add Project Position</h5>
         <div class="input-field"><select id="consultant-area-filter-modal"><option value="" selected disabled>Select area</option></select><label for="consultant-area-filter-modal">Area</label></div>
         <div class="input-field"><select id="project-role-modal" required><option value="" selected disabled>Select project role</option></select><label for="project-role-modal">Project Role</label></div>
+        <div class="input-field"><select id="project-position-status-modal"><option value="Open" selected>Open</option><option value="Proposed">Proposed</option><option value="Approved">Approved</option><option value="Assigned">Assigned</option><option value="Closed">Closed</option></select><label for="project-position-status-modal">Position Status</label></div>
         <div class="row date-row">
           <div class="input-field col s12 m6"><input id="member-start-date-modal" type="date" /><label class="active" for="member-start-date-modal">Start Date</label></div>
           <div class="input-field col s12 m6"><input id="member-end-date-modal" type="date" /><label class="active" for="member-end-date-modal">End Date</label></div>
         </div>
         <div class="input-field"><input id="member-allocation-modal" type="number" min="0" max="100" step="1" value="100" /><label class="active" for="member-allocation-modal">Allocation (%)</label></div>
+        <p id="member-billable-row-modal"><label><input id="member-billable-modal" type="checkbox" checked /><span>Billable</span></label></p>
+        <div id="member-daily-rate-row-modal" hidden>
+          <div class="input-field"><input id="member-daily-rate-modal" type="number" min="0" step="0.01" /><label class="active" for="member-daily-rate-modal">Daily Rate</label></div>
+          <div class="input-field"><select id="member-daily-rate-currency-modal"></select><label for="member-daily-rate-currency-modal">Daily Rate Currency</label></div>
+        </div>
         <div id="consultant-picker-list" class="consultant-picker-list"></div>
       </div>
       <div class="modal-footer"><button type="button" class="modal-close btn-flat">Cancel</button><button type="button" class="btn" id="save-consultant-assignments-btn">Apply</button></div>
     </div>
 
     <div id="member-details-modal" class="modal">
-      <div class="modal-content">
+      <div id="member-details-content" class="modal-content form-mode-view">
         <h5 id="member-modal-title">Project Member</h5>
         <input type="hidden" id="member-edit-consultant-id" />
-        <div class="input-field"><input id="member-name-modal" type="text" disabled /><label class="active" for="member-name-modal">Consultant</label></div>
+        <div class="input-field"><select id="member-consultant-modal"></select><label for="member-consultant-modal">Consultant</label></div>
+        <div class="input-field"><select id="member-area-modal"></select><label for="member-area-modal">Project Area</label></div>
         <div class="input-field"><select id="member-project-role-modal"></select><label for="member-project-role-modal">Project Role</label></div>
+        <div class="input-field"><select id="member-position-status-edit"></select><label for="member-position-status-edit">Position Status</label></div>
         <div class="input-field"><input id="member-allocation-edit" type="number" min="0" max="100" step="1" /><label class="active" for="member-allocation-edit">Allocation (%)</label></div>
+        <p id="member-billable-row-edit"><label><input id="member-billable-edit" type="checkbox" /><span>Billable</span></label></p>
+        <div id="member-daily-rate-row-edit" hidden>
+          <div class="input-field"><input id="member-daily-rate-edit" type="number" min="0" step="0.01" /><label class="active" for="member-daily-rate-edit">Daily Rate</label></div>
+          <div class="input-field"><select id="member-daily-rate-currency-edit"></select><label for="member-daily-rate-currency-edit">Daily Rate Currency</label></div>
+          <p class="grey-text text-darken-1" id="member-daily-rate-display" hidden></p>
+        </div>
         <div class="input-field"><textarea id="member-comments-edit" class="materialize-textarea"></textarea><label class="active" for="member-comments-edit">Comments</label></div>
         <div class="row date-row">
           <div class="input-field col s12 m6"><input id="member-start-date-edit" type="date" /><label class="active" for="member-start-date-edit">Start Date</label></div>
@@ -344,6 +727,95 @@
         <div class="input-field"><select id="holiday-region-code"></select><label for="holiday-region-code">Holiday Region</label></div>
       </div>
       <div class="modal-footer"><button type="button" class="modal-close btn-flat">Cancel</button><button type="button" class="btn" id="load-holidays-btn">Load Holidays</button></div>
+    </div>
+
+    <div id="manual-line-modal" class="modal">
+      <div class="modal-content">
+        <h5>Add Manual Line</h5>
+        <div class="input-field">
+          <label class="active" for="manual-line-day-off-type-select">Day Off Type</label>
+          <select id="manual-line-day-off-type-select" class="browser-default">
+            <option value="">Select day off type...</option>
+          </select>
+        </div>
+      </div>
+      <div class="modal-footer"><button type="button" class="modal-close btn-flat">Cancel</button><button type="button" class="btn" id="confirm-manual-line-btn">Add Line</button></div>
+    </div>
+
+    <div id="invoice-modal" class="modal">
+      <div class="modal-content">
+        <h5 id="invoice-modal-title">Add Invoice</h5>
+        <input type="hidden" id="invoice-id" />
+        <div class="input-field"><input id="invoice-ref" type="text" /><label class="active" for="invoice-ref">Invoice Ref</label></div>
+        <div class="row date-row">
+          <div class="input-field col s12 m6"><input id="invoice-period-from" type="date" /><label class="active" for="invoice-period-from">Period From</label></div>
+          <div class="input-field col s12 m6"><input id="invoice-period-to" type="date" /><label class="active" for="invoice-period-to">Period To</label></div>
+        </div>
+        <div class="row date-row">
+          <div class="input-field col s12 m6"><input id="invoice-date" type="date" /><label class="active" for="invoice-date">Invoice Date</label></div>
+          <div class="input-field col s12 m6"><input id="invoice-due-date" type="date" /><label class="active" for="invoice-due-date">Due Date</label></div>
+        </div>
+        <div class="input-field"><input id="invoice-amount" type="number" step="0.01" min="0" /><label class="active" for="invoice-amount">Amount</label></div>
+        <div class="input-field"><select id="invoice-status"><option value="Draft">Draft</option><option value="Issued">Issued</option><option value="Partially Paid">Partially Paid</option><option value="Paid">Paid</option></select><label for="invoice-status">Status</label></div>
+        <div class="input-field"><textarea id="invoice-notes" class="materialize-textarea"></textarea><label class="active" for="invoice-notes">Notes</label></div>
+      </div>
+      <div class="modal-footer"><button type="button" class="modal-close btn-flat">Cancel</button><button type="button" class="btn" id="save-invoice-btn">Save</button></div>
+    </div>
+
+    <div id="payment-modal" class="modal">
+      <div class="modal-content">
+        <h5>Register Payment</h5>
+        <input type="hidden" id="payment-invoice-id" />
+        <input type="hidden" id="payment-id" />
+        <div class="input-field"><input id="payment-date" type="date" /><label class="active" for="payment-date">Payment Date</label></div>
+        <div class="input-field"><input id="payment-amount" type="number" step="0.01" min="0" /><label class="active" for="payment-amount">Amount</label></div>
+        <div class="input-field"><textarea id="payment-notes" class="materialize-textarea"></textarea><label class="active" for="payment-notes">Notes</label></div>
+      </div>
+      <div class="modal-footer"><button type="button" class="modal-close btn-flat">Cancel</button><button type="button" class="btn" id="save-payment-btn">Save Payment</button></div>
+    </div>
+
+    <div id="timesheet-details-modal" class="modal">
+      <div class="modal-content">
+        <h5 id="timesheet-details-modal-title">Timesheet Details</h5>
+        <div class="table-container">
+          <table class="striped responsive-table">
+            <thead><tr><th>Consultant</th><th>Role</th><th>Status</th><th>Hours</th></tr></thead>
+            <tbody id="timesheet-details-modal-body"></tbody>
+          </table>
+        </div>
+        <p class="grey-text text-darken-1 empty-message" id="timesheet-details-modal-empty">No consultant timesheet details for this period.</p>
+      </div>
+      <div class="modal-footer"><button type="button" class="modal-close btn-flat">Close</button></div>
+    </div>
+
+    <dialog id="forecast-details-modal" class="modal-large forecast-details-dialog">
+      <div class="modal-content">
+        <h5 id="forecast-details-modal-title">Revenue Forecast Details</h5>
+        <div class="table-container">
+          <table class="striped responsive-table">
+            <thead>
+              <tr><th>Position</th><th>Consultant</th><th>Allocation %</th><th>Daily Rate</th><th>Billable Days</th><th>Revenue</th></tr>
+            </thead>
+            <tbody id="forecast-details-modal-body"></tbody>
+          </table>
+        </div>
+        <p class="grey-text text-darken-1 empty-message" id="forecast-details-modal-empty">No month details available.</p>
+      </div>
+      <div class="modal-footer"><button type="button" class="modal-close btn-flat" id="forecast-details-modal-close-btn">Close</button></div>
+    </dialog>
+
+    <div id="business-partner-communication-modal" class="modal">
+      <div class="modal-content">
+        <h5>Communication Details</h5>
+        <p class="grey-text" id="communication-modal-contact-name">Contact</p>
+        <h6>Emails</h6>
+        <div id="communication-emails-list"></div>
+        <button class="btn-flat blue-text" type="button" id="add-communication-email-btn"><i class="material-icons tiny">add</i>Add Email</button>
+        <h6 style="margin-top: 0.75rem;">Phone Numbers</h6>
+        <div id="communication-phones-list"></div>
+        <button class="btn-flat blue-text" type="button" id="add-communication-phone-btn"><i class="material-icons tiny">add</i>Add Phone Number</button>
+      </div>
+      <div class="modal-footer"><button type="button" class="modal-close btn-flat">Cancel</button><button type="button" class="btn" id="save-communication-btn">Save</button></div>
     </div>
 
     <div id="week-tooltip" class="week-tooltip" hidden></div>
