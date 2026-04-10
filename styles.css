@@ -678,7 +678,8 @@ dialog.forecast-details-dialog .modal-footer .btn-flat {
 
 .fixed-price-profitability-chart {
   width: 100%;
-  height: 260px;
+  height: auto;
+  aspect-ratio: 19 / 8;
   border: 1px solid #d7e1e6;
   border-radius: 8px;
   background: linear-gradient(180deg, #fafcfe 0%, #f5f8fb 100%);
@@ -705,4 +706,21 @@ dialog.forecast-details-dialog .modal-footer .btn-flat {
   stroke: #1565c0;
   stroke-width: 2.5;
   stroke-dasharray: 6 5;
+}
+
+.fixed-price-chart-label,
+.fixed-price-chart-legend,
+.fixed-price-chart-axis-title {
+  fill: #455a64;
+  font-size: 12px;
+  font-family: "Roboto", "Helvetica Neue", Arial, sans-serif;
+}
+
+.fixed-price-chart-axis-title {
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.fixed-price-chart-legend {
+  font-size: 12px;
 }

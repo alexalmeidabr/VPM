@@ -920,11 +920,11 @@ if (!isBrowserRuntime) {
     if (ui.fixedPriceProfitabilityChartEmpty) ui.fixedPriceProfitabilityChartEmpty.hidden = rows.length > 0;
     if (!rows.length) return;
     const width = 760;
-    const height = 260;
-    const padLeft = 48;
-    const padRight = 16;
-    const padTop = 16;
-    const padBottom = 26;
+    const height = 320;
+    const padLeft = 74;
+    const padRight = 26;
+    const padTop = 40;
+    const padBottom = 62;
     const plotWidth = width - padLeft - padRight;
     const plotHeight = height - padTop - padBottom;
     const maxY = Math.max(
@@ -936,15 +936,27 @@ if (!isBrowserRuntime) {
     const pointY = (value) => padTop + plotHeight - (Number(value || 0) / maxY) * plotHeight;
     const costPath = rows.map((row, index) => `${index === 0 ? 'M' : 'L'} ${pointX(index)} ${pointY(row.cumulativeInternalCost)}`).join(' ');
     const budgetPath = rows.map((row, index) => `${index === 0 ? 'M' : 'L'} ${pointX(index)} ${pointY(row.cumulativeBudgetRevenue)}`).join(' ');
+    const firstMonth = rows[0]?.monthLabel || '';
+    const lastMonth = rows[rows.length - 1]?.monthLabel || '';
     ui.fixedPriceProfitabilityChart.innerHTML = `
       <line class="fixed-price-chart-axis" x1="${padLeft}" y1="${padTop}" x2="${padLeft}" y2="${padTop + plotHeight}"></line>
       <line class="fixed-price-chart-axis" x1="${padLeft}" y1="${padTop + plotHeight}" x2="${padLeft + plotWidth}" y2="${padTop + plotHeight}"></line>
       <line class="fixed-price-chart-grid" x1="${padLeft}" y1="${padTop + plotHeight / 2}" x2="${padLeft + plotWidth}" y2="${padTop + plotHeight / 2}"></line>
+      <line class="fixed-price-chart-grid" x1="${padLeft}" y1="${padTop + plotHeight * 0.25}" x2="${padLeft + plotWidth}" y2="${padTop + plotHeight * 0.25}"></line>
+      <line class="fixed-price-chart-grid" x1="${padLeft}" y1="${padTop + plotHeight * 0.75}" x2="${padLeft + plotWidth}" y2="${padTop + plotHeight * 0.75}"></line>
       <path class="fixed-price-chart-cost" d="${costPath}"></path>
       <path class="fixed-price-chart-budget" d="${budgetPath}"></path>
-      <text x="${padLeft}" y="${padTop - 2}" font-size="11" fill="#455a64">€${Math.round(maxY).toLocaleString()}</text>
-      <text x="${padLeft + 6}" y="${padTop + 14}" font-size="11" fill="#ef6c00">Cumulative Cost</text>
-      <text x="${padLeft + 140}" y="${padTop + 14}" font-size="11" fill="#1565c0">Cumulative Budget</text>
+      <text class="fixed-price-chart-label" x="${padLeft - 6}" y="${padTop - 10}" text-anchor="end">€${Math.round(maxY).toLocaleString()}</text>
+      <text class="fixed-price-chart-label" x="${padLeft - 10}" y="${padTop + plotHeight / 2 + 4}" text-anchor="end">€${Math.round(maxY / 2).toLocaleString()}</text>
+      <text class="fixed-price-chart-label" x="${padLeft - 10}" y="${padTop + plotHeight + 4}" text-anchor="end">€0</text>
+      <text class="fixed-price-chart-axis-title" x="${padLeft - 54}" y="${padTop + plotHeight / 2}" transform="rotate(-90 ${padLeft - 54} ${padTop + plotHeight / 2})">Amount (EUR)</text>
+      <text class="fixed-price-chart-axis-title" x="${padLeft + plotWidth / 2}" y="${height - 12}" text-anchor="middle">Month</text>
+      <text class="fixed-price-chart-label" x="${padLeft}" y="${padTop + plotHeight + 20}" text-anchor="start">${firstMonth}</text>
+      <text class="fixed-price-chart-label" x="${padLeft + plotWidth}" y="${padTop + plotHeight + 20}" text-anchor="end">${lastMonth}</text>
+      <line class="fixed-price-chart-cost" x1="${padLeft + plotWidth - 190}" y1="${padTop - 22}" x2="${padLeft + plotWidth - 156}" y2="${padTop - 22}"></line>
+      <text class="fixed-price-chart-legend" x="${padLeft + plotWidth - 150}" y="${padTop - 18}">Cumulative Cost</text>
+      <line class="fixed-price-chart-budget" x1="${padLeft + plotWidth - 72}" y1="${padTop - 22}" x2="${padLeft + plotWidth - 38}" y2="${padTop - 22}"></line>
+      <text class="fixed-price-chart-legend" x="${padLeft + plotWidth - 32}" y="${padTop - 18}">Cumulative Budget</text>
     `;
   };
 
