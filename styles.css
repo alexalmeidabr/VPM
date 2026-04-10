@@ -712,15 +712,15 @@ dialog.forecast-details-dialog .modal-footer .btn-flat {
 .fixed-price-chart-legend,
 .fixed-price-chart-axis-title {
   fill: #455a64;
-  font-size: 11px;
+  font-size: 10px;
   font-family: "Roboto", "Helvetica Neue", Arial, sans-serif;
 }
 
 .fixed-price-chart-axis-title {
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 600;
 }
 
 .fixed-price-chart-legend {
-  font-size: 10px;
+  font-size: 9px;
 }

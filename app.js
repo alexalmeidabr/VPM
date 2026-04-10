@@ -956,12 +956,12 @@ if (!isBrowserRuntime) {
       <text class="fixed-price-chart-label" x="${padLeft - 10}" y="${padTop + plotHeight + 4}" text-anchor="end">€0</text>
       <text class="fixed-price-chart-axis-title" x="${padLeft - 54}" y="${padTop + plotHeight / 2}" transform="rotate(-90 ${padLeft - 54} ${padTop + plotHeight / 2})">Amount (EUR)</text>
       <text class="fixed-price-chart-axis-title" x="${padLeft + plotWidth / 2}" y="${height - 12}" text-anchor="middle">Month</text>
-      <text class="fixed-price-chart-label" x="${padLeft}" y="${padTop + plotHeight + 20}" text-anchor="start">${firstMonth}</text>
-      <text class="fixed-price-chart-label" x="${padLeft + plotWidth}" y="${padTop + plotHeight + 20}" text-anchor="end">${lastMonth}</text>
+      <text class="fixed-price-chart-label" x="${padLeft}" y="${padTop + plotHeight + 18}" text-anchor="start">${firstMonth}</text>
+      <text class="fixed-price-chart-label" x="${padLeft + plotWidth}" y="${padTop + plotHeight + 18}" text-anchor="end">${lastMonth}</text>
       <line class="fixed-price-chart-cost" x1="${legendX1}" y1="${legendY1}" x2="${legendX1 + legendLineLen}" y2="${legendY1}"></line>
-      <text class="fixed-price-chart-legend" x="${legendTextX}" y="${legendY1 + 3}">Cumulative Cost</text>
+      <text class="fixed-price-chart-legend" x="${legendTextX}" y="${legendY1 + 2}">Cumulative Cost</text>
       <line class="fixed-price-chart-budget" x1="${legendX1}" y1="${legendY2}" x2="${legendX1 + legendLineLen}" y2="${legendY2}"></line>
-      <text class="fixed-price-chart-legend" x="${legendTextX}" y="${legendY2 + 3}">Cumulative Budget</text>
+      <text class="fixed-price-chart-legend" x="${legendTextX}" y="${legendY2 + 2}">Cumulative Budget</text>
     `;
   };
 
