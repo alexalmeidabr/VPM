@@ -938,6 +938,11 @@ if (!isBrowserRuntime) {
     const budgetPath = rows.map((row, index) => `${index === 0 ? 'M' : 'L'} ${pointX(index)} ${pointY(row.cumulativeBudgetRevenue)}`).join(' ');
     const firstMonth = rows[0]?.monthLabel || '';
     const lastMonth = rows[rows.length - 1]?.monthLabel || '';
+    const legendX1 = padLeft + 8;
+    const legendLineLen = 30;
+    const legendTextX = legendX1 + legendLineLen + 8;
+    const legendY1 = padTop - 20;
+    const legendY2 = padTop - 6;
     ui.fixedPriceProfitabilityChart.innerHTML = `
       <line class="fixed-price-chart-axis" x1="${padLeft}" y1="${padTop}" x2="${padLeft}" y2="${padTop + plotHeight}"></line>
       <line class="fixed-price-chart-axis" x1="${padLeft}" y1="${padTop + plotHeight}" x2="${padLeft + plotWidth}" y2="${padTop + plotHeight}"></line>
@@ -953,10 +958,10 @@ if (!isBrowserRuntime) {
       <text class="fixed-price-chart-axis-title" x="${padLeft + plotWidth / 2}" y="${height - 12}" text-anchor="middle">Month</text>
       <text class="fixed-price-chart-label" x="${padLeft}" y="${padTop + plotHeight + 20}" text-anchor="start">${firstMonth}</text>
       <text class="fixed-price-chart-label" x="${padLeft + plotWidth}" y="${padTop + plotHeight + 20}" text-anchor="end">${lastMonth}</text>
-      <line class="fixed-price-chart-cost" x1="${padLeft + plotWidth - 190}" y1="${padTop - 22}" x2="${padLeft + plotWidth - 156}" y2="${padTop - 22}"></line>
-      <text class="fixed-price-chart-legend" x="${padLeft + plotWidth - 150}" y="${padTop - 18}">Cumulative Cost</text>
-      <line class="fixed-price-chart-budget" x1="${padLeft + plotWidth - 72}" y1="${padTop - 22}" x2="${padLeft + plotWidth - 38}" y2="${padTop - 22}"></line>
-      <text class="fixed-price-chart-legend" x="${padLeft + plotWidth - 32}" y="${padTop - 18}">Cumulative Budget</text>
+      <line class="fixed-price-chart-cost" x1="${legendX1}" y1="${legendY1}" x2="${legendX1 + legendLineLen}" y2="${legendY1}"></line>
+      <text class="fixed-price-chart-legend" x="${legendTextX}" y="${legendY1 + 3}">Cumulative Cost</text>
+      <line class="fixed-price-chart-budget" x1="${legendX1}" y1="${legendY2}" x2="${legendX1 + legendLineLen}" y2="${legendY2}"></line>
+      <text class="fixed-price-chart-legend" x="${legendTextX}" y="${legendY2 + 3}">Cumulative Budget</text>
     `;
   };
 
