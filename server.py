@@ -3350,8 +3350,8 @@ class VPMHandler(SimpleHTTPRequestHandler):
       if amount < 0:
         self._send_json({'error': 'amount cannot be negative'}, HTTPStatus.BAD_REQUEST)
         return
-      if status not in {'Draft', 'Issued', 'Partially Paid', 'Paid'}:
-        self._send_json({'error': 'status must be one of: Draft, Issued, Partially Paid, Paid'}, HTTPStatus.BAD_REQUEST)
+      if status not in {'Draft', 'Issued', 'Partially Paid', 'Paid', 'Overdue'}:
+        self._send_json({'error': 'status must be one of: Draft, Issued, Partially Paid, Paid, Overdue'}, HTTPStatus.BAD_REQUEST)
         return
       if not (self._valid_iso_date(period_from) and self._valid_iso_date(period_to) and self._valid_iso_date(invoice_date)):
         self._send_json({'error': 'periodFrom, periodTo and invoiceDate must be YYYY-MM-DD'}, HTTPStatus.BAD_REQUEST)
@@ -3934,8 +3934,8 @@ class VPMHandler(SimpleHTTPRequestHandler):
       if amount < 0:
         self._send_json({'error': 'amount cannot be negative'}, HTTPStatus.BAD_REQUEST)
         return
-      if status not in {'Draft', 'Issued', 'Partially Paid', 'Paid'}:
-        self._send_json({'error': 'status must be one of: Draft, Issued, Partially Paid, Paid'}, HTTPStatus.BAD_REQUEST)
+      if status not in {'Draft', 'Issued', 'Partially Paid', 'Paid', 'Overdue'}:
+        self._send_json({'error': 'status must be one of: Draft, Issued, Partially Paid, Paid, Overdue'}, HTTPStatus.BAD_REQUEST)
         return
       if not (self._valid_iso_date(period_from) and self._valid_iso_date(period_to) and self._valid_iso_date(invoice_date)):
         self._send_json({'error': 'periodFrom, periodTo and invoiceDate must be YYYY-MM-DD'}, HTTPStatus.BAD_REQUEST)

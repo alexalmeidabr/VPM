@@ -228,25 +228,46 @@
                       </div>
                     </div>
                     <div id="project-revenue-fixed-price" hidden>
-                      <div class="section-header">
-                        <h6>Budget Management</h6>
-                        <button type="button" class="btn waves-effect waves-light" id="open-project-budget-modal-btn">Add Budget</button>
+                      <div id="project-revenue-fixed-subtabs" class="project-subtabs">
+                        <button type="button" class="project-workspace-tab project-subtab active" data-fixed-revenue-subtab="budget">Budget</button>
+                        <button type="button" class="project-workspace-tab project-subtab" data-fixed-revenue-subtab="invoices">Invoices</button>
                       </div>
-                      <div class="revenue-summary-grid">
-                        <div class="revenue-summary-card"><span class="grey-text">Initial Budget</span><strong id="fixed-budget-initial-value">€0.00</strong></div>
-                        <div class="revenue-summary-card"><span class="grey-text">Approved Extensions</span><strong id="fixed-budget-extensions-value">€0.00</strong></div>
-                        <div class="revenue-summary-card"><span class="grey-text">Total Approved Budget</span><strong id="fixed-budget-total-value">€0.00</strong></div>
-                        <div class="revenue-summary-card"><span class="grey-text">Budget Period Coverage</span><strong id="fixed-budget-coverage-value">—</strong></div>
+                      <div id="project-revenue-fixed-subtab-budget" data-fixed-revenue-subtab-panel="budget">
+                        <div class="section-header">
+                          <h6>Budget Management</h6>
+                          <button type="button" class="btn waves-effect waves-light" id="open-project-budget-modal-btn">Add Budget</button>
+                        </div>
+                        <div class="revenue-summary-grid">
+                          <div class="revenue-summary-card"><span class="grey-text">Initial Budget</span><strong id="fixed-budget-initial-value">€0.00</strong></div>
+                          <div class="revenue-summary-card"><span class="grey-text">Approved Extensions</span><strong id="fixed-budget-extensions-value">€0.00</strong></div>
+                          <div class="revenue-summary-card"><span class="grey-text">Total Approved Budget</span><strong id="fixed-budget-total-value">€0.00</strong></div>
+                          <div class="revenue-summary-card"><span class="grey-text">Budget Period Coverage</span><strong id="fixed-budget-coverage-value">—</strong></div>
+                        </div>
+                        <div class="table-container">
+                          <table class="striped responsive-table">
+                            <thead>
+                              <tr><th>Budget Name</th><th>Type</th><th>Status</th><th>Start Date</th><th>End Date</th><th>Amount</th><th>Currency</th><th>Notes</th><th>Actions</th></tr>
+                            </thead>
+                            <tbody id="project-budgets-body"></tbody>
+                          </table>
+                        </div>
+                        <p class="grey-text text-darken-1 empty-message" id="project-budgets-empty">No budgets added yet.</p>
                       </div>
-                      <div class="table-container">
-                        <table class="striped responsive-table">
-                          <thead>
-                            <tr><th>Budget Name</th><th>Type</th><th>Status</th><th>Start Date</th><th>End Date</th><th>Amount</th><th>Currency</th><th>Notes</th><th>Actions</th></tr>
-                          </thead>
-                          <tbody id="project-budgets-body"></tbody>
-                        </table>
+                      <div id="project-revenue-fixed-subtab-invoices" data-fixed-revenue-subtab-panel="invoices" hidden>
+                        <div class="section-header">
+                          <h6>Invoices</h6>
+                          <button type="button" class="btn waves-effect waves-light" id="open-fixed-invoice-modal-btn">Add Invoice</button>
+                        </div>
+                        <div class="table-container">
+                          <table class="striped responsive-table">
+                            <thead>
+                              <tr><th>Invoice Ref</th><th>Period</th><th>Invoice Date</th><th>Due Date</th><th>Amount</th><th>Paid Amount</th><th>Status</th><th>Actions</th></tr>
+                            </thead>
+                            <tbody id="fixed-price-invoices-body"></tbody>
+                          </table>
+                        </div>
+                        <p class="grey-text text-darken-1 empty-message" id="fixed-price-invoices-empty">No invoices yet.</p>
                       </div>
-                      <p class="grey-text text-darken-1 empty-message" id="project-budgets-empty">No budgets added yet.</p>
                     </div>
                   </div>
                   <div id="project-workspace-profitability" class="project-workspace-panel" data-workspace-panel="profitability" hidden>
@@ -793,7 +814,7 @@
           <div class="input-field col s12 m6"><input id="invoice-due-date" type="date" /><label class="active" for="invoice-due-date">Due Date</label></div>
         </div>
         <div class="input-field"><input id="invoice-amount" type="number" step="0.01" min="0" /><label class="active" for="invoice-amount">Amount</label></div>
-        <div class="input-field"><select id="invoice-status"><option value="Draft">Draft</option><option value="Issued">Issued</option><option value="Partially Paid">Partially Paid</option><option value="Paid">Paid</option></select><label for="invoice-status">Status</label></div>
+        <div class="input-field"><select id="invoice-status"><option value="Draft">Draft</option><option value="Issued">Issued</option><option value="Partially Paid">Partially Paid</option><option value="Paid">Paid</option><option value="Overdue">Overdue</option></select><label for="invoice-status">Status</label></div>
         <div class="input-field"><textarea id="invoice-notes" class="materialize-textarea"></textarea><label class="active" for="invoice-notes">Notes</label></div>
       </div>
       <div class="modal-footer"><button type="button" class="modal-close btn-flat">Cancel</button><button type="button" class="btn" id="save-invoice-btn">Save</button></div>

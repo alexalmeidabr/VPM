@@ -58,6 +58,8 @@ if (!isBrowserRuntime) {
     projectRevenueFixedPrice: document.getElementById('project-revenue-fixed-price'),
     projectRevenueSubtabs: document.querySelectorAll('[data-revenue-subtab]'),
     projectRevenueSubtabPanels: document.querySelectorAll('[data-revenue-subtab-panel]'),
+    projectRevenueFixedSubtabs: document.querySelectorAll('[data-fixed-revenue-subtab]'),
+    projectRevenueFixedSubtabPanels: document.querySelectorAll('[data-fixed-revenue-subtab-panel]'),
     revenueThisMonthValue: document.getElementById('revenue-this-month-value'),
     revenueNext3MonthsValue: document.getElementById('revenue-next-3-months-value'),
     revenueForecastTotalValue: document.getElementById('revenue-forecast-total-value'),
@@ -89,6 +91,9 @@ if (!isBrowserRuntime) {
     fixedBudgetCoverageValue: document.getElementById('fixed-budget-coverage-value'),
     projectBudgetsBody: document.getElementById('project-budgets-body'),
     projectBudgetsEmpty: document.getElementById('project-budgets-empty'),
+    openFixedInvoiceModalBtn: document.getElementById('open-fixed-invoice-modal-btn'),
+    fixedPriceInvoicesBody: document.getElementById('fixed-price-invoices-body'),
+    fixedPriceInvoicesEmpty: document.getElementById('fixed-price-invoices-empty'),
     projectProfitabilityNotImplemented: document.getElementById('project-profitability-not-implemented'),
     projectProfitabilityTimeMaterial: document.getElementById('project-profitability-time-material'),
     projectProfitabilityFixedPrice: document.getElementById('project-profitability-fixed-price'),
@@ -447,6 +452,7 @@ if (!isBrowserRuntime) {
   let revenueForecastDetails = [];
   let isForecastDetailsLoading = false;
   let activeRevenueSubtab = 'invoices';
+  let activeFixedRevenueSubtab = 'budget';
   let fixedPriceBudgets = [];
   let fixedPriceBudgetSummary = null;
   let profitabilitySummary = null;
@@ -787,6 +793,16 @@ if (!isBrowserRuntime) {
     });
   };
 
+  const renderFixedRevenueSubtabs = () => {
+    ui.projectRevenueFixedSubtabs?.forEach((button) => {
+      const tab = button.dataset.fixedRevenueSubtab;
+      button.classList.toggle('active', tab === activeFixedRevenueSubtab);
+    });
+    ui.projectRevenueFixedSubtabPanels?.forEach((panel) => {
+      panel.hidden = panel.dataset.fixedRevenueSubtabPanel !== activeFixedRevenueSubtab;
+    });
+  };
+
   const renderRevenueForecastBreakdown = () => {
     if (!ui.projectRevenueForecastBody) return;
     ui.projectRevenueForecastBody.innerHTML = '';
@@ -1055,6 +1071,32 @@ if (!isBrowserRuntime) {
     if (ui.projectRevenueMonthInvoicesEmpty) ui.projectRevenueMonthInvoicesEmpty.hidden = monthInvoices.length > 0;
   };
 
+  const renderFixedPriceInvoices = () => {
+    if (!ui.fixedPriceInvoicesBody) return;
+    ui.fixedPriceInvoicesBody.innerHTML = '';
+    const invoices = [...(revenueInvoices || [])].sort((a, b) => String(b.invoiceDate || '').localeCompare(String(a.invoiceDate || '')));
+    invoices.forEach((invoice) => {
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td>${invoice.invoiceRef || '—'}</td>
+        <td>${invoice.periodFrom} → ${invoice.periodTo}</td>
+        <td>${formatDate(invoice.invoiceDate)}</td>
+        <td>${invoice.dueDate ? formatDate(invoice.dueDate) : '—'}</td>
+        <td>${formatMoney(invoice.amount)}</td>
+        <td>${formatMoney(invoice.paidAmount)}</td>
+        <td><span class="status-badge ${invoiceStatusClass(invoice.status)}">${invoice.status}</span></td>
+        <td>
+          <button type="button" class="btn-flat blue-text" data-action="edit-fixed-invoice" data-id="${invoice.id}" title="Edit"><i class="material-icons tiny">edit</i></button>
+          <button type="button" class="btn-flat teal-text" data-action="add-fixed-payment" data-id="${invoice.id}" title="Register Payment"><i class="material-icons tiny">payments</i></button>
+          <button type="button" class="btn-flat indigo-text" data-action="generate-fixed-invoice" data-id="${invoice.id}" title="Generate Invoice"><i class="material-icons tiny">print</i></button>
+          <button type="button" class="btn-flat red-text" data-action="delete-fixed-invoice" data-id="${invoice.id}" title="Delete"><i class="material-icons tiny">delete</i></button>
+        </td>
+      `;
+      ui.fixedPriceInvoicesBody.appendChild(tr);
+    });
+    if (ui.fixedPriceInvoicesEmpty) ui.fixedPriceInvoicesEmpty.hidden = invoices.length > 0;
+  };
+
   const loadRevenueData = async (projectId) => {
     if (!projectId) {
       revenueSummary = null;
@@ -1071,20 +1113,24 @@ if (!isBrowserRuntime) {
       profitabilityCutoff = null;
       fixedPriceBudgets = [];
       fixedPriceBudgetSummary = null;
+      activeFixedRevenueSubtab = 'budget';
       renderRevenueSummary();
       renderRevenueActuals();
       renderRevenueSubtabs();
+      renderFixedRevenueSubtabs();
       renderRevenueForecastDetails();
       renderRevenueInvoicePeriods();
       renderRevenueMonthInvoices();
       renderProfitability();
       renderFixedPriceBudgetSummary();
+      renderFixedPriceInvoices();
       renderFixedPriceProfitability();
       renderFixedPriceCostVsBudgetChart();
       return;
     }
     selectedRevenueForecastMonth = '';
     revenueForecastDetails = [];
+    activeFixedRevenueSubtab = 'budget';
     const [forecastSummaryPayload, actualsPayload, invoicesPayload, invoicePeriodsPayload, forecastPayload, profitabilitySummaryPayload, profitabilityBreakdownPayload, budgetsPayload] = await Promise.all([
       request(`/api/projects/${projectId}/revenue-forecast-summary`),
       request(`/api/projects/${projectId}/revenue-actuals-summary`),
@@ -1110,12 +1156,14 @@ if (!isBrowserRuntime) {
     renderRevenueSummary();
     renderRevenueActuals();
     renderRevenueSubtabs();
+    renderFixedRevenueSubtabs();
     renderRevenueForecastBreakdown();
     renderRevenueForecastDetails();
     renderRevenueInvoicePeriods();
     renderRevenueMonthInvoices();
     renderProfitability();
     renderFixedPriceBudgetSummary();
+    renderFixedPriceInvoices();
     renderFixedPriceProfitability();
     renderFixedPriceCostVsBudgetChart();
   };
@@ -1290,7 +1338,11 @@ if (!isBrowserRuntime) {
       if (ui.projectRevenueFixedPrice) ui.projectRevenueFixedPrice.hidden = !isFixedPrice;
       if (ui.projectRevenueNotImplemented) ui.projectRevenueNotImplemented.hidden = (isTimeMaterial || isFixedPrice);
       if (isTimeMaterial) renderRevenueSubtabs();
-      if (isFixedPrice) renderFixedPriceBudgetSummary();
+      if (isFixedPrice) {
+        renderFixedRevenueSubtabs();
+        renderFixedPriceBudgetSummary();
+        renderFixedPriceInvoices();
+      }
     }
     if (isProfitabilityTab) {
       const isTimeMaterial = isTimeMaterialProjectType();
@@ -3912,12 +3964,14 @@ if (!isBrowserRuntime) {
     fixedPriceBudgetSummary = null;
     renderRevenueSummary();
     renderRevenueActuals();
+    renderFixedRevenueSubtabs();
     renderRevenueInvoicePeriods();
     renderRevenueMonthInvoices();
     renderRevenueForecastBreakdown();
     renderRevenueForecastDetails();
     renderProfitability();
     renderFixedPriceBudgetSummary();
+    renderFixedPriceInvoices();
     renderFixedPriceProfitability();
     renderFixedPriceCostVsBudgetChart();
     renderProjectFiles();
@@ -4653,6 +4707,43 @@ if (!isBrowserRuntime) {
     });
   });
 
+  ui.projectRevenueFixedSubtabs?.forEach((button) => {
+    button.addEventListener('click', () => {
+      const next = button.dataset.fixedRevenueSubtab;
+      if (!next) return;
+      activeFixedRevenueSubtab = next;
+      renderFixedRevenueSubtabs();
+    });
+  });
+
+  const handleInvoiceRowAction = async (action, invoice, invoiceId) => {
+    if (action === 'edit-invoice' || action === 'edit-fixed-invoice') {
+      resetInvoiceModal(invoice);
+      modals.invoice?.open();
+      return;
+    }
+    if (action === 'add-payment' || action === 'add-fixed-payment') {
+      resetPaymentModal(invoiceId);
+      modals.payment?.open();
+      return;
+    }
+    if (action === 'generate-invoice' || action === 'generate-fixed-invoice') {
+      generateInvoicePrintout(invoiceId);
+      return;
+    }
+    if (action === 'delete-invoice' || action === 'delete-fixed-invoice') {
+      const confirmed = window.confirm(`Delete invoice "${invoice.invoiceRef || invoice.id}"?`);
+      if (!confirmed) return;
+      try {
+        await request(`/api/invoices/${invoiceId}`, { method: 'DELETE' });
+        await loadRevenueData(Number(fields.projectId.value || 0));
+        toast('Invoice deleted', 'orange darken-2');
+      } catch (error) {
+        toast(error.message || 'Failed to delete invoice', 'red darken-1');
+      }
+    }
+  };
+
   ui.projectRevenueForecastBody?.addEventListener('click', async (event) => {
     const button = event.target.closest('button[data-action="forecast-month-detail"]');
     if (!button) return;
@@ -4712,31 +4803,21 @@ if (!isBrowserRuntime) {
     const invoice = revenueInvoices.find((item) => Number(item.id) === invoiceId);
     if (!invoice) return;
 
-    if (button.dataset.action === 'edit-invoice') {
-      resetInvoiceModal(invoice);
-      modals.invoice?.open();
-      return;
-    }
-    if (button.dataset.action === 'add-payment') {
-      resetPaymentModal(invoiceId);
-      modals.payment?.open();
-      return;
-    }
-    if (button.dataset.action === 'generate-invoice') {
-      generateInvoicePrintout(invoiceId);
-      return;
-    }
-    if (button.dataset.action === 'delete-invoice') {
-      const confirmed = window.confirm(`Delete invoice "${invoice.invoiceRef || invoice.id}"?`);
-      if (!confirmed) return;
-      try {
-        await request(`/api/invoices/${invoiceId}`, { method: 'DELETE' });
-        await loadRevenueData(fields.projectId.value);
-        toast('Invoice deleted', 'orange darken-2');
-      } catch (error) {
-        toast(error.message || 'Failed to delete invoice', 'red darken-1');
-      }
-    }
+    await handleInvoiceRowAction(button.dataset.action, invoice, invoiceId);
+  });
+
+  ui.openFixedInvoiceModalBtn?.addEventListener('click', () => {
+    resetInvoiceModal();
+    modals.invoice?.open();
+  });
+
+  ui.fixedPriceInvoicesBody?.addEventListener('click', async (event) => {
+    const button = event.target.closest('button[data-action]');
+    if (!button) return;
+    const invoiceId = Number(button.dataset.id);
+    const invoice = revenueInvoices.find((item) => Number(item.id) === invoiceId);
+    if (!invoice) return;
+    await handleInvoiceRowAction(button.dataset.action, invoice, invoiceId);
   });
 
   ui.openProjectBudgetModalBtn?.addEventListener('click', () => {
