@@ -2944,7 +2944,6 @@ class VPMHandler(SimpleHTTPRequestHandler):
     profitability_breakdown_match = re.fullmatch(r'/api/projects/(\d+)/profitability-breakdown', path)
     project_budgets_match = re.fullmatch(r'/api/projects/(\d+)/budgets', path)
     project_invoices_match = re.fullmatch(r'/api/projects/(\d+)/invoices', path)
-    project_budgets_match = re.fullmatch(r'/api/projects/(\d+)/budgets', path)
     invoice_payments_match = re.fullmatch(r'/api/invoices/(\d+)/payments', path)
     allocation_simulation_id = self._allocation_simulation_id()
     files_project_id, file_id, files_action = self._project_files_route()
@@ -3283,6 +3282,7 @@ class VPMHandler(SimpleHTTPRequestHandler):
       return
 
     project_invoices_match = re.fullmatch(r'/api/projects/(\d+)/invoices', path)
+    project_budgets_match = re.fullmatch(r'/api/projects/(\d+)/budgets', path)
     invoice_payments_match = re.fullmatch(r'/api/invoices/(\d+)/payments', path)
     files_project_id, _, files_action = self._project_files_route()
     if files_project_id is not None and files_action is None:
@@ -3391,47 +3391,50 @@ class VPMHandler(SimpleHTTPRequestHandler):
       return
 
     if project_budgets_match:
-      project_id = int(project_budgets_match.group(1))
-      budget_name = str(payload.get('budgetName', '')).strip()
-      budget_type = str(payload.get('budgetType', 'Initial')).strip() or 'Initial'
-      status = str(payload.get('status', 'Draft')).strip() or 'Draft'
-      start_date = str(payload.get('startDate', '')).strip()
-      end_date = str(payload.get('endDate', '')).strip()
-      currency = str(payload.get('currency', 'EUR')).strip() or 'EUR'
-      notes = str(payload.get('notes', '')).strip()
       try:
-        amount = float(payload.get('amount', 0) or 0)
-      except (TypeError, ValueError):
-        self._send_json({'error': 'amount must be numeric'}, HTTPStatus.BAD_REQUEST)
-        return
-      if not budget_name:
-        self._send_json({'error': 'budgetName is required'}, HTTPStatus.BAD_REQUEST)
-        return
-      if not (self._valid_iso_date(start_date) and self._valid_iso_date(end_date)):
-        self._send_json({'error': 'startDate and endDate must be YYYY-MM-DD'}, HTTPStatus.BAD_REQUEST)
-        return
-      if end_date < start_date:
-        self._send_json({'error': 'endDate must be on or after startDate'}, HTTPStatus.BAD_REQUEST)
-        return
-      if amount < 0:
-        self._send_json({'error': 'amount must be greater than or equal to 0'}, HTTPStatus.BAD_REQUEST)
-        return
-      with get_connection() as conn:
-        project = conn.execute('SELECT project_type FROM projects WHERE id = ?', (project_id,)).fetchone()
-        if not project:
-          self._send_json({'error': 'Project not found'}, HTTPStatus.NOT_FOUND)
+        project_id = int(project_budgets_match.group(1))
+        budget_name = str(payload.get('budgetName', '')).strip()
+        budget_type = str(payload.get('budgetType', 'Initial')).strip() or 'Initial'
+        status = str(payload.get('status', 'Draft')).strip() or 'Draft'
+        start_date = str(payload.get('startDate', '')).strip()
+        end_date = str(payload.get('endDate', '')).strip()
+        currency = str(payload.get('currency', 'EUR')).strip() or 'EUR'
+        notes = str(payload.get('notes', '')).strip()
+        try:
+          amount = float(payload.get('amount', 0) or 0)
+        except (TypeError, ValueError):
+          self._send_json({'error': 'amount must be numeric'}, HTTPStatus.BAD_REQUEST)
           return
-        if str(project['project_type'] or '').strip().lower() != 'fixed price':
-          self._send_json({'error': 'Budgets can be managed only for Fixed Price projects'}, HTTPStatus.BAD_REQUEST)
+        if not budget_name:
+          self._send_json({'error': 'budgetName is required'}, HTTPStatus.BAD_REQUEST)
           return
-        cursor = conn.execute(
-          '''
-          INSERT INTO project_budgets (project_id, budget_name, budget_type, status, start_date, end_date, amount, currency, notes)
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-          ''',
-          (project_id, budget_name, budget_type, status, start_date, end_date, amount, currency, notes)
-        )
-      self._send_json({'id': cursor.lastrowid}, HTTPStatus.CREATED)
+        if not (self._valid_iso_date(start_date) and self._valid_iso_date(end_date)):
+          self._send_json({'error': 'startDate and endDate must be YYYY-MM-DD'}, HTTPStatus.BAD_REQUEST)
+          return
+        if end_date < start_date:
+          self._send_json({'error': 'endDate must be on or after startDate'}, HTTPStatus.BAD_REQUEST)
+          return
+        if amount < 0:
+          self._send_json({'error': 'amount must be greater than or equal to 0'}, HTTPStatus.BAD_REQUEST)
+          return
+        with get_connection() as conn:
+          project = conn.execute('SELECT project_type FROM projects WHERE id = ?', (project_id,)).fetchone()
+          if not project:
+            self._send_json({'error': 'Project not found'}, HTTPStatus.NOT_FOUND)
+            return
+          if str(project['project_type'] or '').strip().lower() != 'fixed price':
+            self._send_json({'error': 'Budgets can be managed only for Fixed Price projects'}, HTTPStatus.BAD_REQUEST)
+            return
+          cursor = conn.execute(
+            '''
+            INSERT INTO project_budgets (project_id, budget_name, budget_type, status, start_date, end_date, amount, currency, notes)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ''',
+            (project_id, budget_name, budget_type, status, start_date, end_date, amount, currency, notes)
+          )
+        self._send_json({'id': cursor.lastrowid}, HTTPStatus.CREATED)
+      except Exception as error:
+        self._send_json({'error': f'Unexpected budget save error: {error}'}, HTTPStatus.INTERNAL_SERVER_ERROR)
       return
 
     if invoice_payments_match:

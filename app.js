@@ -1456,6 +1456,17 @@ if (!isBrowserRuntime) {
   };
   const roleNameById = (id) => roles.find((role) => Number(role.id) === Number(id))?.name || '—';
   const formatDate = (value) => (value ? new Date(value).toLocaleDateString() : '—');
+  const normalizeIsoDateInput = (value) => {
+    const raw = String(value || '').trim();
+    if (!raw) return '';
+    if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) return raw;
+    const slashMatch = raw.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+    if (slashMatch) {
+      const [, day, month, year] = slashMatch;
+      return `${year}-${month}-${day}`;
+    }
+    return raw;
+  };
   const formatSalary = (value) => Number(value).toLocaleString('en-IE', { style: 'currency', currency: 'EUR' });
 
   const parseIsoDate = (value) => {
@@ -4810,8 +4821,8 @@ if (!isBrowserRuntime) {
       budgetName: ui.projectBudgetName.value.trim(),
       budgetType: ui.projectBudgetType.value,
       status: ui.projectBudgetStatus.value,
-      startDate: ui.projectBudgetStartDate.value,
-      endDate: ui.projectBudgetEndDate.value,
+      startDate: normalizeIsoDateInput(ui.projectBudgetStartDate.value),
+      endDate: normalizeIsoDateInput(ui.projectBudgetEndDate.value),
       amount: Number(ui.projectBudgetAmount.value || 0),
       currency: ui.projectBudgetCurrency.value.trim().toUpperCase(),
       notes: ui.projectBudgetNotes.value.trim()
@@ -4829,6 +4840,7 @@ if (!isBrowserRuntime) {
       return;
     }
     const budgetId = Number(ui.projectBudgetId.value || 0);
+    console.debug('[BudgetSave] Payload', payload);
     try {
       await request(budgetId ? `/api/project-budgets/${budgetId}` : `/api/projects/${projectId}/budgets`, {
         method: budgetId ? 'PUT' : 'POST',
@@ -4839,7 +4851,12 @@ if (!isBrowserRuntime) {
       await loadRevenueData(projectId);
       toast(budgetId ? 'Budget updated' : 'Budget added', 'teal darken-1');
     } catch (error) {
-      toast(error.message || 'Failed to save budget', 'red darken-1');
+      console.error('[BudgetSave] Failed request', { projectId, budgetId, payload, error });
+      if (error instanceof TypeError || String(error?.message || '').toLowerCase().includes('failed to fetch')) {
+        toast('Budget save failed due to server error', 'red darken-1');
+      } else {
+        toast(error.message || 'Failed to save budget', 'red darken-1');
+      }
     }
   });
 
