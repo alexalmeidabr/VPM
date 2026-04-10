@@ -675,3 +675,34 @@ dialog.forecast-details-dialog .modal-footer .btn,
 dialog.forecast-details-dialog .modal-footer .btn-flat {
   margin: 0;
 }
+
+.fixed-price-profitability-chart {
+  width: 100%;
+  height: 260px;
+  border: 1px solid #d7e1e6;
+  border-radius: 8px;
+  background: linear-gradient(180deg, #fafcfe 0%, #f5f8fb 100%);
+}
+
+.fixed-price-chart-axis {
+  stroke: #90a4ae;
+  stroke-width: 1;
+}
+
+.fixed-price-chart-grid {
+  stroke: #e3ebf1;
+  stroke-width: 1;
+}
+
+.fixed-price-chart-cost {
+  fill: none;
+  stroke: #ef6c00;
+  stroke-width: 2.5;
+}
+
+.fixed-price-chart-budget {
+  fill: none;
+  stroke: #1565c0;
+  stroke-width: 2.5;
+  stroke-dasharray: 6 5;
+}

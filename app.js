@@ -55,6 +55,7 @@ if (!isBrowserRuntime) {
     projectTimelineTabHost: document.getElementById('project-timeline-tab-host'),
     projectRevenueNotImplemented: document.getElementById('project-revenue-not-implemented'),
     projectRevenueTimeMaterial: document.getElementById('project-revenue-time-material'),
+    projectRevenueFixedPrice: document.getElementById('project-revenue-fixed-price'),
     projectRevenueSubtabs: document.querySelectorAll('[data-revenue-subtab]'),
     projectRevenueSubtabPanels: document.querySelectorAll('[data-revenue-subtab-panel]'),
     revenueThisMonthValue: document.getElementById('revenue-this-month-value'),
@@ -81,8 +82,16 @@ if (!isBrowserRuntime) {
     projectRevenueMonthInvoicesTitle: document.getElementById('project-revenue-month-invoices-title'),
     projectRevenueMonthInvoicesBody: document.getElementById('project-revenue-month-invoices-body'),
     projectRevenueMonthInvoicesEmpty: document.getElementById('project-revenue-month-invoices-empty'),
+    openProjectBudgetModalBtn: document.getElementById('open-project-budget-modal-btn'),
+    fixedBudgetInitialValue: document.getElementById('fixed-budget-initial-value'),
+    fixedBudgetExtensionsValue: document.getElementById('fixed-budget-extensions-value'),
+    fixedBudgetTotalValue: document.getElementById('fixed-budget-total-value'),
+    fixedBudgetCoverageValue: document.getElementById('fixed-budget-coverage-value'),
+    projectBudgetsBody: document.getElementById('project-budgets-body'),
+    projectBudgetsEmpty: document.getElementById('project-budgets-empty'),
     projectProfitabilityNotImplemented: document.getElementById('project-profitability-not-implemented'),
     projectProfitabilityTimeMaterial: document.getElementById('project-profitability-time-material'),
+    projectProfitabilityFixedPrice: document.getElementById('project-profitability-fixed-price'),
     profitabilityRevenueValue: document.getElementById('profitability-revenue-value'),
     profitabilityCostValue: document.getElementById('profitability-cost-value'),
     profitabilityMarginValue: document.getElementById('profitability-margin-value'),
@@ -94,6 +103,17 @@ if (!isBrowserRuntime) {
     projectProfitabilityCutoff: document.getElementById('project-profitability-cutoff'),
     projectProfitabilityBody: document.getElementById('project-profitability-body'),
     projectProfitabilityEmpty: document.getElementById('project-profitability-empty'),
+    fixedProfitabilityRevenueValue: document.getElementById('fixed-profitability-revenue-value'),
+    fixedProfitabilityCostValue: document.getElementById('fixed-profitability-cost-value'),
+    fixedProfitabilityMarginValue: document.getElementById('fixed-profitability-margin-value'),
+    fixedProfitabilityMarginPercentValue: document.getElementById('fixed-profitability-margin-percent-value'),
+    fixedProfitabilityForecastRevenueValue: document.getElementById('fixed-profitability-forecast-revenue-value'),
+    fixedProfitabilityForecastCostValue: document.getElementById('fixed-profitability-forecast-cost-value'),
+    fixedProfitabilityForecastMarginValue: document.getElementById('fixed-profitability-forecast-margin-value'),
+    fixedProfitabilityForecastMarginPercentValue: document.getElementById('fixed-profitability-forecast-margin-percent-value'),
+    fixedProfitabilityCutoff: document.getElementById('fixed-profitability-cutoff'),
+    fixedPriceProfitabilityChart: document.getElementById('fixed-price-profitability-chart'),
+    fixedPriceProfitabilityChartEmpty: document.getElementById('fixed-price-profitability-chart-empty'),
     projectUploadFileBtn: document.getElementById('project-upload-file-btn'),
     projectFileUploadInput: document.getElementById('project-file-upload-input'),
     projectFilesBody: document.getElementById('project-files-body'),
@@ -248,6 +268,18 @@ if (!isBrowserRuntime) {
     paymentAmount: document.getElementById('payment-amount'),
     paymentNotes: document.getElementById('payment-notes'),
     savePaymentBtn: document.getElementById('save-payment-btn'),
+    projectBudgetModal: document.getElementById('project-budget-modal'),
+    projectBudgetModalTitle: document.getElementById('project-budget-modal-title'),
+    projectBudgetId: document.getElementById('project-budget-id'),
+    projectBudgetName: document.getElementById('project-budget-name'),
+    projectBudgetType: document.getElementById('project-budget-type'),
+    projectBudgetStatus: document.getElementById('project-budget-status'),
+    projectBudgetStartDate: document.getElementById('project-budget-start-date'),
+    projectBudgetEndDate: document.getElementById('project-budget-end-date'),
+    projectBudgetAmount: document.getElementById('project-budget-amount'),
+    projectBudgetCurrency: document.getElementById('project-budget-currency'),
+    projectBudgetNotes: document.getElementById('project-budget-notes'),
+    saveProjectBudgetBtn: document.getElementById('save-project-budget-btn'),
     timesheetDetailsModal: document.getElementById('timesheet-details-modal'),
     timesheetDetailsModalTitle: document.getElementById('timesheet-details-modal-title'),
     timesheetDetailsModalBody: document.getElementById('timesheet-details-modal-body'),
@@ -415,6 +447,8 @@ if (!isBrowserRuntime) {
   let revenueForecastDetails = [];
   let isForecastDetailsLoading = false;
   let activeRevenueSubtab = 'invoices';
+  let fixedPriceBudgets = [];
+  let fixedPriceBudgetSummary = null;
   let profitabilitySummary = null;
   let profitabilityBreakdown = [];
   let profitabilityCutoff = null;
@@ -599,6 +633,7 @@ if (!isBrowserRuntime) {
     return positionStatusValues.includes(status) ? status : (position?.consultantId ? 'Assigned' : 'Open');
   };
   const isTimeMaterialProjectType = () => String(fields.projectType.value || '').trim().toLowerCase() === 'time material';
+  const isFixedPriceProjectType = () => String(fields.projectType.value || '').trim().toLowerCase() === 'fixed price';
   const shouldShowPositionRateFields = ({ billable }) => isTimeMaterialProjectType() && billable !== false;
   const formatPositionDailyRate = (dailyRate, currency) => {
     const amount = Number(dailyRate);
@@ -831,6 +866,88 @@ if (!isBrowserRuntime) {
     });
   };
 
+  const renderFixedPriceBudgetSummary = () => {
+    if (!ui.fixedBudgetInitialValue) return;
+    ui.fixedBudgetInitialValue.textContent = formatMoney(fixedPriceBudgetSummary?.initialBudget || 0);
+    ui.fixedBudgetExtensionsValue.textContent = formatMoney(fixedPriceBudgetSummary?.approvedExtensions || 0);
+    ui.fixedBudgetTotalValue.textContent = formatMoney(fixedPriceBudgetSummary?.totalApprovedBudget || 0);
+    ui.fixedBudgetCoverageValue.textContent = fixedPriceBudgetSummary?.coverageLabel || '—';
+    if (ui.projectBudgetsBody) {
+      ui.projectBudgetsBody.innerHTML = '';
+      fixedPriceBudgets.forEach((budget) => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td>${budget.budgetName || 'Budget'}</td>
+          <td>${budget.budgetType || 'Initial'}</td>
+          <td>${budget.status || 'Draft'}</td>
+          <td>${budget.startDate || '—'}</td>
+          <td>${budget.endDate || '—'}</td>
+          <td>${formatMoney(budget.amount || 0, budget.currency || 'EUR')}</td>
+          <td>${budget.currency || 'EUR'}</td>
+          <td>${budget.notes || '—'}</td>
+          <td>
+            <button type="button" class="btn-flat blue-text" data-action="edit-budget" data-id="${budget.id}" title="Edit"><i class="material-icons tiny">edit</i></button>
+            <button type="button" class="btn-flat red-text" data-action="delete-budget" data-id="${budget.id}" title="Delete"><i class="material-icons tiny">delete</i></button>
+          </td>
+        `;
+        ui.projectBudgetsBody.appendChild(tr);
+      });
+    }
+    if (ui.projectBudgetsEmpty) ui.projectBudgetsEmpty.hidden = fixedPriceBudgets.length > 0;
+  };
+
+  const renderFixedPriceProfitability = () => {
+    if (!ui.fixedProfitabilityRevenueValue) return;
+    ui.fixedProfitabilityRevenueValue.textContent = formatMoney(profitabilitySummary?.totalRevenueUntilPreviousPeriod || 0);
+    ui.fixedProfitabilityCostValue.textContent = formatMoney(profitabilitySummary?.totalInternalCostUntilPreviousPeriod || 0);
+    ui.fixedProfitabilityMarginValue.textContent = formatMoney(profitabilitySummary?.totalGrossMarginUntilPreviousPeriod || 0);
+    ui.fixedProfitabilityMarginPercentValue.textContent = `${Number(profitabilitySummary?.currentMarginPercent || 0).toFixed(2)}%`;
+    ui.fixedProfitabilityForecastRevenueValue.textContent = formatMoney(profitabilitySummary?.totalForecastRevenueUntilProjectEnd || 0);
+    ui.fixedProfitabilityForecastCostValue.textContent = formatMoney(profitabilitySummary?.totalForecastInternalCostUntilProjectEnd || 0);
+    ui.fixedProfitabilityForecastMarginValue.textContent = formatMoney(profitabilitySummary?.totalForecastGrossMarginUntilProjectEnd || 0);
+    ui.fixedProfitabilityForecastMarginPercentValue.textContent = `${Number(profitabilitySummary?.forecastMarginPercent || 0).toFixed(2)}%`;
+    if (ui.fixedProfitabilityCutoff) {
+      const cutoffLabel = profitabilityCutoff?.periodLabel || 'previous period';
+      const cutoffDate = profitabilityCutoff?.periodEndDate ? ` (${profitabilityCutoff.periodEndDate})` : '';
+      ui.fixedProfitabilityCutoff.textContent = `Calculated until ${cutoffLabel}${cutoffDate}.`;
+    }
+  };
+
+  const renderFixedPriceCostVsBudgetChart = () => {
+    if (!ui.fixedPriceProfitabilityChart) return;
+    const rows = Array.isArray(profitabilityBreakdown) ? profitabilityBreakdown : [];
+    ui.fixedPriceProfitabilityChart.innerHTML = '';
+    if (ui.fixedPriceProfitabilityChartEmpty) ui.fixedPriceProfitabilityChartEmpty.hidden = rows.length > 0;
+    if (!rows.length) return;
+    const width = 760;
+    const height = 260;
+    const padLeft = 48;
+    const padRight = 16;
+    const padTop = 16;
+    const padBottom = 26;
+    const plotWidth = width - padLeft - padRight;
+    const plotHeight = height - padTop - padBottom;
+    const maxY = Math.max(
+      ...rows.map((row) => Number(row.cumulativeInternalCost || 0)),
+      ...rows.map((row) => Number(row.cumulativeBudgetRevenue || 0)),
+      1
+    );
+    const pointX = (index) => padLeft + (rows.length === 1 ? plotWidth / 2 : (index / (rows.length - 1)) * plotWidth);
+    const pointY = (value) => padTop + plotHeight - (Number(value || 0) / maxY) * plotHeight;
+    const costPath = rows.map((row, index) => `${index === 0 ? 'M' : 'L'} ${pointX(index)} ${pointY(row.cumulativeInternalCost)}`).join(' ');
+    const budgetPath = rows.map((row, index) => `${index === 0 ? 'M' : 'L'} ${pointX(index)} ${pointY(row.cumulativeBudgetRevenue)}`).join(' ');
+    ui.fixedPriceProfitabilityChart.innerHTML = `
+      <line class="fixed-price-chart-axis" x1="${padLeft}" y1="${padTop}" x2="${padLeft}" y2="${padTop + plotHeight}"></line>
+      <line class="fixed-price-chart-axis" x1="${padLeft}" y1="${padTop + plotHeight}" x2="${padLeft + plotWidth}" y2="${padTop + plotHeight}"></line>
+      <line class="fixed-price-chart-grid" x1="${padLeft}" y1="${padTop + plotHeight / 2}" x2="${padLeft + plotWidth}" y2="${padTop + plotHeight / 2}"></line>
+      <path class="fixed-price-chart-cost" d="${costPath}"></path>
+      <path class="fixed-price-chart-budget" d="${budgetPath}"></path>
+      <text x="${padLeft}" y="${padTop - 2}" font-size="11" fill="#455a64">€${Math.round(maxY).toLocaleString()}</text>
+      <text x="${padLeft + 6}" y="${padTop + 14}" font-size="11" fill="#ef6c00">Cumulative Cost</text>
+      <text x="${padLeft + 140}" y="${padTop + 14}" font-size="11" fill="#1565c0">Cumulative Budget</text>
+    `;
+  };
+
   const timesheetStatusClass = (status) => {
     if (status === 'Completed') return 'status-timesheet-completed';
     if (status === 'Incompleted') return 'status-timesheet-incompleted';
@@ -935,6 +1052,8 @@ if (!isBrowserRuntime) {
       profitabilitySummary = null;
       profitabilityBreakdown = [];
       profitabilityCutoff = null;
+      fixedPriceBudgets = [];
+      fixedPriceBudgetSummary = null;
       renderRevenueSummary();
       renderRevenueActuals();
       renderRevenueSubtabs();
@@ -942,18 +1061,22 @@ if (!isBrowserRuntime) {
       renderRevenueInvoicePeriods();
       renderRevenueMonthInvoices();
       renderProfitability();
+      renderFixedPriceBudgetSummary();
+      renderFixedPriceProfitability();
+      renderFixedPriceCostVsBudgetChart();
       return;
     }
     selectedRevenueForecastMonth = '';
     revenueForecastDetails = [];
-    const [forecastSummaryPayload, actualsPayload, invoicesPayload, invoicePeriodsPayload, forecastPayload, profitabilitySummaryPayload, profitabilityBreakdownPayload] = await Promise.all([
+    const [forecastSummaryPayload, actualsPayload, invoicesPayload, invoicePeriodsPayload, forecastPayload, profitabilitySummaryPayload, profitabilityBreakdownPayload, budgetsPayload] = await Promise.all([
       request(`/api/projects/${projectId}/revenue-forecast-summary`),
       request(`/api/projects/${projectId}/revenue-actuals-summary`),
       request(`/api/projects/${projectId}/invoices`),
       request(`/api/projects/${projectId}/revenue/invoice-periods`),
       request(`/api/projects/${projectId}/revenue-forecast-monthly`),
       request(`/api/projects/${projectId}/profitability-summary`),
-      request(`/api/projects/${projectId}/profitability-breakdown`)
+      request(`/api/projects/${projectId}/profitability-breakdown`),
+      request(`/api/projects/${projectId}/budgets`)
     ]);
     revenueSummary = forecastSummaryPayload || null;
     revenueActualsSummary = actualsPayload || null;
@@ -965,6 +1088,8 @@ if (!isBrowserRuntime) {
     profitabilitySummary = profitabilitySummaryPayload || null;
     profitabilityBreakdown = profitabilityBreakdownPayload?.rows || [];
     profitabilityCutoff = profitabilityBreakdownPayload?.cutoff || null;
+    fixedPriceBudgets = budgetsPayload?.budgets || [];
+    fixedPriceBudgetSummary = budgetsPayload?.summary || null;
     renderRevenueSummary();
     renderRevenueActuals();
     renderRevenueSubtabs();
@@ -973,6 +1098,9 @@ if (!isBrowserRuntime) {
     renderRevenueInvoicePeriods();
     renderRevenueMonthInvoices();
     renderProfitability();
+    renderFixedPriceBudgetSummary();
+    renderFixedPriceProfitability();
+    renderFixedPriceCostVsBudgetChart();
   };
 
   const openForecastDetailsModal = () => {
@@ -1063,6 +1191,35 @@ if (!isBrowserRuntime) {
     updateTextFields();
   };
 
+  const resetProjectBudgetModal = (budget = null) => {
+    if (!budget) {
+      ui.projectBudgetModalTitle.textContent = 'Add Budget';
+      ui.projectBudgetId.value = '';
+      ui.projectBudgetName.value = '';
+      ui.projectBudgetType.value = 'Initial';
+      ui.projectBudgetStatus.value = 'Draft';
+      ui.projectBudgetStartDate.value = fields.startDate.value || '';
+      ui.projectBudgetEndDate.value = fields.endDate.value || '';
+      ui.projectBudgetAmount.value = '';
+      ui.projectBudgetCurrency.value = 'EUR';
+      ui.projectBudgetNotes.value = '';
+    } else {
+      ui.projectBudgetModalTitle.textContent = 'Edit Budget';
+      ui.projectBudgetId.value = budget.id;
+      ui.projectBudgetName.value = budget.budgetName || '';
+      ui.projectBudgetType.value = budget.budgetType || 'Initial';
+      ui.projectBudgetStatus.value = budget.status || 'Draft';
+      ui.projectBudgetStartDate.value = budget.startDate || '';
+      ui.projectBudgetEndDate.value = budget.endDate || '';
+      ui.projectBudgetAmount.value = String(budget.amount ?? '');
+      ui.projectBudgetCurrency.value = budget.currency || 'EUR';
+      ui.projectBudgetNotes.value = budget.notes || '';
+    }
+    resetSelect('projectBudgetType', ui.projectBudgetType);
+    resetSelect('projectBudgetStatus', ui.projectBudgetStatus);
+    updateTextFields();
+  };
+
   const updateProjectWorkspaceUi = (context = 'updateProjectWorkspaceUi') => {
     const isSavedProject = Boolean(fields.projectId.value);
     const manageProjectOpen = !ui.projectFormCard.hidden;
@@ -1111,14 +1268,23 @@ if (!isBrowserRuntime) {
     if (ui.projectMembersCard) ui.projectMembersCard.hidden = !manageProjectOpen || (!isOverviewTab && !isTeamTab);
     if (isRevenueTab) {
       const isTimeMaterial = isTimeMaterialProjectType();
+      const isFixedPrice = isFixedPriceProjectType();
       if (ui.projectRevenueTimeMaterial) ui.projectRevenueTimeMaterial.hidden = !isTimeMaterial;
-      if (ui.projectRevenueNotImplemented) ui.projectRevenueNotImplemented.hidden = isTimeMaterial;
+      if (ui.projectRevenueFixedPrice) ui.projectRevenueFixedPrice.hidden = !isFixedPrice;
+      if (ui.projectRevenueNotImplemented) ui.projectRevenueNotImplemented.hidden = (isTimeMaterial || isFixedPrice);
       if (isTimeMaterial) renderRevenueSubtabs();
+      if (isFixedPrice) renderFixedPriceBudgetSummary();
     }
     if (isProfitabilityTab) {
       const isTimeMaterial = isTimeMaterialProjectType();
+      const isFixedPrice = isFixedPriceProjectType();
       if (ui.projectProfitabilityTimeMaterial) ui.projectProfitabilityTimeMaterial.hidden = !isTimeMaterial;
-      if (ui.projectProfitabilityNotImplemented) ui.projectProfitabilityNotImplemented.hidden = isTimeMaterial;
+      if (ui.projectProfitabilityFixedPrice) ui.projectProfitabilityFixedPrice.hidden = !isFixedPrice;
+      if (ui.projectProfitabilityNotImplemented) ui.projectProfitabilityNotImplemented.hidden = (isTimeMaterial || isFixedPrice);
+      if (isFixedPrice) {
+        renderFixedPriceProfitability();
+        renderFixedPriceCostVsBudgetChart();
+      }
     }
     console.debug(`[projectWorkspace] context=${context} saved=${isSavedProject} activeTab=${activeTab} overviewTab=${isOverviewTab} teamMain=${isTeamTab} timelineMain=${isTimelineTab}`);
   };
@@ -3714,6 +3880,8 @@ if (!isBrowserRuntime) {
     profitabilitySummary = null;
     profitabilityBreakdown = [];
     profitabilityCutoff = null;
+    fixedPriceBudgets = [];
+    fixedPriceBudgetSummary = null;
     renderRevenueSummary();
     renderRevenueActuals();
     renderRevenueInvoicePeriods();
@@ -3721,6 +3889,9 @@ if (!isBrowserRuntime) {
     renderRevenueForecastBreakdown();
     renderRevenueForecastDetails();
     renderProfitability();
+    renderFixedPriceBudgetSummary();
+    renderFixedPriceProfitability();
+    renderFixedPriceCostVsBudgetChart();
     renderProjectFiles();
     updateAssignedConsultantsSummary();
     rebuildProjectSelects();
@@ -4540,6 +4711,35 @@ if (!isBrowserRuntime) {
     }
   });
 
+  ui.openProjectBudgetModalBtn?.addEventListener('click', () => {
+    resetProjectBudgetModal(null);
+    modals.projectBudget?.open();
+  });
+
+  ui.projectBudgetsBody?.addEventListener('click', async (event) => {
+    const button = event.target.closest('button[data-action]');
+    if (!button) return;
+    const budgetId = Number(button.dataset.id || 0);
+    const budget = fixedPriceBudgets.find((item) => Number(item.id) === budgetId);
+    if (!budget) return;
+    if (button.dataset.action === 'edit-budget') {
+      resetProjectBudgetModal(budget);
+      modals.projectBudget?.open();
+      return;
+    }
+    if (button.dataset.action === 'delete-budget') {
+      const confirmed = window.confirm(`Delete budget "${budget.budgetName || budget.id}"?`);
+      if (!confirmed) return;
+      try {
+        await request(`/api/project-budgets/${budgetId}`, { method: 'DELETE' });
+        await loadRevenueData(Number(fields.projectId.value || 0));
+        toast('Budget deleted', 'teal darken-1');
+      } catch (error) {
+        toast(error.message || 'Failed to delete budget', 'red darken-1');
+      }
+    }
+  });
+
   ui.saveInvoiceBtn?.addEventListener('click', async () => {
     const projectId = Number(fields.projectId.value);
     if (!projectId) return;
@@ -4596,6 +4796,50 @@ if (!isBrowserRuntime) {
       toast('Payment saved', 'teal darken-1');
     } catch (error) {
       toast(error.message || 'Failed to save payment', 'red darken-1');
+    }
+  });
+
+  ui.saveProjectBudgetBtn?.addEventListener('click', async () => {
+    const projectId = Number(fields.projectId.value || 0);
+    if (!projectId) return;
+    if (!isFixedPriceProjectType()) {
+      toast('Budget management is available only for Fixed Price projects', 'red darken-1');
+      return;
+    }
+    const payload = {
+      budgetName: ui.projectBudgetName.value.trim(),
+      budgetType: ui.projectBudgetType.value,
+      status: ui.projectBudgetStatus.value,
+      startDate: ui.projectBudgetStartDate.value,
+      endDate: ui.projectBudgetEndDate.value,
+      amount: Number(ui.projectBudgetAmount.value || 0),
+      currency: ui.projectBudgetCurrency.value.trim().toUpperCase(),
+      notes: ui.projectBudgetNotes.value.trim()
+    };
+    if (!payload.budgetName || !payload.currency || !payload.startDate || !payload.endDate) {
+      toast('Budget name, currency, start date and end date are required', 'red darken-1');
+      return;
+    }
+    if (Number.isNaN(payload.amount) || payload.amount < 0) {
+      toast('Amount must be a non-negative number', 'red darken-1');
+      return;
+    }
+    if (payload.endDate < payload.startDate) {
+      toast('End date must be on or after start date', 'red darken-1');
+      return;
+    }
+    const budgetId = Number(ui.projectBudgetId.value || 0);
+    try {
+      await request(budgetId ? `/api/project-budgets/${budgetId}` : `/api/projects/${projectId}/budgets`, {
+        method: budgetId ? 'PUT' : 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      modals.projectBudget?.close();
+      await loadRevenueData(projectId);
+      toast(budgetId ? 'Budget updated' : 'Budget added', 'teal darken-1');
+    } catch (error) {
+      toast(error.message || 'Failed to save budget', 'red darken-1');
     }
   });
 
@@ -5423,6 +5667,7 @@ if (!isBrowserRuntime) {
     modals.manualLine = M.Modal.init(ui.manualLineModal);
     modals.invoice = M.Modal.init(ui.invoiceModal);
     modals.payment = M.Modal.init(ui.paymentModal);
+    modals.projectBudget = M.Modal.init(ui.projectBudgetModal);
     modals.timesheetDetails = M.Modal.init(ui.timesheetDetailsModal);
     modals.businessPartnerCommunication = M.Modal.init(ui.businessPartnerCommunicationModal);
     modals.companyBranch = M.Modal.init(ui.companyBranchModal);

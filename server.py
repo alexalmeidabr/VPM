@@ -373,6 +373,22 @@ def init_db():
         FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE
       );
 
+      CREATE TABLE IF NOT EXISTS project_budgets (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        project_id INTEGER NOT NULL,
+        budget_name TEXT NOT NULL,
+        budget_type TEXT NOT NULL DEFAULT 'Initial',
+        status TEXT NOT NULL DEFAULT 'Draft',
+        start_date TEXT NOT NULL,
+        end_date TEXT NOT NULL,
+        amount REAL NOT NULL DEFAULT 0,
+        currency TEXT NOT NULL DEFAULT 'EUR',
+        notes TEXT,
+        created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+        updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE
+      );
+
       CREATE TABLE IF NOT EXISTS invoices (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         project_id INTEGER NOT NULL,
@@ -542,6 +558,7 @@ class VPMHandler(SimpleHTTPRequestHandler):
       'business_partners',
       'invoices',
       'invoice_payments',
+      'project_budgets',
       'roles',
       'areas',
       'day_off_types',
@@ -2006,8 +2023,13 @@ class VPMHandler(SimpleHTTPRequestHandler):
     return {'status': next_status, 'paidAmount': paid_amount}
 
   def get_project_revenue_summary(self, conn, project_id):
-    forecast_payload = self.calculate_time_material_revenue_forecast(conn, project_id)
-    forecast = float(forecast_payload['summary']['totalForecastRevenueUntilProjectEnd'])
+    project = conn.execute('SELECT project_type FROM projects WHERE id = ?', (project_id,)).fetchone()
+    project_type = str(project['project_type'] or '').strip().lower() if project else ''
+    if project_type == 'fixed price':
+      forecast_payload = self.calculate_fixed_price_revenue_forecast(conn, project_id)
+    else:
+      forecast_payload = self.calculate_time_material_revenue_forecast(conn, project_id)
+    forecast = float(forecast_payload['summary']['totalForecastRevenueUntilProjectEnd'] or 0.0)
     actuals = self.calculate_revenue_actuals_summary(conn, project_id)
     return {
       'totalContractedRevenue': forecast_payload['summary']['totalContractedRevenue'],
@@ -2053,13 +2075,119 @@ class VPMHandler(SimpleHTTPRequestHandler):
     }
 
   def get_revenue_forecast_summary(self, conn, project_id):
-    forecast_payload = self.calculate_time_material_revenue_forecast(conn, project_id)
+    project = conn.execute('SELECT project_type FROM projects WHERE id = ?', (project_id,)).fetchone()
+    project_type = str(project['project_type'] or '').strip().lower() if project else ''
+    if project_type == 'fixed price':
+      forecast_payload = self.calculate_fixed_price_revenue_forecast(conn, project_id)
+    else:
+      forecast_payload = self.calculate_time_material_revenue_forecast(conn, project_id)
     return {
       'totalContractedRevenue': forecast_payload['summary']['totalContractedRevenue'],
       'revenueThisMonth': forecast_payload['summary']['revenueThisMonth'],
       'revenueNext3Months': forecast_payload['summary']['revenueNext3Months'],
       'totalForecastRevenueUntilProjectEnd': forecast_payload['summary']['totalForecastRevenueUntilProjectEnd'],
       'unbilledForecast': max(float(forecast_payload['summary']['totalForecastRevenueUntilProjectEnd']) - self.calculate_revenue_actuals_summary(conn, project_id)['totalInvoiced'], 0.0)
+    }
+
+  def _fetch_project_budgets(self, conn, project_id):
+    return conn.execute(
+      '''
+      SELECT id, project_id, budget_name, budget_type, status, start_date, end_date, amount, currency, notes, created_at, updated_at
+      FROM project_budgets
+      WHERE project_id = ?
+      ORDER BY start_date, id
+      ''',
+      (project_id,)
+    ).fetchall()
+
+  def _budget_counts_for_totals(self, status):
+    return str(status or '').strip().lower() in {'approved', 'closed'}
+
+  def _budget_monthly_allocation_rows(self, start_date, end_date, amount):
+    allocations = []
+    amount = float(amount or 0.0)
+    if amount == 0 or not start_date or not end_date or end_date < start_date:
+      return allocations
+    month_ranges = []
+    total_working_days = 0
+    for month_start, month_end in self.iterate_months_between(start_date, end_date):
+      overlap_start = max(start_date, month_start.isoformat())
+      overlap_end = min(end_date, month_end.isoformat())
+      if overlap_end < overlap_start:
+        continue
+      working_days = self._working_days_between(overlap_start, overlap_end)
+      if working_days <= 0:
+        continue
+      month_key = month_start.strftime('%Y-%m')
+      month_ranges.append((month_key, month_start.strftime('%b %Y'), working_days))
+      total_working_days += working_days
+    if total_working_days <= 0 and month_ranges:
+      share = amount / len(month_ranges)
+      return [(month_key, month_label, share) for month_key, month_label, _ in month_ranges]
+    for month_key, month_label, working_days in month_ranges:
+      allocations.append((month_key, month_label, amount * working_days / total_working_days))
+    return allocations
+
+  def calculate_fixed_price_budget_summary(self, conn, project_id):
+    budgets = self._fetch_project_budgets(conn, project_id)
+    initial_budget = 0.0
+    approved_extensions = 0.0
+    total_approved = 0.0
+    committed_rows = []
+    for row in budgets:
+      if self._budget_counts_for_totals(row['status']):
+        committed_rows.append(row)
+        amount = float(row['amount'] if row['amount'] is not None else 0.0)
+        total_approved += amount
+        if str(row['budget_type'] or '').strip().lower() == 'extension':
+          approved_extensions += amount
+        else:
+          initial_budget += amount
+    coverage_start = min((row['start_date'] for row in committed_rows if row['start_date']), default=None)
+    coverage_end = max((row['end_date'] for row in committed_rows if row['end_date']), default=None)
+    coverage_label = f'{coverage_start} → {coverage_end}' if coverage_start and coverage_end else 'No approved budget periods'
+    return {
+      'initialBudget': initial_budget,
+      'approvedExtensions': approved_extensions,
+      'totalApprovedBudget': total_approved,
+      'coverageStartDate': coverage_start,
+      'coverageEndDate': coverage_end,
+      'coverageLabel': coverage_label,
+      'budgets': budgets
+    }
+
+  def calculate_fixed_price_revenue_forecast(self, conn, project_id):
+    project = conn.execute('SELECT start_date, end_date, project_type FROM projects WHERE id = ?', (project_id,)).fetchone()
+    if not project or str(project['project_type'] or '').strip().lower() != 'fixed price':
+      return {'summary': {'totalContractedRevenue': 0.0, 'revenueThisMonth': 0.0, 'revenueNext3Months': 0.0, 'totalForecastRevenueUntilProjectEnd': 0.0}, 'rows': []}
+    budget_summary = self.calculate_fixed_price_budget_summary(conn, project_id)
+    monthly = {}
+    for budget in budget_summary['budgets']:
+      if not self._budget_counts_for_totals(budget['status']):
+        continue
+      allocations = self._budget_monthly_allocation_rows(budget['start_date'], budget['end_date'], budget['amount'])
+      for month_key, month_label, revenue in allocations:
+        entry = monthly.setdefault(month_key, {'month': month_key, 'monthLabel': month_label, 'revenue': 0.0, 'budgetCount': 0})
+        entry['revenue'] += float(revenue)
+        entry['budgetCount'] += 1
+    rows = [monthly[month] for month in sorted(monthly.keys())]
+    current_month = datetime.utcnow().date().replace(day=1).strftime('%Y-%m')
+    this_month_total = sum(float(row['revenue'] or 0.0) for row in rows if row['month'] == current_month)
+    next_three_total = 0.0
+    current_date = datetime.utcnow().date().replace(day=1)
+    for row in rows:
+      month_date = datetime.strptime(f"{row['month']}-01", '%Y-%m-%d').date()
+      month_diff = (month_date.year - current_date.year) * 12 + (month_date.month - current_date.month)
+      if 0 <= month_diff <= 2:
+        next_three_total += float(row['revenue'] or 0.0)
+    return {
+      'summary': {
+        'totalContractedRevenue': budget_summary['totalApprovedBudget'],
+        'revenueThisMonth': this_month_total,
+        'revenueNext3Months': next_three_total,
+        'totalForecastRevenueUntilProjectEnd': budget_summary['totalApprovedBudget']
+      },
+      'rows': rows
     }
 
   def iterate_months_between(self, start_date, end_date):
@@ -2156,6 +2284,21 @@ class VPMHandler(SimpleHTTPRequestHandler):
     }
 
   def get_revenue_forecast_monthly(self, conn, project_id):
+    project = conn.execute('SELECT project_type FROM projects WHERE id = ?', (project_id,)).fetchone()
+    project_type = str(project['project_type'] or '').strip().lower() if project else ''
+    if project_type == 'fixed price':
+      revenue_payload = self.calculate_fixed_price_revenue_forecast(conn, project_id)
+      rows = []
+      for row in revenue_payload['rows']:
+        rows.append({
+          'month': row['month'],
+          'monthLabel': row['monthLabel'],
+          'billableDays': 0.0,
+          'revenue': float(row['revenue'] or 0.0),
+          'positionsCount': int(row.get('budgetCount', 0)),
+          'consultantsCount': 0
+        })
+      return {'rows': rows}
     revenue_payload = self.calculate_time_material_revenue_forecast(conn, project_id)
     monthly = {}
     for row in revenue_payload['rows']:
@@ -2458,6 +2601,49 @@ class VPMHandler(SimpleHTTPRequestHandler):
       })
     return {'details': details}
 
+  def calculate_project_internal_cost_forecast_monthly(self, conn, project_id, start_date, end_date):
+    if not start_date or not end_date or end_date < start_date:
+      return []
+    positions = conn.execute(
+      '''
+      SELECT pp.id, pp.consultant_id, pp.start_date, pp.end_date, pp.allocation, pp.status, c.salary
+      FROM project_positions pp
+      LEFT JOIN consultants c ON c.id = pp.consultant_id
+      WHERE pp.project_id = ?
+        AND pp.consultant_id IS NOT NULL
+      ORDER BY pp.id
+      ''',
+      (project_id,)
+    ).fetchall()
+    monthly = {}
+    for position in positions:
+      if position['consultant_id'] is None:
+        continue
+      display_status = 'Closed' if (position['end_date'] and position['end_date'] < datetime.utcnow().date().isoformat()) else str(position['status'] or '')
+      if display_status == 'Closed':
+        continue
+      position_start = position['start_date'] or start_date
+      position_end = position['end_date'] or end_date
+      if not position_start or not position_end:
+        continue
+      for month_start, month_end in self.iterate_months_between(max(position_start, start_date), min(position_end, end_date)):
+        overlap_start = max(start_date, position_start, month_start.isoformat())
+        overlap_end = min(end_date, position_end, month_end.isoformat())
+        if overlap_end < overlap_start:
+          continue
+        working_days = self._working_days_between(overlap_start, overlap_end)
+        consultant_id = int(position['consultant_id'])
+        days_off = self._consultant_days_off_between(conn, consultant_id, overlap_start, overlap_end)
+        working_days = max(working_days - days_off, 0)
+        allocation = float(position['allocation'] if position['allocation'] is not None else 100.0)
+        billable_days = working_days * max(allocation, 0.0) / 100.0
+        daily_internal_cost = float(position['salary'] if position['salary'] is not None else 0.0)
+        internal_cost = billable_days * daily_internal_cost
+        month_key = month_start.strftime('%Y-%m')
+        entry = monthly.setdefault(month_key, {'month': month_key, 'monthLabel': month_start.strftime('%b %Y'), 'internalCost': 0.0})
+        entry['internalCost'] += internal_cost
+    return [monthly[month] for month in sorted(monthly.keys())]
+
   def calculate_time_material_profitability_forecast(self, conn, project_id):
     revenue_payload = self.calculate_time_material_revenue_forecast(conn, project_id)
     if not revenue_payload['rows']:
@@ -2628,6 +2814,79 @@ class VPMHandler(SimpleHTTPRequestHandler):
       }
     }
 
+  def calculate_fixed_price_profitability(self, conn, project_id):
+    project = conn.execute('SELECT start_date, end_date, project_type FROM projects WHERE id = ?', (project_id,)).fetchone()
+    if not project or str(project['project_type'] or '').strip().lower() != 'fixed price':
+      return {
+        'summary': {
+          'totalRevenueUntilPreviousPeriod': 0.0,
+          'totalInternalCostUntilPreviousPeriod': 0.0,
+          'totalGrossMarginUntilPreviousPeriod': 0.0,
+          'currentMarginPercent': 0.0,
+          'totalForecastRevenueUntilProjectEnd': 0.0,
+          'totalForecastInternalCostUntilProjectEnd': 0.0,
+          'totalForecastGrossMarginUntilProjectEnd': 0.0,
+          'forecastMarginPercent': 0.0
+        },
+        'cutoff': {'periodEndDate': None, 'periodMonth': None, 'periodLabel': None},
+        'chartRows': []
+      }
+    revenue_forecast = self.calculate_fixed_price_revenue_forecast(conn, project_id)
+    project_start = project['start_date']
+    project_end = project['end_date'] or (revenue_forecast['rows'][-1]['month'] + '-28' if revenue_forecast['rows'] else project_start)
+    cost_rows = self.calculate_project_internal_cost_forecast_monthly(conn, project_id, project_start, project_end) if project_start and project_end else []
+    cost_by_month = {row['month']: float(row['internalCost'] or 0.0) for row in cost_rows}
+    revenue_by_month = {row['month']: float(row['revenue'] or 0.0) for row in revenue_forecast['rows']}
+    month_keys = sorted(set(cost_by_month.keys()) | set(revenue_by_month.keys()))
+    cutoff_end = self._previous_period_cutoff_end_date()
+    cutoff_month = cutoff_end.strftime('%Y-%m')
+    total_revenue_prev = 0.0
+    total_cost_prev = 0.0
+    total_revenue_forecast = 0.0
+    total_cost_forecast = 0.0
+    cumulative_revenue = 0.0
+    cumulative_cost = 0.0
+    chart_rows = []
+    for month in month_keys:
+      month_revenue = revenue_by_month.get(month, 0.0)
+      month_cost = cost_by_month.get(month, 0.0)
+      total_revenue_forecast += month_revenue
+      total_cost_forecast += month_cost
+      if month <= cutoff_month:
+        total_revenue_prev += month_revenue
+        total_cost_prev += month_cost
+      cumulative_revenue += month_revenue
+      cumulative_cost += month_cost
+      month_label = datetime.strptime(f'{month}-01', '%Y-%m-%d').strftime('%b %Y')
+      chart_rows.append({
+        'month': month,
+        'monthLabel': month_label,
+        'monthlyRevenue': month_revenue,
+        'monthlyInternalCost': month_cost,
+        'cumulativeBudgetRevenue': cumulative_revenue,
+        'cumulativeInternalCost': cumulative_cost
+      })
+    current_margin = total_revenue_prev - total_cost_prev
+    forecast_margin = total_revenue_forecast - total_cost_forecast
+    return {
+      'summary': {
+        'totalRevenueUntilPreviousPeriod': total_revenue_prev,
+        'totalInternalCostUntilPreviousPeriod': total_cost_prev,
+        'totalGrossMarginUntilPreviousPeriod': current_margin,
+        'currentMarginPercent': (current_margin / total_revenue_prev * 100.0) if total_revenue_prev else 0.0,
+        'totalForecastRevenueUntilProjectEnd': total_revenue_forecast,
+        'totalForecastInternalCostUntilProjectEnd': total_cost_forecast,
+        'totalForecastGrossMarginUntilProjectEnd': forecast_margin,
+        'forecastMarginPercent': (forecast_margin / total_revenue_forecast * 100.0) if total_revenue_forecast else 0.0
+      },
+      'cutoff': {
+        'periodEndDate': cutoff_end.isoformat(),
+        'periodMonth': cutoff_month,
+        'periodLabel': cutoff_end.strftime('%B %Y')
+      },
+      'chartRows': chart_rows
+    }
+
   def _fetch_timesheet_detail(self, conn, consultant_id, month_start):
     row = self._ensure_monthly_timesheet(conn, consultant_id, month_start)
     if not row:
@@ -2683,7 +2942,9 @@ class VPMHandler(SimpleHTTPRequestHandler):
     revenue_forecast_breakdown_match = re.fullmatch(r'/api/projects/(\d+)/revenue-forecast-breakdown', path)
     profitability_summary_match = re.fullmatch(r'/api/projects/(\d+)/profitability-summary', path)
     profitability_breakdown_match = re.fullmatch(r'/api/projects/(\d+)/profitability-breakdown', path)
+    project_budgets_match = re.fullmatch(r'/api/projects/(\d+)/budgets', path)
     project_invoices_match = re.fullmatch(r'/api/projects/(\d+)/invoices', path)
+    project_budgets_match = re.fullmatch(r'/api/projects/(\d+)/budgets', path)
     invoice_payments_match = re.fullmatch(r'/api/invoices/(\d+)/payments', path)
     allocation_simulation_id = self._allocation_simulation_id()
     files_project_id, file_id, files_action = self._project_files_route()
@@ -2809,7 +3070,12 @@ class VPMHandler(SimpleHTTPRequestHandler):
         if not self._ids_exist(conn, 'projects', [project_id]):
           self._send_json({'error': 'Project not found'}, HTTPStatus.NOT_FOUND)
           return
-        payload = self.calculate_time_material_profitability_until_previous_period(conn, project_id)
+        project = conn.execute('SELECT project_type FROM projects WHERE id = ?', (project_id,)).fetchone()
+        project_type = str(project['project_type'] or '').strip().lower() if project else ''
+        if project_type == 'fixed price':
+          payload = self.calculate_fixed_price_profitability(conn, project_id)
+        else:
+          payload = self.calculate_time_material_profitability_until_previous_period(conn, project_id)
         self._send_json(payload['summary'])
         return
       if profitability_breakdown_match:
@@ -2817,8 +3083,48 @@ class VPMHandler(SimpleHTTPRequestHandler):
         if not self._ids_exist(conn, 'projects', [project_id]):
           self._send_json({'error': 'Project not found'}, HTTPStatus.NOT_FOUND)
           return
-        payload = self.calculate_time_material_profitability_until_previous_period(conn, project_id)
-        self._send_json({'rows': payload['rows'], 'cutoff': payload['cutoff']})
+        project = conn.execute('SELECT project_type FROM projects WHERE id = ?', (project_id,)).fetchone()
+        project_type = str(project['project_type'] or '').strip().lower() if project else ''
+        if project_type == 'fixed price':
+          payload = self.calculate_fixed_price_profitability(conn, project_id)
+          self._send_json({'rows': payload.get('chartRows', []), 'cutoff': payload['cutoff']})
+        else:
+          payload = self.calculate_time_material_profitability_until_previous_period(conn, project_id)
+          self._send_json({'rows': payload['rows'], 'cutoff': payload['cutoff']})
+        return
+      if project_budgets_match:
+        project_id = int(project_budgets_match.group(1))
+        if not self._ids_exist(conn, 'projects', [project_id]):
+          self._send_json({'error': 'Project not found'}, HTTPStatus.NOT_FOUND)
+          return
+        budget_summary = self.calculate_fixed_price_budget_summary(conn, project_id)
+        budgets_payload = []
+        for row in budget_summary['budgets']:
+          budgets_payload.append({
+            'id': row['id'],
+            'projectId': row['project_id'],
+            'budgetName': row['budget_name'],
+            'budgetType': row['budget_type'],
+            'status': row['status'],
+            'startDate': row['start_date'],
+            'endDate': row['end_date'],
+            'amount': float(row['amount'] if row['amount'] is not None else 0.0),
+            'currency': row['currency'] or 'EUR',
+            'notes': row['notes'] or '',
+            'createdAt': row['created_at'],
+            'updatedAt': row['updated_at']
+          })
+        self._send_json({
+          'budgets': budgets_payload,
+          'summary': {
+            'initialBudget': budget_summary['initialBudget'],
+            'approvedExtensions': budget_summary['approvedExtensions'],
+            'totalApprovedBudget': budget_summary['totalApprovedBudget'],
+            'coverageStartDate': budget_summary['coverageStartDate'],
+            'coverageEndDate': budget_summary['coverageEndDate'],
+            'coverageLabel': budget_summary['coverageLabel']
+          }
+        })
         return
       if project_invoices_match:
         project_id = int(project_invoices_match.group(1))
@@ -3080,6 +3386,50 @@ class VPMHandler(SimpleHTTPRequestHandler):
           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
           ''',
           (project_id, position_id, invoice_ref, period_from, period_to, invoice_date, due_date or None, amount, status, notes)
+        )
+      self._send_json({'id': cursor.lastrowid}, HTTPStatus.CREATED)
+      return
+
+    if project_budgets_match:
+      project_id = int(project_budgets_match.group(1))
+      budget_name = str(payload.get('budgetName', '')).strip()
+      budget_type = str(payload.get('budgetType', 'Initial')).strip() or 'Initial'
+      status = str(payload.get('status', 'Draft')).strip() or 'Draft'
+      start_date = str(payload.get('startDate', '')).strip()
+      end_date = str(payload.get('endDate', '')).strip()
+      currency = str(payload.get('currency', 'EUR')).strip() or 'EUR'
+      notes = str(payload.get('notes', '')).strip()
+      try:
+        amount = float(payload.get('amount', 0) or 0)
+      except (TypeError, ValueError):
+        self._send_json({'error': 'amount must be numeric'}, HTTPStatus.BAD_REQUEST)
+        return
+      if not budget_name:
+        self._send_json({'error': 'budgetName is required'}, HTTPStatus.BAD_REQUEST)
+        return
+      if not (self._valid_iso_date(start_date) and self._valid_iso_date(end_date)):
+        self._send_json({'error': 'startDate and endDate must be YYYY-MM-DD'}, HTTPStatus.BAD_REQUEST)
+        return
+      if end_date < start_date:
+        self._send_json({'error': 'endDate must be on or after startDate'}, HTTPStatus.BAD_REQUEST)
+        return
+      if amount < 0:
+        self._send_json({'error': 'amount must be greater than or equal to 0'}, HTTPStatus.BAD_REQUEST)
+        return
+      with get_connection() as conn:
+        project = conn.execute('SELECT project_type FROM projects WHERE id = ?', (project_id,)).fetchone()
+        if not project:
+          self._send_json({'error': 'Project not found'}, HTTPStatus.NOT_FOUND)
+          return
+        if str(project['project_type'] or '').strip().lower() != 'fixed price':
+          self._send_json({'error': 'Budgets can be managed only for Fixed Price projects'}, HTTPStatus.BAD_REQUEST)
+          return
+        cursor = conn.execute(
+          '''
+          INSERT INTO project_budgets (project_id, budget_name, budget_type, status, start_date, end_date, amount, currency, notes)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+          ''',
+          (project_id, budget_name, budget_type, status, start_date, end_date, amount, currency, notes)
         )
       self._send_json({'id': cursor.lastrowid}, HTTPStatus.CREATED)
       return
@@ -3531,6 +3881,7 @@ class VPMHandler(SimpleHTTPRequestHandler):
     path = self._path()
     invoice_match = re.fullmatch(r'/api/invoices/(\d+)', path)
     payment_match = re.fullmatch(r'/api/payments/(\d+)', path)
+    budget_match = re.fullmatch(r'/api/project-budgets/(\d+)', path)
     project_id = self._resource_id('projects')
     consultant_id = self._resource_id('consultants')
     company_branch_id = self._resource_id('company-branches')
@@ -3648,6 +3999,59 @@ class VPMHandler(SimpleHTTPRequestHandler):
           (payment_date, amount, notes, payment_id)
         )
         self.recalculate_invoice_status(conn, payment['invoice_id'])
+      self._send_json({'status': 'updated'})
+      return
+
+    if budget_match:
+      budget_id = int(budget_match.group(1))
+      budget_name = str(payload.get('budgetName', '')).strip()
+      budget_type = str(payload.get('budgetType', 'Initial')).strip() or 'Initial'
+      status = str(payload.get('status', 'Draft')).strip() or 'Draft'
+      start_date = str(payload.get('startDate', '')).strip()
+      end_date = str(payload.get('endDate', '')).strip()
+      currency = str(payload.get('currency', 'EUR')).strip() or 'EUR'
+      notes = str(payload.get('notes', '')).strip()
+      try:
+        amount = float(payload.get('amount', 0) or 0)
+      except (TypeError, ValueError):
+        self._send_json({'error': 'amount must be numeric'}, HTTPStatus.BAD_REQUEST)
+        return
+      if not budget_name:
+        self._send_json({'error': 'budgetName is required'}, HTTPStatus.BAD_REQUEST)
+        return
+      if not (self._valid_iso_date(start_date) and self._valid_iso_date(end_date)):
+        self._send_json({'error': 'startDate and endDate must be YYYY-MM-DD'}, HTTPStatus.BAD_REQUEST)
+        return
+      if end_date < start_date:
+        self._send_json({'error': 'endDate must be on or after startDate'}, HTTPStatus.BAD_REQUEST)
+        return
+      if amount < 0:
+        self._send_json({'error': 'amount must be greater than or equal to 0'}, HTTPStatus.BAD_REQUEST)
+        return
+      with get_connection() as conn:
+        budget = conn.execute(
+          '''
+          SELECT pb.id, p.project_type
+          FROM project_budgets pb
+          JOIN projects p ON p.id = pb.project_id
+          WHERE pb.id = ?
+          ''',
+          (budget_id,)
+        ).fetchone()
+        if not budget:
+          self._send_json({'error': 'Budget not found'}, HTTPStatus.NOT_FOUND)
+          return
+        if str(budget['project_type'] or '').strip().lower() != 'fixed price':
+          self._send_json({'error': 'Budgets can be managed only for Fixed Price projects'}, HTTPStatus.BAD_REQUEST)
+          return
+        conn.execute(
+          '''
+          UPDATE project_budgets
+          SET budget_name = ?, budget_type = ?, status = ?, start_date = ?, end_date = ?, amount = ?, currency = ?, notes = ?, updated_at = CURRENT_TIMESTAMP
+          WHERE id = ?
+          ''',
+          (budget_name, budget_type, status, start_date, end_date, amount, currency, notes, budget_id)
+        )
       self._send_json({'status': 'updated'})
       return
 
@@ -3886,6 +4290,7 @@ class VPMHandler(SimpleHTTPRequestHandler):
     query = self._query()
     invoice_match = re.fullmatch(r'/api/invoices/(\d+)', path)
     payment_match = re.fullmatch(r'/api/payments/(\d+)', path)
+    budget_match = re.fullmatch(r'/api/project-budgets/(\d+)', path)
     project_id = self._resource_id('projects')
     consultant_id = self._resource_id('consultants')
     role_id = self._resource_id('roles')
@@ -3929,6 +4334,16 @@ class VPMHandler(SimpleHTTPRequestHandler):
           return
         conn.execute('DELETE FROM invoice_payments WHERE id = ?', (payment_id,))
         self.recalculate_invoice_status(conn, payment['invoice_id'])
+      self._send_json({'status': 'deleted'})
+      return
+
+    if budget_match:
+      budget_id = int(budget_match.group(1))
+      with get_connection() as conn:
+        cursor = conn.execute('DELETE FROM project_budgets WHERE id = ?', (budget_id,))
+      if cursor.rowcount == 0:
+        self._send_json({'error': 'Budget not found'}, HTTPStatus.NOT_FOUND)
+        return
       self._send_json({'status': 'deleted'})
       return
 

@@ -227,6 +227,27 @@
                         </div>
                       </div>
                     </div>
+                    <div id="project-revenue-fixed-price" hidden>
+                      <div class="section-header">
+                        <h6>Budget Management</h6>
+                        <button type="button" class="btn waves-effect waves-light" id="open-project-budget-modal-btn">Add Budget</button>
+                      </div>
+                      <div class="revenue-summary-grid">
+                        <div class="revenue-summary-card"><span class="grey-text">Initial Budget</span><strong id="fixed-budget-initial-value">€0.00</strong></div>
+                        <div class="revenue-summary-card"><span class="grey-text">Approved Extensions</span><strong id="fixed-budget-extensions-value">€0.00</strong></div>
+                        <div class="revenue-summary-card"><span class="grey-text">Total Approved Budget</span><strong id="fixed-budget-total-value">€0.00</strong></div>
+                        <div class="revenue-summary-card"><span class="grey-text">Budget Period Coverage</span><strong id="fixed-budget-coverage-value">—</strong></div>
+                      </div>
+                      <div class="table-container">
+                        <table class="striped responsive-table">
+                          <thead>
+                            <tr><th>Budget Name</th><th>Type</th><th>Status</th><th>Start Date</th><th>End Date</th><th>Amount</th><th>Currency</th><th>Notes</th><th>Actions</th></tr>
+                          </thead>
+                          <tbody id="project-budgets-body"></tbody>
+                        </table>
+                      </div>
+                      <p class="grey-text text-darken-1 empty-message" id="project-budgets-empty">No budgets added yet.</p>
+                    </div>
                   </div>
                   <div id="project-workspace-profitability" class="project-workspace-panel" data-workspace-panel="profitability" hidden>
                     <div id="project-profitability-not-implemented" class="project-workspace-placeholder" hidden>Profitability V1 is not yet implemented for this project type.</div>
@@ -256,6 +277,26 @@
                         </table>
                       </div>
                       <p class="grey-text text-darken-1 empty-message" id="project-profitability-empty">No consultant profitability rows available.</p>
+                    </div>
+                    <div id="project-profitability-fixed-price" hidden>
+                      <div class="section-header"><h6>Current Profitability KPIs</h6></div>
+                      <div class="revenue-summary-grid">
+                        <div class="revenue-summary-card"><span class="grey-text">Revenue Until Previous Period</span><strong id="fixed-profitability-revenue-value">€0.00</strong></div>
+                        <div class="revenue-summary-card"><span class="grey-text">Internal Cost Until Previous Period</span><strong id="fixed-profitability-cost-value">€0.00</strong></div>
+                        <div class="revenue-summary-card"><span class="grey-text">Gross Margin Until Previous Period</span><strong id="fixed-profitability-margin-value">€0.00</strong></div>
+                        <div class="revenue-summary-card"><span class="grey-text">Current Margin %</span><strong id="fixed-profitability-margin-percent-value">0%</strong></div>
+                      </div>
+                      <p id="fixed-profitability-cutoff" class="grey-text text-darken-1">Calculated until previous period.</p>
+                      <div class="section-header"><h6>Forecast Profitability KPIs</h6></div>
+                      <div class="revenue-summary-grid">
+                        <div class="revenue-summary-card"><span class="grey-text">Total Forecast Revenue Until Project End</span><strong id="fixed-profitability-forecast-revenue-value">€0.00</strong></div>
+                        <div class="revenue-summary-card"><span class="grey-text">Total Forecast Internal Cost Until Project End</span><strong id="fixed-profitability-forecast-cost-value">€0.00</strong></div>
+                        <div class="revenue-summary-card"><span class="grey-text">Total Forecast Gross Margin Until Project End</span><strong id="fixed-profitability-forecast-margin-value">€0.00</strong></div>
+                        <div class="revenue-summary-card"><span class="grey-text">Forecast Margin %</span><strong id="fixed-profitability-forecast-margin-percent-value">0%</strong></div>
+                      </div>
+                      <div class="section-header"><h6>Cost vs Budget Progress</h6></div>
+                      <svg id="fixed-price-profitability-chart" class="fixed-price-profitability-chart" viewBox="0 0 760 260" preserveAspectRatio="none"></svg>
+                      <p class="grey-text text-darken-1 empty-message" id="fixed-price-profitability-chart-empty">No fixed price profitability chart data available.</p>
                     </div>
                   </div>
                   <div id="project-workspace-files" class="project-workspace-panel" data-workspace-panel="files" hidden>
@@ -768,6 +809,26 @@
         <div class="input-field"><textarea id="payment-notes" class="materialize-textarea"></textarea><label class="active" for="payment-notes">Notes</label></div>
       </div>
       <div class="modal-footer"><button type="button" class="modal-close btn-flat">Cancel</button><button type="button" class="btn" id="save-payment-btn">Save Payment</button></div>
+    </div>
+
+    <div id="project-budget-modal" class="modal">
+      <div class="modal-content">
+        <h5 id="project-budget-modal-title">Add Budget</h5>
+        <input type="hidden" id="project-budget-id" />
+        <div class="input-field"><input id="project-budget-name" type="text" /><label class="active" for="project-budget-name">Budget Name</label></div>
+        <div class="input-field"><select id="project-budget-type"><option value="Initial">Initial</option><option value="Extension">Extension</option></select><label for="project-budget-type">Budget Type</label></div>
+        <div class="input-field"><select id="project-budget-status"><option value="Draft">Draft</option><option value="Approved">Approved</option><option value="Closed">Closed</option></select><label for="project-budget-status">Status</label></div>
+        <div class="row date-row">
+          <div class="input-field col s12 m6"><input id="project-budget-start-date" type="date" /><label class="active" for="project-budget-start-date">Start Date</label></div>
+          <div class="input-field col s12 m6"><input id="project-budget-end-date" type="date" /><label class="active" for="project-budget-end-date">End Date</label></div>
+        </div>
+        <div class="row date-row">
+          <div class="input-field col s12 m6"><input id="project-budget-amount" type="number" step="0.01" min="0" /><label class="active" for="project-budget-amount">Amount</label></div>
+          <div class="input-field col s12 m6"><input id="project-budget-currency" type="text" value="EUR" /><label class="active" for="project-budget-currency">Currency</label></div>
+        </div>
+        <div class="input-field"><textarea id="project-budget-notes" class="materialize-textarea"></textarea><label class="active" for="project-budget-notes">Notes</label></div>
+      </div>
+      <div class="modal-footer"><button type="button" class="modal-close btn-flat">Cancel</button><button type="button" class="btn" id="save-project-budget-btn">Save</button></div>
     </div>
 
     <div id="timesheet-details-modal" class="modal">
