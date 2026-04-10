@@ -92,6 +92,10 @@ if (!isBrowserRuntime) {
     projectBudgetsBody: document.getElementById('project-budgets-body'),
     projectBudgetsEmpty: document.getElementById('project-budgets-empty'),
     openFixedInvoiceModalBtn: document.getElementById('open-fixed-invoice-modal-btn'),
+    fixedInvoicesInvoicedValue: document.getElementById('fixed-invoices-invoiced-value'),
+    fixedInvoicesPaidValue: document.getElementById('fixed-invoices-paid-value'),
+    fixedInvoicesRemainingValue: document.getElementById('fixed-invoices-remaining-value'),
+    fixedInvoicesOutstandingValue: document.getElementById('fixed-invoices-outstanding-value'),
     fixedPriceInvoicesBody: document.getElementById('fixed-price-invoices-body'),
     fixedPriceInvoicesEmpty: document.getElementById('fixed-price-invoices-empty'),
     projectProfitabilityNotImplemented: document.getElementById('project-profitability-not-implemented'),
@@ -1072,6 +1076,10 @@ if (!isBrowserRuntime) {
   };
 
   const renderFixedPriceInvoices = () => {
+    if (ui.fixedInvoicesInvoicedValue) ui.fixedInvoicesInvoicedValue.textContent = formatMoney(revenueSummary?.invoicedAmount || 0);
+    if (ui.fixedInvoicesPaidValue) ui.fixedInvoicesPaidValue.textContent = formatMoney(revenueSummary?.paidAmount || 0);
+    if (ui.fixedInvoicesRemainingValue) ui.fixedInvoicesRemainingValue.textContent = formatMoney(Math.max(Number(revenueSummary?.unbilledForecast || 0), 0));
+    if (ui.fixedInvoicesOutstandingValue) ui.fixedInvoicesOutstandingValue.textContent = formatMoney(revenueSummary?.outstandingAmount || 0);
     if (!ui.fixedPriceInvoicesBody) return;
     ui.fixedPriceInvoicesBody.innerHTML = '';
     const invoices = [...(revenueInvoices || [])].sort((a, b) => String(b.invoiceDate || '').localeCompare(String(a.invoiceDate || '')));
@@ -1131,8 +1139,8 @@ if (!isBrowserRuntime) {
     selectedRevenueForecastMonth = '';
     revenueForecastDetails = [];
     activeFixedRevenueSubtab = 'budget';
-    const [forecastSummaryPayload, actualsPayload, invoicesPayload, invoicePeriodsPayload, forecastPayload, profitabilitySummaryPayload, profitabilityBreakdownPayload, budgetsPayload] = await Promise.all([
-      request(`/api/projects/${projectId}/revenue-forecast-summary`),
+    const [revenueSummaryPayload, actualsPayload, invoicesPayload, invoicePeriodsPayload, forecastPayload, profitabilitySummaryPayload, profitabilityBreakdownPayload, budgetsPayload] = await Promise.all([
+      request(`/api/projects/${projectId}/revenue-summary`),
       request(`/api/projects/${projectId}/revenue-actuals-summary`),
       request(`/api/projects/${projectId}/invoices`),
       request(`/api/projects/${projectId}/revenue/invoice-periods`),
@@ -1141,7 +1149,7 @@ if (!isBrowserRuntime) {
       request(`/api/projects/${projectId}/profitability-breakdown`),
       request(`/api/projects/${projectId}/budgets`)
     ]);
-    revenueSummary = forecastSummaryPayload || null;
+    revenueSummary = revenueSummaryPayload || null;
     revenueActualsSummary = actualsPayload || null;
     revenueInvoices = invoicesPayload?.invoices || [];
     revenueInvoicePeriods = invoicePeriodsPayload?.periods || [];
