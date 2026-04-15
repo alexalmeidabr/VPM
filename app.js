@@ -642,6 +642,7 @@ if (!isBrowserRuntime) {
     const status = String(position?.status || '').trim();
     return positionStatusValues.includes(status) ? status : (position?.consultantId ? 'Assigned' : 'Open');
   };
+  const isTimelineVisibleProjectPosition = (position) => String(getProjectPositionDisplayStatus(position) || '').trim().toLowerCase() !== 'open';
   const isTimeMaterialProjectType = () => String(fields.projectType.value || '').trim().toLowerCase() === 'time material';
   const isFixedPriceProjectType = () => String(fields.projectType.value || '').trim().toLowerCase() === 'fixed price';
   const shouldShowPositionRateFields = ({ billable }) => isTimeMaterialProjectType() && billable !== false;
@@ -2553,7 +2554,7 @@ if (!isBrowserRuntime) {
 
     const projectStart = parseIsoDate(fields.startDate.value);
     const projectEnd = parseIsoDate(fields.endDate.value);
-    const merged = [...selectedProjectAssignments];
+    const merged = selectedProjectAssignments.filter((item) => isTimelineVisibleProjectPosition(item));
 
     const createTimelineRow = (item) => {
       const row = document.createElement('div');
@@ -2887,7 +2888,15 @@ if (!isBrowserRuntime) {
     ui.projectWeekDetailTimeline.innerHTML = '';
 
     const consultant = consultantId ? findConsultantById(Number(consultantId)) : null;
-    const selectedMember = consultantId ? selectedProjectAssignments.find((item) => Number(item.consultantId) === Number(consultantId)) : null;
+    const selectedMember = consultantId
+      ? selectedProjectAssignments.find((item) => Number(item.consultantId) === Number(consultantId) && isTimelineVisibleProjectPosition(item))
+      : null;
+    if (rowType === 'member' && consultantId && !selectedMember) {
+      selectedProjectWeekDetail = null;
+      ui.projectWeekDetailCard.hidden = true;
+      ui.projectWeekDetailTimeline.innerHTML = '';
+      return;
+    }
     const assignmentStart = parseIsoDate(selectedMember?.startDate || '');
     const assignmentEnd = parseIsoDate(selectedMember?.endDate || '');
     const milestonesForRow = rowType === 'phase'
