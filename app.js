@@ -685,15 +685,15 @@ if (!isBrowserRuntime) {
     projectType: fields.projectType.value,
     projectStatus: fields.projectStatus?.value || 'Not Started',
     managerConsultantId: managerConsultantIdFromAssignments(),
-    startDate: fields.startDate.value,
-    endDate: fields.endDate.value,
+    startDate: normalizeIsoDateInput(fields.startDate.value),
+    endDate: normalizeIsoDateInput(fields.endDate.value),
     projectPositions: selectedProjectAssignments.map((item) => ({
       id: item.positionId || null,
       consultantId: item.consultantId ? Number(item.consultantId) : null,
       areaId: item.areaId ? Number(item.areaId) : null,
       projectRole: item.projectRole || 'Project Position',
-      startDate: item.startDate || '',
-      endDate: item.endDate || '',
+      startDate: normalizeIsoDateInput(item.startDate || ''),
+      endDate: normalizeIsoDateInput(item.endDate || ''),
       allocation: Number(item.allocation ?? 100),
       billable: item.billable !== false,
       dailyRate: item.dailyRate === '' || item.dailyRate === null || item.dailyRate === undefined ? null : Number(item.dailyRate),
@@ -706,14 +706,22 @@ if (!isBrowserRuntime) {
     consultantAssignments: selectedProjectAssignments.filter((item) => item.consultantId).map((item) => ({
       consultantId: Number(item.consultantId),
       projectRole: item.projectRole || 'Project Position',
-      startDate: item.startDate || '',
-      endDate: item.endDate || '',
+      startDate: normalizeIsoDateInput(item.startDate || ''),
+      endDate: normalizeIsoDateInput(item.endDate || ''),
       allocation: Number(item.allocation ?? 100),
       billable: item.billable !== false,
       comments: item.comments || ''
     })),
-    projectPhases: selectedProjectPhases,
-    projectMilestones: selectedProjectMilestones
+    projectPhases: selectedProjectPhases.map((item) => ({
+      ...item,
+      startDate: normalizeIsoDateInput(item.startDate || ''),
+      endDate: normalizeIsoDateInput(item.endDate || '')
+    })),
+    projectMilestones: selectedProjectMilestones.map((item) => ({
+      ...item,
+      startDate: normalizeIsoDateInput(item.startDate || ''),
+      endDate: normalizeIsoDateInput(item.endDate || '')
+    }))
   });
 
   const movePanelToHost = (element, host) => {
@@ -891,7 +899,9 @@ if (!isBrowserRuntime) {
     ui.fixedBudgetInitialValue.textContent = formatMoney(fixedPriceBudgetSummary?.initialBudget || 0);
     ui.fixedBudgetExtensionsValue.textContent = formatMoney(fixedPriceBudgetSummary?.approvedExtensions || 0);
     ui.fixedBudgetTotalValue.textContent = formatMoney(fixedPriceBudgetSummary?.totalApprovedBudget || 0);
-    ui.fixedBudgetCoverageValue.textContent = fixedPriceBudgetSummary?.coverageLabel || '—';
+    ui.fixedBudgetCoverageValue.textContent = fixedPriceBudgetSummary?.coverageStartDate && fixedPriceBudgetSummary?.coverageEndDate
+      ? `${formatDate(fixedPriceBudgetSummary.coverageStartDate)} → ${formatDate(fixedPriceBudgetSummary.coverageEndDate)}`
+      : (fixedPriceBudgetSummary?.coverageLabel || '—');
     if (ui.projectBudgetsBody) {
       ui.projectBudgetsBody.innerHTML = '';
       fixedPriceBudgets.forEach((budget) => {
@@ -900,8 +910,8 @@ if (!isBrowserRuntime) {
           <td>${budget.budgetName || 'Budget'}</td>
           <td>${budget.budgetType || 'Initial'}</td>
           <td>${budget.status || 'Draft'}</td>
-          <td>${budget.startDate || '—'}</td>
-          <td>${budget.endDate || '—'}</td>
+          <td>${formatDate(budget.startDate)}</td>
+          <td>${formatDate(budget.endDate)}</td>
           <td>${formatMoney(budget.amount || 0, budget.currency || 'EUR')}</td>
           <td>${budget.currency || 'EUR'}</td>
           <td>${budget.notes || '—'}</td>
@@ -928,7 +938,7 @@ if (!isBrowserRuntime) {
     ui.fixedProfitabilityForecastMarginPercentValue.textContent = `${Number(profitabilitySummary?.forecastMarginPercent || 0).toFixed(2)}%`;
     if (ui.fixedProfitabilityCutoff) {
       const cutoffLabel = profitabilityCutoff?.periodLabel || 'previous period';
-      const cutoffDate = profitabilityCutoff?.periodEndDate ? ` (${profitabilityCutoff.periodEndDate})` : '';
+      const cutoffDate = profitabilityCutoff?.periodEndDate ? ` (${formatDate(profitabilityCutoff.periodEndDate)})` : '';
       ui.fixedProfitabilityCutoff.textContent = `Calculated until ${cutoffLabel}${cutoffDate}.`;
     }
   };
@@ -1024,7 +1034,7 @@ if (!isBrowserRuntime) {
         <td>${period.monthLabel || period.month}</td>
         <td><span class="status-badge ${timesheetStatusClass(period.timesheetStatus)}">${period.timesheetStatus || 'Not Started'}</span></td>
         <td><button type="button" class="btn-flat blue-text" data-action="view-timesheet-details" data-month="${period.month}" title="View timesheet details"><i class="material-icons tiny">visibility</i></button></td>
-        <td>${period.periodFrom} → ${period.periodTo}</td>
+        <td>${formatDate(period.periodFrom)} → ${formatDate(period.periodTo)}</td>
         <td>${formatMoney(period.proposedAmount || 0, period.currency || 'EUR')}</td>
         <td>${Number(period.invoiceCount || 0)} invoice(s) · ${formatMoney(period.invoicedTotal || 0, period.currency || 'EUR')}</td>
         <td>
@@ -1056,7 +1066,7 @@ if (!isBrowserRuntime) {
         const row = document.createElement('tr');
         row.innerHTML = `
           <td>${invoice.invoiceRef || '—'}</td>
-          <td>${invoice.periodFrom} → ${invoice.periodTo}</td>
+          <td>${formatDate(invoice.periodFrom)} → ${formatDate(invoice.periodTo)}</td>
           <td>${formatDate(invoice.invoiceDate)}</td>
           <td>${invoice.dueDate ? formatDate(invoice.dueDate) : '—'}</td>
           <td>${formatMoney(invoice.amount)}</td>
@@ -1087,7 +1097,7 @@ if (!isBrowserRuntime) {
       const tr = document.createElement('tr');
       tr.innerHTML = `
         <td>${invoice.invoiceRef || '—'}</td>
-        <td>${invoice.periodFrom} → ${invoice.periodTo}</td>
+        <td>${formatDate(invoice.periodFrom)} → ${formatDate(invoice.periodTo)}</td>
         <td>${formatDate(invoice.invoiceDate)}</td>
         <td>${invoice.dueDate ? formatDate(invoice.dueDate) : '—'}</td>
         <td>${formatMoney(invoice.amount)}</td>
@@ -1232,10 +1242,10 @@ if (!isBrowserRuntime) {
       ui.invoiceModalTitle.textContent = 'Add Invoice';
       ui.invoiceId.value = '';
       ui.invoiceRef.value = '';
-      ui.invoicePeriodFrom.value = defaults?.periodFrom || fields.startDate.value || '';
-      ui.invoicePeriodTo.value = defaults?.periodTo || fields.endDate.value || '';
-      ui.invoiceDate.value = new Date().toISOString().slice(0, 10);
-      ui.invoiceDueDate.value = '';
+      setDateInputValue(ui.invoicePeriodFrom, defaults?.periodFrom || fields.startDate.value || '');
+      setDateInputValue(ui.invoicePeriodTo, defaults?.periodTo || fields.endDate.value || '');
+      setDateInputValue(ui.invoiceDate, new Date().toISOString().slice(0, 10));
+      setDateInputValue(ui.invoiceDueDate, '');
       ui.invoiceAmount.value = defaults?.amount != null ? Number(defaults.amount).toFixed(2) : '';
       ui.invoiceStatus.value = 'Draft';
       ui.invoiceNotes.value = defaults?.notes || '';
@@ -1243,10 +1253,10 @@ if (!isBrowserRuntime) {
       ui.invoiceModalTitle.textContent = 'Edit Invoice';
       ui.invoiceId.value = invoice.id;
       ui.invoiceRef.value = invoice.invoiceRef || '';
-      ui.invoicePeriodFrom.value = invoice.periodFrom || '';
-      ui.invoicePeriodTo.value = invoice.periodTo || '';
-      ui.invoiceDate.value = invoice.invoiceDate || '';
-      ui.invoiceDueDate.value = invoice.dueDate || '';
+      setDateInputValue(ui.invoicePeriodFrom, invoice.periodFrom || '');
+      setDateInputValue(ui.invoicePeriodTo, invoice.periodTo || '');
+      setDateInputValue(ui.invoiceDate, invoice.invoiceDate || '');
+      setDateInputValue(ui.invoiceDueDate, invoice.dueDate || '');
       ui.invoiceAmount.value = String(invoice.amount ?? '');
       ui.invoiceStatus.value = invoice.status || 'Draft';
       ui.invoiceNotes.value = invoice.notes || '';
@@ -1258,7 +1268,7 @@ if (!isBrowserRuntime) {
   const resetPaymentModal = (invoiceId) => {
     ui.paymentInvoiceId.value = String(invoiceId || '');
     ui.paymentId.value = '';
-    ui.paymentDate.value = new Date().toISOString().slice(0, 10);
+    setDateInputValue(ui.paymentDate, new Date().toISOString().slice(0, 10));
     ui.paymentAmount.value = '';
     ui.paymentNotes.value = '';
     updateTextFields();
@@ -1271,8 +1281,8 @@ if (!isBrowserRuntime) {
       ui.projectBudgetName.value = '';
       ui.projectBudgetType.value = 'Initial';
       ui.projectBudgetStatus.value = 'Draft';
-      ui.projectBudgetStartDate.value = fields.startDate.value || '';
-      ui.projectBudgetEndDate.value = fields.endDate.value || '';
+      setDateInputValue(ui.projectBudgetStartDate, fields.startDate.value || '');
+      setDateInputValue(ui.projectBudgetEndDate, fields.endDate.value || '');
       ui.projectBudgetAmount.value = '';
       ui.projectBudgetCurrency.value = 'EUR';
       ui.projectBudgetNotes.value = '';
@@ -1282,8 +1292,8 @@ if (!isBrowserRuntime) {
       ui.projectBudgetName.value = budget.budgetName || '';
       ui.projectBudgetType.value = budget.budgetType || 'Initial';
       ui.projectBudgetStatus.value = budget.status || 'Draft';
-      ui.projectBudgetStartDate.value = budget.startDate || '';
-      ui.projectBudgetEndDate.value = budget.endDate || '';
+      setDateInputValue(ui.projectBudgetStartDate, budget.startDate || '');
+      setDateInputValue(ui.projectBudgetEndDate, budget.endDate || '');
       ui.projectBudgetAmount.value = String(budget.amount ?? '');
       ui.projectBudgetCurrency.value = budget.currency || 'EUR';
       ui.projectBudgetNotes.value = budget.notes || '';
@@ -1398,7 +1408,7 @@ if (!isBrowserRuntime) {
   };
 
   const deriveProjectDisplayStatus = () => deriveProjectDisplayStatusFromData({
-    startDate: fields.startDate.value,
+    startDate: normalizeIsoDateInput(fields.startDate.value),
     projectStatus: fields.projectStatus?.value || 'Not Started',
     projectPhases: selectedProjectPhases
   });
@@ -1532,7 +1542,19 @@ if (!isBrowserRuntime) {
     });
   };
   const roleNameById = (id) => roles.find((role) => Number(role.id) === Number(id))?.name || '—';
-  const formatDate = (value) => (value ? new Date(value).toLocaleDateString() : '—');
+  const formatDate = (value) => {
+    const raw = String(value || '').trim();
+    if (!raw) return '—';
+    const iso = normalizeIsoDateInput(raw);
+    const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso);
+    if (match) {
+      const [, year, month, day] = match;
+      return `${day}/${month}/${year}`;
+    }
+    const dateMatch = raw.match(/^(\d{4})-(\d{2})-(\d{2})/);
+    if (dateMatch) return `${dateMatch[3]}/${dateMatch[2]}/${dateMatch[1]}`;
+    return raw;
+  };
   const normalizeIsoDateInput = (value) => {
     const raw = String(value || '').trim();
     if (!raw) return '';
@@ -1542,13 +1564,35 @@ if (!isBrowserRuntime) {
       const [, day, month, year] = slashMatch;
       return `${year}-${month}-${day}`;
     }
+    const dateTimeMatch = raw.match(/^(\d{4})-(\d{2})-(\d{2})[T\s].*$/);
+    if (dateTimeMatch) return `${dateTimeMatch[1]}-${dateTimeMatch[2]}-${dateTimeMatch[3]}`;
     return raw;
+  };
+  const setDateInputValue = (input, value) => {
+    if (!input) return;
+    const iso = normalizeIsoDateInput(value);
+    input.value = iso ? formatDate(iso) : '';
+  };
+  const getDateInputIsoValue = (input) => normalizeIsoDateInput(input?.value || '');
+  const initializeDateInputsToDisplayFormat = () => {
+    document.querySelectorAll('input[type="date"]').forEach((input) => {
+      input.type = 'text';
+      input.placeholder = 'DD/MM/YYYY';
+      input.inputMode = 'numeric';
+      if (input.value) setDateInputValue(input, input.value);
+      input.addEventListener('blur', () => {
+        const iso = getDateInputIsoValue(input);
+        input.value = iso ? formatDate(iso) : '';
+      });
+    });
   };
   const formatSalary = (value) => Number(value).toLocaleString('en-IE', { style: 'currency', currency: 'EUR' });
 
   const parseIsoDate = (value) => {
     if (!value) return null;
-    const [year, month, day] = value.split('-').map(Number);
+    const normalized = normalizeIsoDateInput(value);
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(normalized)) return null;
+    const [year, month, day] = normalized.split('-').map(Number);
     return new Date(year, month - 1, day);
   };
 
@@ -3776,7 +3820,7 @@ if (!isBrowserRuntime) {
     allocationSimulations.forEach((simulation) => {
       const item = document.createElement('div');
       item.className = 'allocation-simulation-item';
-      item.innerHTML = `<div><strong>${simulation.name}</strong><div class="grey-text">Created: ${simulation.createdAt || '—'}</div></div><button class="btn" type="button">Load</button>`;
+      item.innerHTML = `<div><strong>${simulation.name}</strong><div class="grey-text">Created: ${formatDate(simulation.createdAt)}</div></div><button class="btn" type="button">Load</button>`;
       item.querySelector('button').addEventListener('click', async () => {
         const loaded = await request(`/api/allocation-simulations/${simulation.id}`);
         allocationState = { ...(loaded.state || {}), id: loaded.id, name: loaded.name };
@@ -4226,8 +4270,8 @@ if (!isBrowserRuntime) {
 
   ui.addProjectPhaseBtn?.addEventListener('click', async () => {
     const name = ui.projectPhaseName.value.trim();
-    const startDate = ui.projectPhaseStartDate.value;
-    const endDate = ui.projectPhaseEndDate.value;
+    const startDate = getDateInputIsoValue(ui.projectPhaseStartDate);
+    const endDate = getDateInputIsoValue(ui.projectPhaseEndDate);
     if (!name || !startDate || !endDate || startDate > endDate) {
       toast('Provide valid phase name and dates', 'orange darken-2');
       return;
@@ -4261,8 +4305,8 @@ if (!isBrowserRuntime) {
 
   ui.addProjectMilestoneBtn?.addEventListener('click', async () => {
     const name = ui.projectMilestoneName.value.trim();
-    const startDate = ui.projectMilestoneStartDate.value;
-    const endDate = ui.projectMilestoneEndDate.value;
+    const startDate = getDateInputIsoValue(ui.projectMilestoneStartDate);
+    const endDate = getDateInputIsoValue(ui.projectMilestoneEndDate);
     if (!name || !startDate || !endDate || startDate > endDate) {
       toast('Provide valid milestone name and dates', 'orange darken-2');
       return;
@@ -4293,8 +4337,8 @@ if (!isBrowserRuntime) {
     modalSelectedAreaId = '';
     ui.projectRoleModal.value = '';
     if (ui.projectPositionStatusModal) ui.projectPositionStatusModal.value = 'Open';
-    ui.memberStartDateModal.value = fields.startDate.value;
-    ui.memberEndDateModal.value = fields.endDate.value;
+    setDateInputValue(ui.memberStartDateModal, fields.startDate.value);
+    setDateInputValue(ui.memberEndDateModal, fields.endDate.value);
     ui.memberAllocationModal.value = '100';
     if (ui.memberBillableModal) ui.memberBillableModal.checked = true;
     if (ui.memberDailyRateModal) ui.memberDailyRateModal.value = '';
@@ -4324,8 +4368,8 @@ if (!isBrowserRuntime) {
   ui.saveConsultantAssignmentsBtn.addEventListener('click', async () => {
     const role = ui.projectRoleModal.value;
     if (!role) { toast('Project Role is required', 'red darken-1'); return; }
-    const start = ui.memberStartDateModal.value;
-    const end = ui.memberEndDateModal.value;
+    const start = getDateInputIsoValue(ui.memberStartDateModal);
+    const end = getDateInputIsoValue(ui.memberEndDateModal);
     if (start && end && start > end) { toast('Start date cannot be after end date', 'red darken-1'); return; }
     const allocation = Number(ui.memberAllocationModal.value || 100);
     if (Number.isNaN(allocation) || allocation < 0 || allocation > 100) {
@@ -4407,8 +4451,8 @@ if (!isBrowserRuntime) {
     ui.memberAllocationEdit.value = Number(member.allocation ?? 100);
     if (ui.memberBillableEdit) ui.memberBillableEdit.checked = member.billable !== false;
     ui.memberCommentsEdit.value = member.comments || '';
-    ui.memberStartDateEdit.value = member.startDate || '';
-    ui.memberEndDateEdit.value = member.endDate || '';
+    setDateInputValue(ui.memberStartDateEdit, member.startDate || '');
+    setDateInputValue(ui.memberEndDateEdit, member.endDate || '');
     if (ui.memberDailyRateEdit) ui.memberDailyRateEdit.value = member.dailyRate ?? '';
     rebuildMemberStatusSelect(getProjectPositionDisplayStatus(member));
     rebuildPositionRateCurrencySelect(ui.memberDailyRateCurrencyEdit, member.dailyRateCurrency || 'EUR');
@@ -4471,7 +4515,9 @@ if (!isBrowserRuntime) {
     const positionId = String(ui.memberEditConsultantId.value || '');
     const item = selectedProjectAssignments.find((member) => String(member.positionId) === positionId);
     if (!item) { modals.memberDetails?.close(); return; }
-    if (ui.memberStartDateEdit.value && ui.memberEndDateEdit.value && ui.memberStartDateEdit.value > ui.memberEndDateEdit.value) {
+    const memberStartDateIso = getDateInputIsoValue(ui.memberStartDateEdit);
+    const memberEndDateIso = getDateInputIsoValue(ui.memberEndDateEdit);
+    if (memberStartDateIso && memberEndDateIso && memberStartDateIso > memberEndDateIso) {
       toast('Start date cannot be after end date', 'red darken-1');
       return;
     }
@@ -4495,8 +4541,8 @@ if (!isBrowserRuntime) {
     item.dailyRate = ui.memberDailyRateEdit?.value ? Number(ui.memberDailyRateEdit.value) : null;
     item.dailyRateCurrency = item.dailyRate !== null && ui.memberDailyRateCurrencyEdit?.value ? String(ui.memberDailyRateCurrencyEdit.value).trim().toUpperCase() : null;
     item.comments = ui.memberCommentsEdit.value.trim();
-    item.startDate = ui.memberStartDateEdit.value;
-    item.endDate = ui.memberEndDateEdit.value;
+    item.startDate = getDateInputIsoValue(ui.memberStartDateEdit);
+    item.endDate = getDateInputIsoValue(ui.memberEndDateEdit);
 
     try {
       if (fields.projectId.value) {
@@ -4542,7 +4588,7 @@ if (!isBrowserRuntime) {
 
     const payload = {
       name: fields.consultantName.value.trim(),
-      startDate: fields.consultantStartDate.value,
+      startDate: getDateInputIsoValue(fields.consultantStartDate),
       areaIds: selectedIds(fields.consultantAreaIds),
       companyRoleId: Number(fields.consultantCompanyRoleId.value),
       salary: fields.consultantSalary.value || 0,
@@ -4590,8 +4636,8 @@ if (!isBrowserRuntime) {
     if (!consultantId) { toast('No consultant selected', 'red darken-1'); return; }
     const payload = {
       dayOffTypeId: Number(ui.availabilityType.value),
-      startDate: ui.availabilityStartDate.value,
-      endDate: ui.availabilityEndDate.value
+      startDate: getDateInputIsoValue(ui.availabilityStartDate),
+      endDate: getDateInputIsoValue(ui.availabilityEndDate)
     };
     if (!payload.dayOffTypeId || !payload.startDate || !payload.endDate) {
       toast('All Days Off fields are required', 'red darken-1');
@@ -4640,8 +4686,8 @@ if (!isBrowserRuntime) {
     fields.clientBusinessPartnerId.value = project.clientBusinessPartnerId || '';
     fields.deliveryPartnerBusinessPartnerId.value = project.deliveryPartnerBusinessPartnerId || '';
     fields.contractWithBranchId.value = project.contractWithBranchId || '';
-    fields.startDate.value = project.startDate;
-    fields.endDate.value = project.endDate;
+    setDateInputValue(fields.startDate, project.startDate);
+    setDateInputValue(fields.endDate, project.endDate);
     showClosedProjectPositions = false;
     if (ui.showClosedProjectPositionsToggle) ui.showClosedProjectPositionsToggle.checked = false;
     const projectPositions = project.projectPositions || project.consultantAssignments || [];
@@ -4862,10 +4908,10 @@ if (!isBrowserRuntime) {
     if (!projectId) return;
     const payload = {
       invoiceRef: ui.invoiceRef.value.trim(),
-      periodFrom: ui.invoicePeriodFrom.value,
-      periodTo: ui.invoicePeriodTo.value,
-      invoiceDate: ui.invoiceDate.value,
-      dueDate: ui.invoiceDueDate.value,
+      periodFrom: getDateInputIsoValue(ui.invoicePeriodFrom),
+      periodTo: getDateInputIsoValue(ui.invoicePeriodTo),
+      invoiceDate: getDateInputIsoValue(ui.invoiceDate),
+      dueDate: getDateInputIsoValue(ui.invoiceDueDate),
       amount: Number(ui.invoiceAmount.value || 0),
       status: ui.invoiceStatus.value,
       notes: ui.invoiceNotes.value.trim()
@@ -4893,7 +4939,7 @@ if (!isBrowserRuntime) {
     const invoiceId = Number(ui.paymentInvoiceId.value || 0);
     if (!invoiceId) return;
     const payload = {
-      paymentDate: ui.paymentDate.value,
+      paymentDate: getDateInputIsoValue(ui.paymentDate),
       amount: Number(ui.paymentAmount.value || 0),
       notes: ui.paymentNotes.value.trim()
     };
@@ -4989,7 +5035,7 @@ if (!isBrowserRuntime) {
     fields.consultantId.value = consultant.id;
     fields.consultantName.value = consultant.name;
     fields.consultantSalary.value = consultant.salary;
-    fields.consultantStartDate.value = consultant.startDate || '';
+    setDateInputValue(fields.consultantStartDate, consultant.startDate || '');
     rebuildConsultantSelects({ areaIds: consultant.areaIds || [], companyRoleId: consultant.companyRoleId || '', companyBranchId: consultant.companyBranchId || '', holidayLocationId: consultant.holidayLocationId || '' });
     rebuildHolidayCountryRegionControls({ consultantHolidayLocationId: consultant.holidayLocationId || '' });
     setConsultantFormMode(button.dataset.action === 'view-consultant' ? 'view' : 'edit');
@@ -5541,8 +5587,8 @@ if (!isBrowserRuntime) {
       if (phase) {
         editingProjectPhaseId = phase.id;
         ui.projectPhaseName.value = phase.name || '';
-        ui.projectPhaseStartDate.value = phase.startDate || '';
-        ui.projectPhaseEndDate.value = phase.endDate || '';
+        setDateInputValue(ui.projectPhaseStartDate, phase.startDate || '');
+        setDateInputValue(ui.projectPhaseEndDate, phase.endDate || '');
         if (ui.addProjectPhaseBtn) ui.addProjectPhaseBtn.textContent = 'Update Phase';
         showProjectPhaseForm = true;
         updateProjectPlanningUi();
@@ -5815,6 +5861,7 @@ if (!isBrowserRuntime) {
     ui.forecastDetailsModal?.style.removeProperty('display');
   });
 
+  initializeDateInputsToDisplayFormat();
   setSection('projects');
   updateProjectTimelineExpandUi();
   resetProjectForm();
