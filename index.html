@@ -321,7 +321,7 @@
                         <div class="revenue-summary-card"><span class="grey-text">Total Forecast Gross Margin Until Project End</span><strong id="fixed-profitability-forecast-margin-value">€0.00</strong></div>
                         <div class="revenue-summary-card"><span class="grey-text">Forecast Margin %</span><strong id="fixed-profitability-forecast-margin-percent-value">0%</strong></div>
                       </div>
-                      <div class="section-header"><h6>Cost vs Budget Progress</h6></div>
+                      <div class="section-header"><h6 id="fixed-price-cost-vs-budget-title">Cost vs Budget Progress</h6></div>
                       <svg id="fixed-price-profitability-chart" class="fixed-price-profitability-chart" viewBox="0 0 760 320" preserveAspectRatio="xMidYMid meet"></svg>
                       <p class="grey-text text-darken-1 empty-message" id="fixed-price-profitability-chart-empty">No fixed price profitability chart data available.</p>
                     </div>
@@ -868,6 +868,25 @@
           </table>
         </div>
         <p class="grey-text text-darken-1 empty-message" id="timesheet-details-modal-empty">No consultant timesheet details for this period.</p>
+      </div>
+      <div class="modal-footer"><button type="button" class="modal-close btn-flat">Close</button></div>
+    </div>
+
+    <div id="kpi-info-modal" class="modal">
+      <div class="modal-content">
+        <h5 id="kpi-info-title">KPI Information</h5>
+        <div class="kpi-info-section">
+          <h6>What it means</h6>
+          <p id="kpi-info-description" class="grey-text text-darken-2">No KPI description configured yet.</p>
+        </div>
+        <div class="kpi-info-section">
+          <h6>How it is calculated</h6>
+          <p id="kpi-info-calculation" class="grey-text text-darken-2">No KPI description configured yet.</p>
+        </div>
+        <div class="kpi-info-section" id="kpi-info-note-section" hidden>
+          <h6>Note</h6>
+          <p id="kpi-info-note" class="grey-text text-darken-1"></p>
+        </div>
       </div>
       <div class="modal-footer"><button type="button" class="modal-close btn-flat">Close</button></div>
     </div>

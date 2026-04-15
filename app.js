@@ -293,6 +293,13 @@ if (!isBrowserRuntime) {
     timesheetDetailsModalTitle: document.getElementById('timesheet-details-modal-title'),
     timesheetDetailsModalBody: document.getElementById('timesheet-details-modal-body'),
     timesheetDetailsModalEmpty: document.getElementById('timesheet-details-modal-empty'),
+    kpiInfoModal: document.getElementById('kpi-info-modal'),
+    kpiInfoTitle: document.getElementById('kpi-info-title'),
+    kpiInfoDescription: document.getElementById('kpi-info-description'),
+    kpiInfoCalculation: document.getElementById('kpi-info-calculation'),
+    kpiInfoNoteSection: document.getElementById('kpi-info-note-section'),
+    kpiInfoNote: document.getElementById('kpi-info-note'),
+    fixedPriceCostVsBudgetTitle: document.getElementById('fixed-price-cost-vs-budget-title'),
     availabilityType: document.getElementById('availability-type'),
     availabilityStartDate: document.getElementById('availability-start-date'),
     availabilityEndDate: document.getElementById('availability-end-date'),
@@ -486,10 +493,181 @@ if (!isBrowserRuntime) {
     CA: ['AB', 'BC', 'MB', 'NB', 'NL', 'NS', 'NT', 'NU', 'ON', 'PE', 'QC', 'SK', 'YT'],
     US: ['AL', 'AK', 'AZ', 'AR', 'CA', 'CO', 'CT', 'DE', 'FL', 'GA', 'HI', 'IA', 'ID', 'IL', 'IN', 'KS', 'KY', 'LA', 'MA', 'MD', 'ME', 'MI', 'MN', 'MO', 'MS', 'MT', 'NC', 'ND', 'NE', 'NH', 'NJ', 'NM', 'NV', 'NY', 'OH', 'OK', 'OR', 'PA', 'RI', 'SC', 'SD', 'TN', 'TX', 'UT', 'VA', 'VT', 'WA', 'WI', 'WV', 'WY', 'DC']
   };
+  const KPI_HELP_REGISTRY = {
+    tmRevenueThisMonth: {
+      title: 'Revenue This Month',
+      description: 'Forecasted billable revenue for the current month, based on active billable project positions.',
+      calculation: 'Sum of forecasted revenue for the current month from billable project positions. For each position: billable days × daily rate, adjusted by allocation and applicable working-day logic (including days off/holidays where implemented).'
+    },
+    tmRevenueNext3Months: {
+      title: 'Revenue Next 3 Months',
+      description: 'Forecasted billable revenue for the next three months combined.',
+      calculation: 'Sum of monthly forecasted revenue across the next three months using the same forecast logic: billable days × daily rate, adjusted by allocation and applicable working-day rules.'
+    },
+    tmRevenueForecastTotal: {
+      title: 'Total Forecast Until Project End',
+      description: 'Total forecasted billable revenue expected from now until the project end.',
+      calculation: 'Sum of forecasted revenue for all relevant future months until project end across billable project positions.'
+    },
+    tmUnbilledForecast: {
+      title: 'Unbilled Forecast',
+      description: 'Forecasted revenue not yet invoiced.',
+      calculation: 'Total Forecast Until Project End minus Invoiced Amount. If invoicing exceeds forecast, display is typically capped at 0 unless business logic intentionally allows negatives.'
+    },
+    tmTotalInvoiced: { title: 'Total Invoiced', description: 'Total value of invoices issued for the project.', calculation: 'Sum of all invoice amounts linked to the project.' },
+    tmTotalPaid: { title: 'Total Paid', description: 'Total payments received for the project invoices.', calculation: 'Sum of all registered payment amounts for invoices linked to the project.' },
+    tmOutstanding: { title: 'Outstanding', description: 'Amount already invoiced but not yet paid.', calculation: 'Total Invoiced minus Total Paid.' },
+    tmProfitRevenuePrev: {
+      title: 'Total Revenue Until Previous Period',
+      description: 'Revenue recognized/estimated up to the previous closed period.',
+      calculation: 'Sum of project revenue up to the end of the previous period using the current Time Material profitability logic.'
+    },
+    tmProfitCostPrev: {
+      title: 'Total Internal Cost Until Previous Period',
+      description: 'Internal delivery cost accumulated up to the previous period.',
+      calculation: 'Sum of internal consultant cost up to the previous period, based on consultant daily internal cost and the worked/forecasted project effort used by the profitability logic.'
+    },
+    tmProfitMarginPrev: {
+      title: 'Total Gross Margin Until Previous Period',
+      description: 'Profit generated up to the previous period before overheads and other non-project allocations.',
+      calculation: 'Total Revenue Until Previous Period minus Total Internal Cost Until Previous Period.'
+    },
+    tmProfitMarginPercent: {
+      title: 'Current Margin %',
+      description: 'Margin percentage achieved up to the previous period.',
+      calculation: 'Total Gross Margin Until Previous Period ÷ Total Revenue Until Previous Period × 100. If revenue is 0, margin % is 0.'
+    },
+    tmProfitForecastRevenue: {
+      title: 'Total Forecast Revenue Until Project End',
+      description: 'Forecasted project revenue until completion.',
+      calculation: 'Total expected Time Material revenue until project end based on forecast logic.'
+    },
+    tmProfitForecastCost: {
+      title: 'Total Forecast Internal Cost Until Project End',
+      description: 'Forecasted internal delivery cost until project end.',
+      calculation: 'Sum of projected internal cost until project end using consultant daily internal cost and forecasted effort/allocation logic.'
+    },
+    tmProfitForecastMargin: {
+      title: 'Total Forecast Gross Margin Until Project End',
+      description: 'Forecasted gross profit until project end.',
+      calculation: 'Total Forecast Revenue Until Project End minus Total Forecast Internal Cost Until Project End.'
+    },
+    tmProfitForecastMarginPercent: {
+      title: 'Forecast Margin %',
+      description: 'Forecasted gross margin percentage until project end.',
+      calculation: 'Total Forecast Gross Margin Until Project End ÷ Total Forecast Revenue Until Project End × 100. If revenue is 0, margin % is 0.'
+    },
+    fpInitialBudget: { title: 'Initial Budget', description: 'Approved baseline budget originally assigned to the project.', calculation: 'Sum of approved/committed budget records classified as Initial.' },
+    fpApprovedExtensions: { title: 'Approved Extensions', description: 'Additional approved budget value added after the initial budget.', calculation: 'Sum of approved/committed budget records classified as Extension.' },
+    fpTotalApprovedBudget: { title: 'Total Approved Budget', description: 'Total commercial budget currently approved for the project.', calculation: 'Initial Budget plus Approved Extensions, using budget records that count toward committed totals in current business logic.' },
+    fpBudgetCoverage: { title: 'Budget Period Coverage', description: 'Overall date range covered by committed project budgets.', calculation: 'Earliest committed budget start date through latest committed budget end date.' },
+    fpInvoicedAmount: { title: 'Invoiced Amount', description: 'Total invoice value issued for the Fixed Price project.', calculation: 'Sum of all invoice amounts linked to the project.' },
+    fpPaidAmount: { title: 'Paid Amount', description: 'Total payments received against issued invoices.', calculation: 'Sum of all registered invoice payments for the project.' },
+    fpRemainingToInvoice: { title: 'Remaining to Invoice', description: 'Approved budget value that has not yet been invoiced.', calculation: 'Total Approved Budget minus Invoiced Amount. If result is negative, display is typically capped at 0 unless business logic intentionally allows negatives.' },
+    fpOutstandingAmount: { title: 'Outstanding Amount', description: 'Amount already invoiced but not yet paid.', calculation: 'Invoiced Amount minus Paid Amount.' },
+    fpProfitRevenuePrev: {
+      title: 'Revenue Until Previous Period',
+      description: 'Revenue recognized/allocated up to the previous period for the Fixed Price project.',
+      calculation: 'Budget-based revenue allocation up to the previous period according to current Fixed Price revenue allocation logic.'
+    },
+    fpProfitCostPrev: {
+      title: 'Internal Cost Until Previous Period',
+      description: 'Internal delivery cost accumulated up to the previous period.',
+      calculation: 'Sum of consultant internal cost up to the previous period based on assignments, allocation, and daily internal cost logic.'
+    },
+    fpProfitMarginPrev: { title: 'Gross Margin Until Previous Period', description: 'Gross profit achieved up to the previous period.', calculation: 'Revenue Until Previous Period minus Internal Cost Until Previous Period.' },
+    fpProfitMarginPercent: { title: 'Current Margin %', description: 'Margin percentage achieved up to the previous period.', calculation: 'Gross Margin Until Previous Period ÷ Revenue Until Previous Period × 100. If revenue is 0, margin % is 0.' },
+    fpProfitForecastRevenue: { title: 'Total Forecast Revenue Until Project End', description: 'Total forecasted Fixed Price revenue until project end.', calculation: 'Total approved committed budget allocated to the project.' },
+    fpProfitForecastCost: { title: 'Total Forecast Internal Cost Until Project End', description: 'Forecasted internal cost to deliver the project until completion.', calculation: 'Sum of expected internal consultant cost until project end based on assignment/capacity logic.' },
+    fpProfitForecastMargin: { title: 'Total Forecast Gross Margin Until Project End', description: 'Expected gross profit at project completion.', calculation: 'Total Forecast Revenue Until Project End minus Total Forecast Internal Cost Until Project End.' },
+    fpProfitForecastMarginPercent: { title: 'Forecast Margin %', description: 'Expected gross margin percentage at project completion.', calculation: 'Total Forecast Gross Margin Until Project End ÷ Total Forecast Revenue Until Project End × 100. If revenue is 0, margin % is 0.' },
+    fpCostVsBudgetProgress: {
+      title: 'Cost vs Budget Progress',
+      description: 'Visual comparison of cumulative internal cost against cumulative approved budget over time.',
+      calculation: 'Cumulative Cost = running total of internal project cost by month. Cumulative Budget = running total of approved budget allocation by month.',
+      note: 'This chart helps identify whether project cost is approaching the available budget too quickly.'
+    }
+  };
+  const KPI_HELP_BY_VALUE_ID = {
+    'revenue-this-month-value': 'tmRevenueThisMonth',
+    'revenue-next-3-months-value': 'tmRevenueNext3Months',
+    'revenue-forecast-total-value': 'tmRevenueForecastTotal',
+    'revenue-invoiced-value': 'tmTotalInvoiced',
+    'revenue-paid-value': 'tmTotalPaid',
+    'revenue-outstanding-value': 'tmOutstanding',
+    'revenue-unbilled-value': 'tmUnbilledForecast',
+    'profitability-revenue-value': 'tmProfitRevenuePrev',
+    'profitability-cost-value': 'tmProfitCostPrev',
+    'profitability-margin-value': 'tmProfitMarginPrev',
+    'profitability-margin-percent-value': 'tmProfitMarginPercent',
+    'profitability-forecast-revenue-value': 'tmProfitForecastRevenue',
+    'profitability-forecast-cost-value': 'tmProfitForecastCost',
+    'profitability-forecast-margin-value': 'tmProfitForecastMargin',
+    'profitability-forecast-margin-percent-value': 'tmProfitForecastMarginPercent',
+    'fixed-budget-initial-value': 'fpInitialBudget',
+    'fixed-budget-extensions-value': 'fpApprovedExtensions',
+    'fixed-budget-total-value': 'fpTotalApprovedBudget',
+    'fixed-budget-coverage-value': 'fpBudgetCoverage',
+    'fixed-invoices-invoiced-value': 'fpInvoicedAmount',
+    'fixed-invoices-paid-value': 'fpPaidAmount',
+    'fixed-invoices-remaining-value': 'fpRemainingToInvoice',
+    'fixed-invoices-outstanding-value': 'fpOutstandingAmount',
+    'fixed-profitability-revenue-value': 'fpProfitRevenuePrev',
+    'fixed-profitability-cost-value': 'fpProfitCostPrev',
+    'fixed-profitability-margin-value': 'fpProfitMarginPrev',
+    'fixed-profitability-margin-percent-value': 'fpProfitMarginPercent',
+    'fixed-profitability-forecast-revenue-value': 'fpProfitForecastRevenue',
+    'fixed-profitability-forecast-cost-value': 'fpProfitForecastCost',
+    'fixed-profitability-forecast-margin-value': 'fpProfitForecastMargin',
+    'fixed-profitability-forecast-margin-percent-value': 'fpProfitForecastMarginPercent'
+  };
 
   const toast = (message, classes = 'blue-grey darken-2') => window.M?.toast && M.toast({ html: message, classes });
   const updateTextFields = () => window.M?.updateTextFields && M.updateTextFields();
   const selectedIds = (selectEl) => Array.from(selectEl.selectedOptions).map((opt) => Number(opt.value));
+  const kpiHelpEntryByKey = (kpiKey) => KPI_HELP_REGISTRY[String(kpiKey || '').trim()] || null;
+  const openKpiHelpModal = (kpiKey) => {
+    const entry = kpiHelpEntryByKey(kpiKey);
+    if (!entry) return;
+    if (ui.kpiInfoTitle) ui.kpiInfoTitle.textContent = entry.title || 'KPI Information';
+    if (ui.kpiInfoDescription) ui.kpiInfoDescription.textContent = entry.description || 'No KPI description configured yet.';
+    if (ui.kpiInfoCalculation) ui.kpiInfoCalculation.textContent = entry.calculation || 'No KPI description configured yet.';
+    const hasNote = Boolean(String(entry.note || '').trim());
+    if (ui.kpiInfoNoteSection) ui.kpiInfoNoteSection.hidden = !hasNote;
+    if (ui.kpiInfoNote) ui.kpiInfoNote.textContent = hasNote ? String(entry.note).trim() : '';
+    if (modals.kpiInfo) {
+      modals.kpiInfo.open();
+    } else if (ui.kpiInfoModal) {
+      ui.kpiInfoModal.style.display = 'block';
+      ui.kpiInfoModal.classList.add('open');
+    }
+  };
+  const ensureKpiCardHelpTriggers = () => {
+    Object.entries(KPI_HELP_BY_VALUE_ID).forEach(([valueId, kpiKey]) => {
+      const valueElement = document.getElementById(valueId);
+      const card = valueElement?.closest('.revenue-summary-card');
+      if (!card || !kpiHelpEntryByKey(kpiKey)) return;
+      if (card.querySelector('[data-kpi-help-key]')) return;
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.className = 'kpi-help-icon';
+      button.dataset.kpiHelpKey = kpiKey;
+      button.setAttribute('aria-label', `KPI help: ${kpiHelpEntryByKey(kpiKey)?.title || 'information'}`);
+      button.title = 'KPI information';
+      button.innerHTML = '<i class="material-icons tiny">info_outline</i>';
+      card.appendChild(button);
+    });
+    if (ui.fixedPriceCostVsBudgetTitle && !ui.fixedPriceCostVsBudgetTitle.querySelector('[data-kpi-help-key]') && kpiHelpEntryByKey('fpCostVsBudgetProgress')) {
+      const chartInfoButton = document.createElement('button');
+      chartInfoButton.type = 'button';
+      chartInfoButton.className = 'btn-flat kpi-help-trigger-inline';
+      chartInfoButton.dataset.kpiHelpKey = 'fpCostVsBudgetProgress';
+      chartInfoButton.setAttribute('aria-label', 'KPI help: Cost vs Budget Progress');
+      chartInfoButton.title = 'KPI information';
+      chartInfoButton.innerHTML = '<i class="material-icons tiny">info_outline</i>';
+      ui.fixedPriceCostVsBudgetTitle.appendChild(chartInfoButton);
+    }
+  };
 
   const request = async (path, options = {}) => {
     const call = async (baseUrl) => fetch(`${baseUrl}${path}`, options);
@@ -5837,6 +6015,13 @@ if (!isBrowserRuntime) {
     await loadAll();
   });
 
+  document.addEventListener('click', (event) => {
+    const trigger = event.target.closest('[data-kpi-help-key]');
+    if (!trigger) return;
+    event.preventDefault();
+    openKpiHelpModal(trigger.dataset.kpiHelpKey);
+  });
+
   if (window.M?.Modal) {
     modals.consultantAssignment = M.Modal.init(ui.consultantAssignmentModal);
     modals.memberDetails = M.Modal.init(ui.memberDetailsModal);
@@ -5847,6 +6032,7 @@ if (!isBrowserRuntime) {
     modals.payment = M.Modal.init(ui.paymentModal);
     modals.projectBudget = M.Modal.init(ui.projectBudgetModal);
     modals.timesheetDetails = M.Modal.init(ui.timesheetDetailsModal);
+    modals.kpiInfo = M.Modal.init(ui.kpiInfoModal);
     modals.businessPartnerCommunication = M.Modal.init(ui.businessPartnerCommunicationModal);
     modals.companyBranch = M.Modal.init(ui.companyBranchModal);
   }
@@ -5871,6 +6057,7 @@ if (!isBrowserRuntime) {
   });
 
   initializeDateInputsToDisplayFormat();
+  ensureKpiCardHelpTriggers();
   setSection('projects');
   updateProjectTimelineExpandUi();
   resetProjectForm();
