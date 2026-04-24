@@ -891,6 +891,23 @@
       <div class="modal-footer"><button type="button" class="modal-close btn-flat">Close</button></div>
     </div>
 
+    <div id="allocation-vacancy-modal" class="modal">
+      <div class="modal-content">
+        <h5>Add Vacancy</h5>
+        <p class="grey-text text-darken-1">Select required SAP Area.</p>
+        <div class="input-field">
+          <select id="allocation-vacancy-area-select">
+            <option value="" selected disabled>Select SAP Area</option>
+          </select>
+          <label for="allocation-vacancy-area-select">SAP Area</label>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="modal-close btn-flat">Cancel</button>
+        <button type="button" class="btn" id="allocation-vacancy-save-btn">Add Vacancy</button>
+      </div>
+    </div>
+
     <dialog id="forecast-details-modal" class="modal-large forecast-details-dialog">
       <div class="modal-content">
         <h5 id="forecast-details-modal-title">Revenue Forecast Details</h5>

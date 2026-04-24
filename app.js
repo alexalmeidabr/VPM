@@ -410,7 +410,10 @@ if (!isBrowserRuntime) {
     allocationAddProjectBtn: document.getElementById('allocation-add-project-btn'),
     allocationSaveBtn: document.getElementById('allocation-save-btn'),
     allocationCanvas: document.getElementById('allocation-canvas'),
-    allocationConsultantsList: document.getElementById('allocation-consultants-list')
+    allocationConsultantsList: document.getElementById('allocation-consultants-list'),
+    allocationVacancyModal: document.getElementById('allocation-vacancy-modal'),
+    allocationVacancyAreaSelect: document.getElementById('allocation-vacancy-area-select'),
+    allocationVacancySaveBtn: document.getElementById('allocation-vacancy-save-btn')
   });
 
   const selectInstances = {};
@@ -471,6 +474,7 @@ if (!isBrowserRuntime) {
   let profitabilityCutoff = null;
   let allocationSimulations = [];
   let allocationState = null;
+  let allocationVacancyTargetProjectId = null;
   let timesheetMonths = [];
   let activeTimesheet = null;
   let activeTimesheetConsultantId = 0;
@@ -4082,6 +4086,30 @@ if (!isBrowserRuntime) {
     ensureProjectAllocationAssignmentDetails(project);
     project.assignmentDetails = project.assignmentDetails.filter((item) => Number(item.consultantId) !== Number(consultantId));
   };
+  const openAllocationVacancyModal = (projectId) => {
+    allocationVacancyTargetProjectId = projectId;
+    if (!ui.allocationVacancyAreaSelect) return;
+    const options = [...areas]
+      .filter((item) => item && item.id != null)
+      .sort((a, b) => String(a.name || '').localeCompare(String(b.name || '')));
+    ui.allocationVacancyAreaSelect.innerHTML = '<option value="" selected disabled>Select SAP Area</option>';
+    options.forEach((area) => ui.allocationVacancyAreaSelect.add(new Option(area.name || `Area ${area.id}`, area.id)));
+    resetSelect('allocationVacancyArea', ui.allocationVacancyAreaSelect);
+    updateTextFields();
+    modals.allocationVacancy?.open();
+  };
+  const addAllocationVacancyToProject = (projectId, areaId) => {
+    const project = allocationState?.projects?.find((item) => String(item.id) === String(projectId));
+    if (!project) return false;
+    const area = areas.find((item) => Number(item.id) === Number(areaId));
+    if (!area) return false;
+    project.vacancies = [...(project.vacancies || []), {
+      id: `${Date.now()}-${Math.random()}`,
+      sapArea: area.name || `Area ${area.id}`,
+      areaId: Number(area.id)
+    }];
+    return true;
+  };
 
   const renderAllocationWorkspace = () => {
     ensureAllocationStateShape();
@@ -4185,7 +4213,6 @@ if (!isBrowserRuntime) {
           if (moved) project.vacancies = [...(project.vacancies || []), moved];
         }
         if (data.type === 'consultant') {
-          const sapArea = window.prompt('Required SAP Area for vacancy assignment record:', '')?.trim();
           allocationState.projects.forEach((p) => {
             p.consultantIds = (p.consultantIds || []).filter((id) => Number(id) !== Number(data.consultantId));
             removeAllocationAssignmentDetail(p, data.consultantId);
@@ -4193,7 +4220,7 @@ if (!isBrowserRuntime) {
           allocationState.unassignedConsultantIds = (allocationState.unassignedConsultantIds || []).filter((id) => Number(id) !== Number(data.consultantId));
           project.consultantIds = [...new Set([...(project.consultantIds || []), Number(data.consultantId)])];
           upsertAllocationAssignmentDetail(project, normalizeAllocationAssignmentDetail(data.assignmentDetail || { consultantId: data.consultantId }, data.consultantId));
-          if (sapArea) {
+          if ((project.vacancies || []).length) {
             project.vacancies = (project.vacancies || []).slice(1);
           }
         }
@@ -4201,10 +4228,11 @@ if (!isBrowserRuntime) {
       });
 
       panel.querySelector('[data-action="add-vacancy"]').addEventListener('click', () => {
-        const sapArea = window.prompt('Required SAP Area');
-        if (!sapArea || !sapArea.trim()) return;
-        project.vacancies = [...(project.vacancies || []), { id: `${Date.now()}-${Math.random()}`, sapArea: sapArea.trim() }];
-        renderAllocationWorkspace();
+        if (!areas.length) {
+          toast('No SAP Areas configured. Add Areas in Administration first.', 'orange darken-2');
+          return;
+        }
+        openAllocationVacancyModal(project.id);
       });
 
       let dragging = false;
@@ -6083,6 +6111,23 @@ if (!isBrowserRuntime) {
     renderAllocationWorkspace();
   });
 
+  ui.allocationVacancySaveBtn?.addEventListener('click', () => {
+    if (!allocationState || !allocationVacancyTargetProjectId) return;
+    const selectedAreaId = Number(ui.allocationVacancyAreaSelect?.value || 0);
+    if (!selectedAreaId) {
+      toast('Please select SAP Area', 'red darken-1');
+      return;
+    }
+    const added = addAllocationVacancyToProject(allocationVacancyTargetProjectId, selectedAreaId);
+    if (!added) {
+      toast('Unable to add vacancy. Please refresh and try again.', 'red darken-1');
+      return;
+    }
+    allocationVacancyTargetProjectId = null;
+    modals.allocationVacancy?.close();
+    renderAllocationWorkspace();
+  });
+
   ui.allocationSaveBtn?.addEventListener('click', async () => {
     if (!allocationState?.id) return;
     await request(`/api/allocation-simulations/${allocationState.id}`, {
@@ -6112,6 +6157,7 @@ if (!isBrowserRuntime) {
     modals.projectBudget = M.Modal.init(ui.projectBudgetModal);
     modals.timesheetDetails = M.Modal.init(ui.timesheetDetailsModal);
     modals.kpiInfo = M.Modal.init(ui.kpiInfoModal);
+    modals.allocationVacancy = M.Modal.init(ui.allocationVacancyModal);
     modals.businessPartnerCommunication = M.Modal.init(ui.businessPartnerCommunicationModal);
     modals.companyBranch = M.Modal.init(ui.companyBranchModal);
   }
