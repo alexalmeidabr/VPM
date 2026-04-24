@@ -4058,6 +4058,8 @@ if (!isBrowserRuntime) {
     consultantName: String(detail.consultantName || '').trim(),
     projectRole: String(detail.projectRole || 'Project Position').trim() || 'Project Position',
     allocation: Number.isFinite(Number(detail.allocation)) ? Number(detail.allocation) : 100,
+    startDate: String(detail.startDate || '').trim(),
+    endDate: String(detail.endDate || '').trim(),
     positionStatus: positionStatusValues.includes(String(detail.positionStatus || detail.status || '').trim())
       ? String(detail.positionStatus || detail.status || '').trim()
       : 'Assigned'
@@ -4072,6 +4074,8 @@ if (!isBrowserRuntime) {
         consultantName: item.consultantName,
         projectRole: item.projectRole,
         allocation: item.allocation,
+        startDate: item.startDate,
+        endDate: item.endDate,
         positionStatus: item.status
       }, item.consultantId));
     }
@@ -4288,11 +4292,13 @@ if (!isBrowserRuntime) {
         const projectRoleLabel = String(assignmentDetail.projectRole || 'Project Position').trim() || 'Project Position';
         const allocationLabel = `${Math.round(Number(assignmentDetail.allocation ?? 100))}%`;
         const statusLabel = String(assignmentDetail.positionStatus || 'Assigned').trim() || 'Assigned';
+        const statusClassName = positionStatusClassByValue(statusLabel);
+        const hasDateRange = Boolean(assignmentDetail.startDate || assignmentDetail.endDate);
         const consultantNameLabel = consultant?.name || assignmentDetail.consultantName || 'Consultant';
         const c = document.createElement('div');
         c.className = 'allocation-consultant-item';
         c.draggable = true;
-        c.innerHTML = `<div class="allocation-consultant-name">${consultantNameLabel}</div><div class="allocation-consultant-meta">${projectRoleLabel} · ${allocationLabel} · ${statusLabel}</div>`;
+        c.innerHTML = `<div class="member-title-row"><span class="allocation-consultant-name">${consultantNameLabel}</span><span class="member-role-chip">${projectRoleLabel}</span><span class="position-status-badge ${statusClassName}">${statusLabel}</span></div><div class="allocation-consultant-meta">Allocation: ${allocationLabel}</div>${hasDateRange ? `<div class="allocation-consultant-meta">Dates: ${formatDate(assignmentDetail.startDate)} - ${formatDate(assignmentDetail.endDate)}</div>` : ''}`;
         c.addEventListener('dragstart', (event) => {
           event.dataTransfer.setData('application/json', JSON.stringify({
             type: 'consultant',
