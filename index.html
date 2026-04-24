@@ -912,6 +912,29 @@
       </div>
     </div>
 
+    <div id="allocation-vacancy-assignment-modal" class="modal">
+      <div class="modal-content">
+        <h5>Assign Consultant to Vacancy</h5>
+        <p class="grey-text text-darken-1">Choose project position before confirming assignment.</p>
+        <div class="allocation-assignment-preview">
+          <div><strong>Consultant:</strong> <span id="allocation-assignment-consultant-name">—</span></div>
+          <div><strong>Project:</strong> <span id="allocation-assignment-project-name">—</span></div>
+          <div><strong>SAP Area:</strong> <span id="allocation-assignment-area-name">—</span></div>
+          <div><strong>Allocation:</strong> <span id="allocation-assignment-allocation">—</span></div>
+        </div>
+        <div class="input-field">
+          <select id="allocation-assignment-role-select">
+            <option value="" selected disabled>Select project position</option>
+          </select>
+          <label for="allocation-assignment-role-select">Project Position</label>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="modal-close btn-flat" id="allocation-assignment-cancel-btn">Cancel</button>
+        <button type="button" class="btn" id="allocation-assignment-confirm-btn">Confirm Assignment</button>
+      </div>
+    </div>
+
     <dialog id="forecast-details-modal" class="modal-large forecast-details-dialog">
       <div class="modal-content">
         <h5 id="forecast-details-modal-title">Revenue Forecast Details</h5>

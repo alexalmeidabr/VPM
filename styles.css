@@ -621,6 +621,7 @@ body.project-timeline-expanded #project-timeline-chart { flex: 0 0 auto; max-hei
 .allocation-vacancy-item { border: 1px dashed #90a4ae; background: #fafafa; border-radius: 8px; padding: 0.4rem 0.5rem; cursor: grab; display: flex; flex-direction: column; gap: 0.08rem; }
 .allocation-vacancy-area { font-weight: 600; color: #37474f; line-height: 1.2; }
 .allocation-vacancy-meta { font-size: 0.78rem; color: #607d8b; line-height: 1.2; }
+.allocation-assignment-preview { border: 1px solid #d7e1e6; border-radius: 8px; padding: 0.55rem 0.65rem; background: #fafcfe; margin-bottom: 0.5rem; display: grid; gap: 0.25rem; }
 .allocation-simulation-item { display: flex; justify-content: space-between; align-items: center; border: 1px solid #cfd8dc; border-radius: 8px; padding: 0.6rem; margin-top: 0.5rem; }
 
 .timesheet-month-panel { width: 100%; max-width: 780px; margin-top: 0.8rem; }
