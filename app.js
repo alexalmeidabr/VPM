@@ -4057,7 +4057,10 @@ if (!isBrowserRuntime) {
     consultantId: Number(detail.consultantId ?? consultantId ?? 0),
     consultantName: String(detail.consultantName || '').trim(),
     projectRole: String(detail.projectRole || 'Project Position').trim() || 'Project Position',
-    allocation: Number.isFinite(Number(detail.allocation)) ? Number(detail.allocation) : 100
+    allocation: Number.isFinite(Number(detail.allocation)) ? Number(detail.allocation) : 100,
+    positionStatus: positionStatusValues.includes(String(detail.positionStatus || detail.status || '').trim())
+      ? String(detail.positionStatus || detail.status || '').trim()
+      : 'Assigned'
   });
   const allocationSourceAssignmentsForProject = (project) => {
     const sourceProject = projects.find((item) => Number(item.id) === Number(project?.sourceProjectId || 0));
@@ -4068,7 +4071,8 @@ if (!isBrowserRuntime) {
         consultantId: item.consultantId,
         consultantName: item.consultantName,
         projectRole: item.projectRole,
-        allocation: item.allocation
+        allocation: item.allocation,
+        positionStatus: item.status
       }, item.consultantId));
     }
     return (sourceProject.consultantAssignments || []).map((item) => normalizeAllocationAssignmentDetail(item, item.consultantId));
@@ -4225,18 +4229,42 @@ if (!isBrowserRuntime) {
     ensureAllocationStateShape();
     if (!allocationState) return;
     ui.allocationCanvas.innerHTML = '';
-    const assigned = new Set();
-    allocationState.projects.forEach((project) => (project.consultantIds || []).forEach((id) => assigned.add(Number(id))));
-    const unassignedIds = allocationState.unassignedConsultantIds.filter((id) => !assigned.has(Number(id)));
+    const usedAllocationByConsultant = new Map();
+    allocationState.projects.forEach((project) => {
+      ensureProjectAllocationAssignmentDetails(project);
+      (project.consultantIds || []).forEach((consultantId) => {
+        const detail = allocationAssignmentDetailByConsultant(project, consultantId);
+        const usedAllocation = Number(detail.allocation);
+        const current = Number(usedAllocationByConsultant.get(Number(consultantId)) || 0);
+        usedAllocationByConsultant.set(Number(consultantId), current + (Number.isFinite(usedAllocation) ? usedAllocation : 0));
+      });
+    });
     ui.allocationConsultantsList.innerHTML = '';
-    consultants.filter((c) => unassignedIds.includes(Number(c.id))).forEach((consultant) => {
+    consultants.forEach((consultant) => {
+      const usedAllocation = Number(usedAllocationByConsultant.get(Number(consultant.id)) || 0);
+      const remainingRaw = 100 - usedAllocation;
+      const remainingAllocation = Math.max(0, Math.min(100, remainingRaw));
+      if (remainingAllocation <= 0) return;
+      const remainingLabel = Number.isInteger(remainingAllocation)
+        ? String(remainingAllocation)
+        : remainingAllocation.toFixed(2).replace(/\.?0+$/, '');
       const item = document.createElement('div');
       item.className = 'allocation-consultant-item';
       item.draggable = true;
-      item.textContent = consultant.name;
+      item.innerHTML = `<div class="allocation-consultant-name">${consultant.name}</div><div class="allocation-consultant-meta">${remainingLabel}% available</div>`;
       item.dataset.consultantId = String(consultant.id);
       item.addEventListener('dragstart', (event) => {
-        event.dataTransfer.setData('application/json', JSON.stringify({ type: 'consultant', consultantId: Number(consultant.id), source: 'list' }));
+        event.dataTransfer.setData('application/json', JSON.stringify({
+          type: 'consultant',
+          consultantId: Number(consultant.id),
+          source: 'list',
+          assignmentDetail: normalizeAllocationAssignmentDetail({
+            consultantId: Number(consultant.id),
+            consultantName: consultant.name,
+            allocation: remainingAllocation,
+            positionStatus: 'Assigned'
+          }, consultant.id)
+        }));
       });
       ui.allocationConsultantsList.appendChild(item);
     });
@@ -4259,11 +4287,12 @@ if (!isBrowserRuntime) {
         const assignmentDetail = allocationAssignmentDetailByConsultant(project, consultantId);
         const projectRoleLabel = String(assignmentDetail.projectRole || 'Project Position').trim() || 'Project Position';
         const allocationLabel = `${Math.round(Number(assignmentDetail.allocation ?? 100))}%`;
+        const statusLabel = String(assignmentDetail.positionStatus || 'Assigned').trim() || 'Assigned';
         const consultantNameLabel = consultant?.name || assignmentDetail.consultantName || 'Consultant';
         const c = document.createElement('div');
         c.className = 'allocation-consultant-item';
         c.draggable = true;
-        c.innerHTML = `<div class="allocation-consultant-name">${consultantNameLabel}</div><div class="allocation-consultant-meta">${projectRoleLabel} · ${allocationLabel}</div>`;
+        c.innerHTML = `<div class="allocation-consultant-name">${consultantNameLabel}</div><div class="allocation-consultant-meta">${projectRoleLabel} · ${allocationLabel} · ${statusLabel}</div>`;
         c.addEventListener('dragstart', (event) => {
           event.dataTransfer.setData('application/json', JSON.stringify({
             type: 'consultant',
