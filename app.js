@@ -2265,8 +2265,11 @@ if (!isBrowserRuntime) {
         const value = Number(line.entries?.[dayIso] || 0);
         total += value;
         const holidayLabel = holiday?.name ? `<div class="timesheet-holiday-label">${holiday.name}</div>` : '';
+        const dayOffLabel = context.className === 'context-dayoff' && context.label
+          ? `<div class="timesheet-dayoff-label">${context.label}</div>`
+          : '';
         td.innerHTML = inMonth
-          ? `<input class="timesheet-entry-input ${locked ? 'timesheet-entry-input--locked' : ''}" type="number" min="0" max="24" step="0.5" value="${value || ''}" ${locked ? 'disabled' : ''} />${holidayLabel}`
+          ? `<input class="timesheet-entry-input ${locked ? 'timesheet-entry-input--locked' : ''}" type="number" min="0" max="24" step="0.5" value="${value || ''}" ${locked ? 'disabled' : ''} />${holidayLabel}${dayOffLabel}`
           : '<span class="grey-text">—</span>';
         if (locked && inMonth) td.classList.add('timesheet-locked-cell');
         const input = td.querySelector('input');

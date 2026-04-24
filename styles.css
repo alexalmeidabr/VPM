@@ -656,6 +656,7 @@ body.project-timeline-expanded #project-timeline-chart { flex: 0 0 auto; max-hei
 .timesheet-entry-table .timesheet-weekend input[type="number"] { background: #fff; }
 .timesheet-entry-table .timesheet-locked-cell { background: #dfe4e8; }
 .timesheet-holiday-label { font-size: 0.72rem; color: #546e7a; margin-top: 0.15rem; line-height: 1.2; }
+.timesheet-dayoff-label { font-size: 0.72rem; color: #6d4c41; margin-top: 0.15rem; line-height: 1.2; }
 .timesheet-entry-table .context-weekend { background: #ffebee; }
 .timesheet-entry-table .context-holiday { background: #ffebee; }
 .timesheet-entry-table .context-dayoff { background: #fff3e0; }
