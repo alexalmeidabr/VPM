@@ -618,7 +618,9 @@ body.project-timeline-expanded #project-timeline-chart { flex: 0 0 auto; max-hei
 .allocation-panel-body { padding: 0.7rem; }
 .allocation-drop-zone { min-height: 40px; border: 1px dashed #cfd8dc; border-radius: 8px; padding: 0.4rem; margin-bottom: 0.5rem; display: flex; flex-direction: column; gap: 0.4rem; }
 .allocation-drop-zone.drag-over { background: #eceff1; }
-.allocation-vacancy-item { border: 1px dashed #90a4ae; background: #fafafa; border-radius: 8px; padding: 0.4rem 0.5rem; cursor: grab; }
+.allocation-vacancy-item { border: 1px dashed #90a4ae; background: #fafafa; border-radius: 8px; padding: 0.4rem 0.5rem; cursor: grab; display: flex; flex-direction: column; gap: 0.08rem; }
+.allocation-vacancy-area { font-weight: 600; color: #37474f; line-height: 1.2; }
+.allocation-vacancy-meta { font-size: 0.78rem; color: #607d8b; line-height: 1.2; }
 .allocation-simulation-item { display: flex; justify-content: space-between; align-items: center; border: 1px solid #cfd8dc; border-radius: 8px; padding: 0.6rem; margin-top: 0.5rem; }
 
 .timesheet-month-panel { width: 100%; max-width: 780px; margin-top: 0.8rem; }

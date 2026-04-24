@@ -894,12 +894,16 @@
     <div id="allocation-vacancy-modal" class="modal">
       <div class="modal-content">
         <h5>Add Vacancy</h5>
-        <p class="grey-text text-darken-1">Select required SAP Area.</p>
+        <p class="grey-text text-darken-1">Select required SAP Area and allocation percentage.</p>
         <div class="input-field">
           <select id="allocation-vacancy-area-select">
             <option value="" selected disabled>Select SAP Area</option>
           </select>
           <label for="allocation-vacancy-area-select">SAP Area</label>
+        </div>
+        <div class="input-field">
+          <input id="allocation-vacancy-allocation-input" type="number" min="1" max="100" step="1" />
+          <label for="allocation-vacancy-allocation-input">Allocation %</label>
         </div>
       </div>
       <div class="modal-footer">
