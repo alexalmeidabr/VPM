@@ -416,9 +416,12 @@ if (!isBrowserRuntime) {
     allocationVacancyAllocationInput: document.getElementById('allocation-vacancy-allocation-input'),
     allocationVacancySaveBtn: document.getElementById('allocation-vacancy-save-btn'),
     allocationVacancyAssignmentModal: document.getElementById('allocation-vacancy-assignment-modal'),
+    allocationAssignmentModalTitle: document.getElementById('allocation-assignment-modal-title'),
     allocationAssignmentConsultantName: document.getElementById('allocation-assignment-consultant-name'),
     allocationAssignmentProjectName: document.getElementById('allocation-assignment-project-name'),
+    allocationAssignmentAreaRow: document.getElementById('allocation-assignment-area-row'),
     allocationAssignmentAreaName: document.getElementById('allocation-assignment-area-name'),
+    allocationAssignmentAllocationRow: document.getElementById('allocation-assignment-allocation-row'),
     allocationAssignmentAllocation: document.getElementById('allocation-assignment-allocation'),
     allocationAssignmentRoleSelect: document.getElementById('allocation-assignment-role-select'),
     allocationAssignmentCancelBtn: document.getElementById('allocation-assignment-cancel-btn'),
@@ -4144,13 +4147,16 @@ if (!isBrowserRuntime) {
       ui.allocationAssignmentRoleSelect.innerHTML = '<option value="" selected disabled>Select project position</option>';
       resetSelect('allocationAssignmentRole', ui.allocationAssignmentRoleSelect);
     }
+    if (ui.allocationAssignmentModalTitle) ui.allocationAssignmentModalTitle.textContent = 'Assign Consultant';
     if (ui.allocationAssignmentConsultantName) ui.allocationAssignmentConsultantName.textContent = '—';
     if (ui.allocationAssignmentProjectName) ui.allocationAssignmentProjectName.textContent = '—';
+    if (ui.allocationAssignmentAreaRow) ui.allocationAssignmentAreaRow.hidden = false;
     if (ui.allocationAssignmentAreaName) ui.allocationAssignmentAreaName.textContent = '—';
+    if (ui.allocationAssignmentAllocationRow) ui.allocationAssignmentAllocationRow.hidden = false;
     if (ui.allocationAssignmentAllocation) ui.allocationAssignmentAllocation.textContent = '—';
   };
   const openAllocationVacancyAssignmentModal = ({ project, consultantId, vacancy, assignmentDetail }) => {
-    if (!project || !vacancy) return;
+    if (!project) return;
     if (!roles.length) {
       toast('No project roles configured. Add roles in Administration first.', 'orange darken-2');
       return;
@@ -4159,13 +4165,19 @@ if (!isBrowserRuntime) {
     pendingAllocationVacancyAssignment = {
       projectId: project.id,
       consultantId: Number(consultantId),
-      vacancyId: vacancy.id,
+      vacancyId: vacancy?.id || null,
       assignmentDetail: normalizeAllocationAssignmentDetail(assignmentDetail || { consultantId }, consultantId)
     };
+    if (ui.allocationAssignmentModalTitle) ui.allocationAssignmentModalTitle.textContent = vacancy ? 'Assign Consultant to Vacancy' : 'Assign Consultant to Project';
     if (ui.allocationAssignmentConsultantName) ui.allocationAssignmentConsultantName.textContent = consultant?.name || `Consultant ${consultantId}`;
     if (ui.allocationAssignmentProjectName) ui.allocationAssignmentProjectName.textContent = project.name || 'Project';
-    if (ui.allocationAssignmentAreaName) ui.allocationAssignmentAreaName.textContent = vacancy.sapArea || '—';
-    if (ui.allocationAssignmentAllocation) ui.allocationAssignmentAllocation.textContent = `${Number(vacancy.allocation || 0)}%`;
+    if (ui.allocationAssignmentAreaRow) ui.allocationAssignmentAreaRow.hidden = !vacancy;
+    if (ui.allocationAssignmentAreaName) ui.allocationAssignmentAreaName.textContent = vacancy?.sapArea || '—';
+    if (ui.allocationAssignmentAllocationRow) ui.allocationAssignmentAllocationRow.hidden = !vacancy;
+    if (ui.allocationAssignmentAllocation) {
+      const allocationValue = Number(vacancy?.allocation ?? pendingAllocationVacancyAssignment.assignmentDetail.allocation ?? 100);
+      ui.allocationAssignmentAllocation.textContent = `${allocationValue}%`;
+    }
     if (ui.allocationAssignmentRoleSelect) {
       const preferredRole = String(pendingAllocationVacancyAssignment.assignmentDetail.projectRole || '').trim();
       ui.allocationAssignmentRoleSelect.innerHTML = '<option value="" selected disabled>Select project position</option>';
@@ -4184,8 +4196,10 @@ if (!isBrowserRuntime) {
     const context = pendingAllocationVacancyAssignment;
     const targetProject = allocationState.projects.find((item) => String(item.id) === String(context.projectId));
     if (!targetProject) return false;
-    const vacancy = (targetProject.vacancies || []).find((item) => String(item.id) === String(context.vacancyId));
-    if (!vacancy) return false;
+    const vacancy = context.vacancyId
+      ? (targetProject.vacancies || []).find((item) => String(item.id) === String(context.vacancyId))
+      : null;
+    if (context.vacancyId && !vacancy) return false;
     allocationState.projects.forEach((p) => {
       p.consultantIds = (p.consultantIds || []).filter((id) => Number(id) !== Number(context.consultantId));
       removeAllocationAssignmentDetail(p, context.consultantId);
@@ -4195,9 +4209,9 @@ if (!isBrowserRuntime) {
     targetProject.consultantIds = [...new Set([...(targetProject.consultantIds || []), Number(context.consultantId)])];
     const assignmentDetail = normalizeAllocationAssignmentDetail(context.assignmentDetail || { consultantId: context.consultantId }, context.consultantId);
     assignmentDetail.projectRole = String(selectedRole || '').trim() || 'Project Position';
-    assignmentDetail.allocation = Number(vacancy.allocation || assignmentDetail.allocation || 100);
+    assignmentDetail.allocation = Number(vacancy?.allocation ?? assignmentDetail.allocation ?? 100);
     upsertAllocationAssignmentDetail(targetProject, assignmentDetail);
-    targetProject.vacancies = (targetProject.vacancies || []).filter((item) => String(item.id) !== String(context.vacancyId));
+    if (vacancy) targetProject.vacancies = (targetProject.vacancies || []).filter((item) => String(item.id) !== String(context.vacancyId));
     return true;
   };
 
@@ -4279,13 +4293,13 @@ if (!isBrowserRuntime) {
         event.preventDefault(); consultantsZone.classList.remove('drag-over');
         const data = allocationDraggedPayload(event); if (!data) return;
         if (data.type === 'consultant') {
-          allocationState.projects.forEach((p) => {
-            p.consultantIds = (p.consultantIds || []).filter((id) => Number(id) !== Number(data.consultantId));
-            removeAllocationAssignmentDetail(p, data.consultantId);
+          openAllocationVacancyAssignmentModal({
+            project,
+            consultantId: data.consultantId,
+            vacancy: null,
+            assignmentDetail: data.assignmentDetail
           });
-          allocationState.unassignedConsultantIds = (allocationState.unassignedConsultantIds || []).filter((id) => Number(id) !== Number(data.consultantId));
-          project.consultantIds = [...new Set([...(project.consultantIds || []), Number(data.consultantId)])];
-          upsertAllocationAssignmentDetail(project, normalizeAllocationAssignmentDetail(data.assignmentDetail || { consultantId: data.consultantId }, data.consultantId));
+          return;
         }
         if (data.type === 'vacancy') {
           const from = allocationState.projects.find((p) => String(p.id) === String(data.projectId));
