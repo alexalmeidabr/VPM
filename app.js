@@ -2161,13 +2161,13 @@ if (!isBrowserRuntime) {
       const weekStart = weekDays[0];
       const weekEnd = weekDays[6];
       const dayKeys = weekDays.map((day) => formatIsoDate(day));
-      const headers = weekDays.map((day, idx) => `<th>${dayNames[idx]}<br>${formatDate(day)}</th>`).join('');
+      const headers = weekDays.map((day, idx) => `<th>${dayNames[idx]}<br>${formatDate(formatIsoDate(day))}</th>`).join('');
       const rows = lines.map((line) => {
         const cells = dayKeys.map((key) => `<td>${Number(line.entries?.[key] || 0) ? Number(line.entries?.[key] || 0).toFixed(1) : ''}</td>`).join('');
         return `<tr><td>${timesheetLineDescription(line)}</td>${cells}<td>${lineTotalForDates(line, dayKeys).toFixed(1)}</td></tr>`;
       }).join('');
       return `
-        <h3>Week ${weekIndex + 1}: ${formatDate(weekStart)} - ${formatDate(weekEnd)}</h3>
+        <h3>Week ${weekIndex + 1}: ${formatDate(formatIsoDate(weekStart))} - ${formatDate(formatIsoDate(weekEnd))}</h3>
         <table>
           <thead><tr><th>Description</th>${headers}<th>Total</th></tr></thead>
           <tbody>${rows}</tbody>
@@ -2217,7 +2217,7 @@ if (!isBrowserRuntime) {
     if (ui.timesheetDetailTitle) {
       ui.timesheetDetailTitle.textContent = `${consultant?.name || 'Consultant'} • ${detailMonthLabel}${detailWeekLabel ? ` - ${detailWeekLabel}` : ''}`;
     }
-    ui.timesheetWeekLabel.textContent = weekStart && weekEnd ? `${formatDate(weekStart)} - ${formatDate(weekEnd)}` : '';
+    ui.timesheetWeekLabel.textContent = weekStart && weekEnd ? `${formatDate(formatIsoDate(weekStart))} - ${formatDate(formatIsoDate(weekEnd))}` : '';
     ui.timesheetPrevWeekBtn.disabled = activeTimesheetWeekIndex <= 0;
     ui.timesheetNextWeekBtn.disabled = activeTimesheetWeekIndex >= monthWeeks.length - 1;
 
@@ -2225,7 +2225,7 @@ if (!isBrowserRuntime) {
     table.className = 'striped responsive-table timesheet-entry-table';
     const thead = document.createElement('thead');
     const headRow = document.createElement('tr');
-    headRow.innerHTML = '<th>Project / Activity</th>' + currentWeek.map((d) => `<th>${d.toLocaleDateString(undefined, { weekday: 'short' })}<br/>${formatDate(d)}</th>`).join('') + '<th>Total</th>';
+    headRow.innerHTML = '<th>Project / Activity</th>' + currentWeek.map((d) => `<th>${d.toLocaleDateString(undefined, { weekday: 'short' })}<br/>${formatDate(formatIsoDate(d))}</th>`).join('') + '<th>Total</th>';
     thead.appendChild(headRow);
     table.appendChild(thead);
 
