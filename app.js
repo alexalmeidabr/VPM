@@ -3229,7 +3229,8 @@ if (!isBrowserRuntime) {
 
   const contactDisplayName = (contact) => {
     const full = `${contact?.name || ''} ${contact?.lastName || ''}`.trim();
-    return full || contact?.email || 'Contact';
+    if (full) return full;
+    return contact?.id ? `Contact ${contact.id}` : 'Contact';
   };
   const selectedProjectPartnerContacts = ({ businessPartnerId, selectedContactIds = [] }) => {
     const partner = findBusinessPartnerById(businessPartnerId);

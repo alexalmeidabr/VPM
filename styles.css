@@ -664,9 +664,9 @@ body.project-timeline-expanded #project-timeline-chart { flex: 0 0 auto; max-hei
 .bp-communication-summary { margin-top: 0.8rem; }
 .bp-communication-summary .btn-flat { padding-left: 0; }
 .bp-comm-row { margin-bottom: 0; }
-.project-contact-links { margin: -0.25rem 0 0.85rem; display: flex; align-items: center; gap: 0.35rem; flex-wrap: wrap; }
+.project-contact-links { margin: 0.1rem 0 0.85rem; display: flex; align-items: center; gap: 0.35rem; flex-wrap: wrap; }
 .project-contact-links-label { font-size: 0.85rem; color: #546e7a; }
-.project-contact-link { padding: 0 0.25rem; min-height: 1.8rem; line-height: 1.8rem; text-transform: none; color: #1565c0; text-decoration: underline; }
+.project-contact-link { padding: 0 0.25rem; min-height: 1.2rem; line-height: 1.2rem; text-transform: none; color: #1565c0; text-decoration: underline; cursor: pointer; }
 .bp-collapsible-section { border: 1px solid #d7e1e6; border-radius: 8px; margin-top: 0.75rem; background: #fff; }
 .bp-collapsible-header { width: 100%; border: 0; background: #f7fafc; display: flex; justify-content: space-between; align-items: center; padding: 0.65rem 0.85rem; font-weight: 600; color: #37474f; cursor: pointer; }
 .bp-collapsible-header:hover { background: #eef4f8; }
