@@ -344,8 +344,6 @@ if (!isBrowserRuntime) {
     timesheetSaveCompletedBtn: document.getElementById('timesheet-save-completed-btn'),
     timesheetReopenBtn: document.getElementById('timesheet-reopen-btn'),
     timesheetTableWrap: document.getElementById('timesheet-table-wrap'),
-    projectClientContactsLinks: document.getElementById('project-client-contacts-links'),
-    projectDeliveryContactsLinks: document.getElementById('project-delivery-contacts-links'),
     weekTooltip: document.getElementById('week-tooltip')
   };
 
@@ -3238,17 +3236,30 @@ if (!isBrowserRuntime) {
     if (!partner || !selectedIdsSet.size) return [];
     return (partner.contacts || []).filter((contact) => selectedIdsSet.has(Number(contact.id)));
   };
-  const renderProjectContactLinks = ({ target, contacts = [], kindLabel = 'Contacts' } = {}) => {
-    if (!target) return;
+  const projectContactInlineHost = (selectEl, key) => {
+    const container = selectEl?.closest('.input-field');
+    if (!container) return null;
+    let host = container.querySelector(`[data-project-contact-links="${key}"]`);
+    if (!host) {
+      host = document.createElement('div');
+      host.className = 'project-contact-inline-links';
+      host.dataset.projectContactLinks = key;
+      container.appendChild(host);
+    }
+    return host;
+  };
+  const renderProjectContactLinks = ({ selectEl, contacts = [], key = 'contacts' } = {}) => {
+    const host = projectContactInlineHost(selectEl, key);
+    if (!host) return;
     if (!contacts.length) {
-      target.hidden = true;
-      target.innerHTML = '';
+      host.hidden = true;
+      host.innerHTML = '';
       return;
     }
-    target.hidden = false;
-    target.innerHTML = `<span class="project-contact-links-label">${kindLabel}:</span> ${contacts
+    host.hidden = false;
+    host.innerHTML = contacts
       .map((contact) => `<button type="button" class="btn-flat project-contact-link" data-action="open-project-contact-communication" data-contact-id="${contact.id}">${contactDisplayName(contact)}</button>`)
-      .join('')}`;
+      .join('');
   };
   const renderProjectContactQuickLinks = () => {
     const clientContacts = selectedProjectPartnerContacts({
@@ -3259,8 +3270,8 @@ if (!isBrowserRuntime) {
       businessPartnerId: fields.deliveryPartnerBusinessPartnerId.value,
       selectedContactIds: selectedIds(fields.deliveryPartnerContactIds)
     });
-    renderProjectContactLinks({ target: ui.projectClientContactsLinks, contacts: clientContacts, kindLabel: 'Client Contacts' });
-    renderProjectContactLinks({ target: ui.projectDeliveryContactsLinks, contacts: deliveryContacts, kindLabel: 'Delivery Contacts' });
+    renderProjectContactLinks({ selectEl: fields.clientContactIds, contacts: clientContacts, key: 'client' });
+    renderProjectContactLinks({ selectEl: fields.deliveryPartnerContactIds, contacts: deliveryContacts, key: 'delivery' });
   };
   const findProjectContactById = (contactId) => {
     const id = Number(contactId);
