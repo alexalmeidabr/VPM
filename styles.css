@@ -611,6 +611,8 @@ body.project-timeline-expanded #project-timeline-chart { flex: 0 0 auto; max-hei
 .allocation-consultants-list { min-height: 200px; display: flex; flex-direction: column; gap: 0.5rem; }
 .allocation-consultants-list.drag-over { background: #eceff1; border-radius: 8px; }
 .allocation-consultant-item { border: 1px solid #cfd8dc; border-radius: 8px; padding: 0.45rem 0.6rem; background: #fff; cursor: grab; }
+.allocation-consultant-name { font-weight: 600; color: #37474f; line-height: 1.2; }
+.allocation-consultant-meta { font-size: 0.78rem; color: #607d8b; margin-top: 0.1rem; line-height: 1.2; }
 .allocation-project-panel { position: absolute; width: 300px; border: 1px solid #b0bec5; border-radius: 10px; background: #fff; box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
 .allocation-panel-header { padding: 0.55rem 0.7rem; background: #455a64; color: #fff; border-radius: 10px 10px 0 0; cursor: move; font-weight: 600; }
 .allocation-panel-body { padding: 0.7rem; }
