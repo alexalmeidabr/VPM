@@ -1672,6 +1672,7 @@ if (!isBrowserRuntime) {
     resetSelect('contractWithBranch', fields.contractWithBranchId);
     resetSelect('projectType', fields.projectType);
     resetSelect('projectStatus', fields.projectStatus);
+    renderProjectContactQuickLinks();
 
     console.debug(`[applyProjectModeUi] context=${context} mode=${projectViewMode} saved=${isSavedProject} refs(save=${Boolean(headerSaveBtn)} pen=${Boolean(headerPenBtn)} eye=${Boolean(headerEyeBtn)}) counts(save=${document.querySelectorAll('#project-save-btn-header').length} pen=${document.querySelectorAll('#project-switch-edit-btn-header').length} eye=${document.querySelectorAll('#project-switch-view-btn-header').length}) saveHidden=${headerSaveBtn?.hidden} saveDisplay=${headerSaveBtn?.style.display} penHidden=${headerPenBtn?.hidden} penDisplay=${headerPenBtn?.style.display} eyeHidden=${headerEyeBtn?.hidden} eyeDisplay=${headerEyeBtn?.style.display} nameDisabled=${fields.projectName.disabled} clientDisabled=${fields.clientBusinessPartnerId.disabled}`);
     updateProjectWorkspaceUi(`applyProjectModeUi:${context}`);
@@ -3237,28 +3238,38 @@ if (!isBrowserRuntime) {
     if (!partner || !selectedIdsSet.size) return [];
     return (partner.contacts || []).filter((contact) => selectedIdsSet.has(Number(contact.id)));
   };
-  const projectContactInlineHost = (selectEl, key) => {
-    const container = selectEl?.closest('.input-field');
-    if (!container) return null;
-    let host = container.querySelector(`[data-project-contact-links="${key}"]`);
-    if (!host) {
-      host = document.createElement('div');
-      host.className = 'project-contact-inline-links';
-      host.dataset.projectContactLinks = key;
-      container.appendChild(host);
-    }
+  const projectContactSelectDisplayHost = (selectEl, key) => {
+    const wrapper = selectEl?.closest('.select-wrapper');
+    if (!wrapper) return null;
+
+    let host = wrapper.querySelector(`[data-project-contact-select-display="${key}"]`);
+    if (host) return host;
+
+    const dropdownInput = wrapper.querySelector('input.select-dropdown');
+    if (!dropdownInput) return null;
+
+    host = document.createElement('div');
+    host.className = 'select-dropdown project-contact-select-display';
+    host.dataset.projectContactSelectDisplay = key;
+    dropdownInput.replaceWith(host);
     return host;
   };
   const renderProjectContactLinks = ({ selectEl, contacts = [], key = 'contacts' } = {}) => {
-    const host = projectContactInlineHost(selectEl, key);
+    if (projectViewMode !== 'view') return;
+    const host = projectContactSelectDisplayHost(selectEl, key);
     if (!host) return;
     if (!contacts.length) {
-      host.hidden = true;
       host.replaceChildren();
       return;
     }
     const fragment = document.createDocumentFragment();
-    contacts.forEach((contact) => {
+    contacts.forEach((contact, index) => {
+      if (index > 0) {
+        const separator = document.createElement('span');
+        separator.className = 'project-contact-separator';
+        separator.textContent = ', ';
+        fragment.appendChild(separator);
+      }
       const button = document.createElement('button');
       button.type = 'button';
       button.className = 'btn-flat project-contact-link';
@@ -3267,7 +3278,6 @@ if (!isBrowserRuntime) {
       button.textContent = contactDisplayName(contact);
       fragment.appendChild(button);
     });
-    host.hidden = false;
     host.replaceChildren(fragment);
   };
   const renderProjectContactQuickLinks = () => {
