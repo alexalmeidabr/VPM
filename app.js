@@ -424,6 +424,8 @@ if (!isBrowserRuntime) {
     allocationAssignmentAllocationRow: document.getElementById('allocation-assignment-allocation-row'),
     allocationAssignmentAllocation: document.getElementById('allocation-assignment-allocation'),
     allocationAssignmentRoleSelect: document.getElementById('allocation-assignment-role-select'),
+    allocationAssignmentAllocationInputRow: document.getElementById('allocation-assignment-allocation-input-row'),
+    allocationAssignmentAllocationInput: document.getElementById('allocation-assignment-allocation-input'),
     allocationAssignmentCancelBtn: document.getElementById('allocation-assignment-cancel-btn'),
     allocationAssignmentConfirmBtn: document.getElementById('allocation-assignment-confirm-btn')
   });
@@ -4154,6 +4156,8 @@ if (!isBrowserRuntime) {
     if (ui.allocationAssignmentAreaName) ui.allocationAssignmentAreaName.textContent = '—';
     if (ui.allocationAssignmentAllocationRow) ui.allocationAssignmentAllocationRow.hidden = false;
     if (ui.allocationAssignmentAllocation) ui.allocationAssignmentAllocation.textContent = '—';
+    if (ui.allocationAssignmentAllocationInputRow) ui.allocationAssignmentAllocationInputRow.hidden = true;
+    if (ui.allocationAssignmentAllocationInput) ui.allocationAssignmentAllocationInput.value = '100';
   };
   const openAllocationVacancyAssignmentModal = ({ project, consultantId, vacancy, assignmentDetail }) => {
     if (!project) return;
@@ -4174,9 +4178,11 @@ if (!isBrowserRuntime) {
     if (ui.allocationAssignmentAreaRow) ui.allocationAssignmentAreaRow.hidden = !vacancy;
     if (ui.allocationAssignmentAreaName) ui.allocationAssignmentAreaName.textContent = vacancy?.sapArea || '—';
     if (ui.allocationAssignmentAllocationRow) ui.allocationAssignmentAllocationRow.hidden = !vacancy;
+    if (ui.allocationAssignmentAllocationInputRow) ui.allocationAssignmentAllocationInputRow.hidden = Boolean(vacancy);
     if (ui.allocationAssignmentAllocation) {
       const allocationValue = Number(vacancy?.allocation ?? pendingAllocationVacancyAssignment.assignmentDetail.allocation ?? 100);
       ui.allocationAssignmentAllocation.textContent = `${allocationValue}%`;
+      if (ui.allocationAssignmentAllocationInput) ui.allocationAssignmentAllocationInput.value = String(allocationValue || 100);
     }
     if (ui.allocationAssignmentRoleSelect) {
       const preferredRole = String(pendingAllocationVacancyAssignment.assignmentDetail.projectRole || '').trim();
@@ -4191,7 +4197,7 @@ if (!isBrowserRuntime) {
     updateTextFields();
     modals.allocationVacancyAssignment?.open();
   };
-  const confirmAllocationVacancyAssignment = (selectedRole) => {
+  const confirmAllocationVacancyAssignment = (selectedRole, selectedAllocation = null) => {
     if (!allocationState || !pendingAllocationVacancyAssignment) return false;
     const context = pendingAllocationVacancyAssignment;
     const targetProject = allocationState.projects.find((item) => String(item.id) === String(context.projectId));
@@ -4209,7 +4215,7 @@ if (!isBrowserRuntime) {
     targetProject.consultantIds = [...new Set([...(targetProject.consultantIds || []), Number(context.consultantId)])];
     const assignmentDetail = normalizeAllocationAssignmentDetail(context.assignmentDetail || { consultantId: context.consultantId }, context.consultantId);
     assignmentDetail.projectRole = String(selectedRole || '').trim() || 'Project Position';
-    assignmentDetail.allocation = Number(vacancy?.allocation ?? assignmentDetail.allocation ?? 100);
+    assignmentDetail.allocation = Number(vacancy?.allocation ?? selectedAllocation ?? assignmentDetail.allocation ?? 100);
     upsertAllocationAssignmentDetail(targetProject, assignmentDetail);
     if (vacancy) targetProject.vacancies = (targetProject.vacancies || []).filter((item) => String(item.id) !== String(context.vacancyId));
     return true;
@@ -6260,9 +6266,27 @@ if (!isBrowserRuntime) {
       toast('Please select a Project Position', 'red darken-1');
       return;
     }
-    const assigned = confirmAllocationVacancyAssignment(selectedRole);
+    let selectedAllocation = null;
+    if (pendingAllocationVacancyAssignment && !pendingAllocationVacancyAssignment.vacancyId) {
+      const allocationRaw = String(ui.allocationAssignmentAllocationInput?.value || '').trim();
+      const allocationValue = Number(allocationRaw);
+      if (!allocationRaw || !Number.isFinite(allocationValue)) {
+        toast('Please enter a numeric allocation percentage', 'red darken-1');
+        return;
+      }
+      if (allocationValue <= 0) {
+        toast('Allocation must be greater than 0%', 'red darken-1');
+        return;
+      }
+      if (allocationValue > 100) {
+        toast('Allocation cannot exceed 100%', 'red darken-1');
+        return;
+      }
+      selectedAllocation = allocationValue;
+    }
+    const assigned = confirmAllocationVacancyAssignment(selectedRole, selectedAllocation);
     if (!assigned) {
-      toast('Unable to assign consultant to vacancy. Please refresh and try again.', 'red darken-1');
+      toast('Unable to assign consultant. Please refresh and try again.', 'red darken-1');
       return;
     }
     modals.allocationVacancyAssignment?.close();
