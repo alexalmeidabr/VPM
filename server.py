@@ -773,7 +773,7 @@ class VPMHandler(SimpleHTTPRequestHandler):
       if not value:
         return '—'
       try:
-        return datetime.strptime(value, '%Y-%m-%d').strftime('%d/%m/%Y')
+        return datetime.strptime(value, '%Y-%m-%d').strftime('%d.%m.%Y')
       except ValueError:
         return value
 

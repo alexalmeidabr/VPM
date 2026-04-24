@@ -1728,16 +1728,21 @@ if (!isBrowserRuntime) {
     const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso);
     if (match) {
       const [, year, month, day] = match;
-      return `${day}/${month}/${year}`;
+      return `${day}.${month}.${year}`;
     }
     const dateMatch = raw.match(/^(\d{4})-(\d{2})-(\d{2})/);
-    if (dateMatch) return `${dateMatch[3]}/${dateMatch[2]}/${dateMatch[1]}`;
+    if (dateMatch) return `${dateMatch[3]}.${dateMatch[2]}.${dateMatch[1]}`;
     return raw;
   };
   const normalizeIsoDateInput = (value) => {
     const raw = String(value || '').trim();
     if (!raw) return '';
     if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) return raw;
+    const dotMatch = raw.match(/^(\d{2})\.(\d{2})\.(\d{4})$/);
+    if (dotMatch) {
+      const [, day, month, year] = dotMatch;
+      return `${year}-${month}-${day}`;
+    }
     const slashMatch = raw.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
     if (slashMatch) {
       const [, day, month, year] = slashMatch;
@@ -1756,7 +1761,7 @@ if (!isBrowserRuntime) {
   const initializeDateInputsToDisplayFormat = () => {
     document.querySelectorAll('input[type="date"]').forEach((input) => {
       input.type = 'text';
-      input.placeholder = 'DD/MM/YYYY';
+      input.placeholder = 'DD.MM.YYYY';
       input.inputMode = 'numeric';
       if (input.value) setDateInputValue(input, input.value);
       input.addEventListener('blur', () => {
@@ -2215,7 +2220,7 @@ if (!isBrowserRuntime) {
     table.className = 'striped responsive-table timesheet-entry-table';
     const thead = document.createElement('thead');
     const headRow = document.createElement('tr');
-    headRow.innerHTML = '<th>Project / Activity</th>' + currentWeek.map((d) => `<th>${d.toLocaleDateString(undefined, { weekday: 'short' })}<br/>${d.getDate()}</th>`).join('') + '<th>Total</th>';
+    headRow.innerHTML = '<th>Project / Activity</th>' + currentWeek.map((d) => `<th>${d.toLocaleDateString(undefined, { weekday: 'short' })}<br/>${formatDate(d)}</th>`).join('') + '<th>Total</th>';
     thead.appendChild(headRow);
     table.appendChild(thead);
 
@@ -2916,7 +2921,7 @@ if (!isBrowserRuntime) {
       }
       ui.weekTooltip.hidden = false;
       const status = weekCell.dataset.status ? ` • ${weekCell.dataset.status}` : '';
-      ui.weekTooltip.textContent = `Week Monday: ${weekCell.dataset.monday}${status}`;
+      ui.weekTooltip.textContent = `Week Monday: ${formatDate(weekCell.dataset.monday)}${status}`;
       ui.weekTooltip.style.left = `${event.clientX + 12}px`;
       ui.weekTooltip.style.top = `${event.clientY + 12}px`;
     });
@@ -2977,7 +2982,7 @@ if (!isBrowserRuntime) {
 
       const date = document.createElement('div');
       date.className = 'week-day-date';
-      date.textContent = dayIso;
+      date.textContent = formatDate(dayIso);
 
       const status = document.createElement('div');
       status.className = 'week-day-status';
@@ -3031,7 +3036,7 @@ if (!isBrowserRuntime) {
 
       const date = document.createElement('div');
       date.className = 'week-day-date';
-      date.textContent = dayIso;
+      date.textContent = formatDate(dayIso);
 
       const status = document.createElement('div');
       status.className = 'week-day-status';
@@ -3094,7 +3099,7 @@ if (!isBrowserRuntime) {
 
       const date = document.createElement('div');
       date.className = 'week-day-date';
-      date.textContent = dayIso;
+      date.textContent = formatDate(dayIso);
 
       const status = document.createElement('div');
       status.className = 'week-day-status';
