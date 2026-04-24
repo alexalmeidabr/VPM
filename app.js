@@ -344,7 +344,8 @@ if (!isBrowserRuntime) {
     timesheetSaveCompletedBtn: document.getElementById('timesheet-save-completed-btn'),
     timesheetReopenBtn: document.getElementById('timesheet-reopen-btn'),
     timesheetTableWrap: document.getElementById('timesheet-table-wrap'),
-
+    projectClientContactsLinks: document.getElementById('project-client-contacts-links'),
+    projectDeliveryContactsLinks: document.getElementById('project-delivery-contacts-links'),
     weekTooltip: document.getElementById('week-tooltip')
   };
 
@@ -446,6 +447,7 @@ if (!isBrowserRuntime) {
   let editingBusinessPartnerContacts = [];
   let editingCommunicationContactIndex = -1;
   let editingCommunicationDraft = { emails: [], phoneNumbers: [] };
+  let communicationModalReadOnly = false;
   let businessPartnerAddressExpanded = false;
   let businessPartnerContactsExpanded = false;
   let businessPartnerProjectsExpanded = false;
@@ -3225,6 +3227,54 @@ if (!isBrowserRuntime) {
     ui.assignedConsultantsSummary.textContent = `${assignedCount} position${assignedCount === 1 ? '' : 's'} assigned`;
   };
 
+  const contactDisplayName = (contact) => {
+    const full = `${contact?.name || ''} ${contact?.lastName || ''}`.trim();
+    return full || contact?.email || 'Contact';
+  };
+  const selectedProjectPartnerContacts = ({ businessPartnerId, selectedContactIds = [] }) => {
+    const partner = findBusinessPartnerById(businessPartnerId);
+    const selectedIdsSet = new Set((selectedContactIds || []).map(Number));
+    if (!partner || !selectedIdsSet.size) return [];
+    return (partner.contacts || []).filter((contact) => selectedIdsSet.has(Number(contact.id)));
+  };
+  const renderProjectContactLinks = ({ target, contacts = [], kindLabel = 'Contacts' } = {}) => {
+    if (!target) return;
+    if (!contacts.length) {
+      target.hidden = true;
+      target.innerHTML = '';
+      return;
+    }
+    target.hidden = false;
+    target.innerHTML = `<span class="project-contact-links-label">${kindLabel}:</span> ${contacts
+      .map((contact) => `<button type="button" class="btn-flat project-contact-link" data-action="open-project-contact-communication" data-contact-id="${contact.id}">${contactDisplayName(contact)}</button>`)
+      .join('')}`;
+  };
+  const renderProjectContactQuickLinks = () => {
+    const clientContacts = selectedProjectPartnerContacts({
+      businessPartnerId: fields.clientBusinessPartnerId.value,
+      selectedContactIds: selectedIds(fields.clientContactIds)
+    });
+    const deliveryContacts = selectedProjectPartnerContacts({
+      businessPartnerId: fields.deliveryPartnerBusinessPartnerId.value,
+      selectedContactIds: selectedIds(fields.deliveryPartnerContactIds)
+    });
+    renderProjectContactLinks({ target: ui.projectClientContactsLinks, contacts: clientContacts, kindLabel: 'Client Contacts' });
+    renderProjectContactLinks({ target: ui.projectDeliveryContactsLinks, contacts: deliveryContacts, kindLabel: 'Delivery Contacts' });
+  };
+  const findProjectContactById = (contactId) => {
+    const id = Number(contactId);
+    if (!id) return null;
+    const clientContacts = selectedProjectPartnerContacts({
+      businessPartnerId: fields.clientBusinessPartnerId.value,
+      selectedContactIds: selectedIds(fields.clientContactIds)
+    });
+    const deliveryContacts = selectedProjectPartnerContacts({
+      businessPartnerId: fields.deliveryPartnerBusinessPartnerId.value,
+      selectedContactIds: selectedIds(fields.deliveryPartnerContactIds)
+    });
+    return [...clientContacts, ...deliveryContacts].find((contact) => Number(contact.id) === id) || null;
+  };
+
   const rebuildProjectSelects = ({ managerId = '', projectType = '', clientBusinessPartnerId = '', clientContactIds = [], deliveryPartnerBusinessPartnerId = '', deliveryPartnerContactIds = [], contractWithBranchId = '' } = {}) => {
     fields.managerId.innerHTML = '<option value="" disabled selected>Select a manager</option>';
     managerCandidates().forEach((consultant) => fields.managerId.add(new Option(consultant.name, consultant.id, false, Number(managerId) === Number(consultant.id))));
@@ -3270,6 +3320,7 @@ if (!isBrowserRuntime) {
     resetSelect('deliveryPartnerContacts', fields.deliveryPartnerContactIds);
     resetSelect('contractWithBranch', fields.contractWithBranchId);
     resetSelect('projectType', fields.projectType);
+    renderProjectContactQuickLinks();
   };
 
   const rebuildConsultantSelects = ({ areaIds = [], companyRoleId = '', companyBranchId = '', holidayLocationId = '' } = {}) => {
@@ -3825,7 +3876,7 @@ if (!isBrowserRuntime) {
 
   const renderCommunicationModalRows = () => {
     if (!ui.communicationEmailsList || !ui.communicationPhonesList) return;
-    const readOnly = businessPartnerViewMode === 'view';
+    const readOnly = communicationModalReadOnly || businessPartnerViewMode === 'view';
     const emails = editingCommunicationDraft.emails.length ? editingCommunicationDraft.emails : [''];
     const phones = editingCommunicationDraft.phoneNumbers.length ? editingCommunicationDraft.phoneNumbers : [''];
     ui.communicationEmailsList.innerHTML = emails.map((email, index) => `
@@ -3849,6 +3900,7 @@ if (!isBrowserRuntime) {
   const openCommunicationModalForContact = (contactIndex) => {
     const contact = editingBusinessPartnerContacts[contactIndex];
     if (!contact) return;
+    communicationModalReadOnly = businessPartnerViewMode === 'view';
     editingCommunicationContactIndex = contactIndex;
     editingCommunicationDraft = {
       emails: [...(contact.emails || (contact.email ? [contact.email] : []))],
@@ -3858,6 +3910,18 @@ if (!isBrowserRuntime) {
       const label = `${contact.name || ''} ${contact.lastName || ''}`.trim();
       ui.communicationModalContactName.textContent = label || 'Contact';
     }
+    renderCommunicationModalRows();
+    modals.businessPartnerCommunication?.open();
+  };
+  const openCommunicationModalForContactRecord = (contact, { readOnly = true } = {}) => {
+    if (!contact) return;
+    communicationModalReadOnly = Boolean(readOnly);
+    editingCommunicationContactIndex = -1;
+    editingCommunicationDraft = {
+      emails: [...(contact.emails || (contact.email ? [contact.email] : []))],
+      phoneNumbers: [...(contact.phoneNumbers || [])]
+    };
+    if (ui.communicationModalContactName) ui.communicationModalContactName.textContent = contactDisplayName(contact);
     renderCommunicationModalRows();
     modals.businessPartnerCommunication?.open();
   };
@@ -4621,6 +4685,16 @@ if (!isBrowserRuntime) {
     activeProjectWorkspaceTab = tabButton.dataset.workspaceTab || 'overview';
     updateProjectWorkspaceUi('workspaceTabClick');
   });
+  ui.projectForm?.addEventListener('click', (event) => {
+    const button = event.target.closest('button[data-action="open-project-contact-communication"]');
+    if (!button) return;
+    const contact = findProjectContactById(button.dataset.contactId);
+    if (!contact) {
+      toast('Contact details are not available for this project.', 'orange darken-2');
+      return;
+    }
+    openCommunicationModalForContactRecord(contact, { readOnly: true });
+  });
   ui.projectUploadFileBtn?.addEventListener('click', () => {
     if (!fields.projectId.value) {
       toast('Save the project before uploading files', 'orange darken-2');
@@ -4686,6 +4760,8 @@ if (!isBrowserRuntime) {
       contractWithBranchId: fields.contractWithBranchId.value
     });
   });
+  fields.clientContactIds.addEventListener('change', renderProjectContactQuickLinks);
+  fields.deliveryPartnerContactIds.addEventListener('change', renderProjectContactQuickLinks);
   fields.projectName.addEventListener('input', () => { updateProjectTimelineExpandUi(); updateProjectSummaryHeader(); });
   fields.projectStatus?.addEventListener('change', updateProjectStatusUi);
   ui.toggleProjectTimelineExpandBtn?.addEventListener('click', () => {
@@ -5810,7 +5886,7 @@ if (!isBrowserRuntime) {
   });
 
   ui.saveCommunicationBtn?.addEventListener('click', () => {
-    if (businessPartnerViewMode === 'view') return;
+    if (communicationModalReadOnly || businessPartnerViewMode === 'view') return;
     const contact = editingBusinessPartnerContacts[editingCommunicationContactIndex];
     if (!contact) return;
     contact.emails = (editingCommunicationDraft.emails || []).map((item) => String(item || '').trim()).filter(Boolean);
