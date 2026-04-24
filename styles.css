@@ -664,14 +664,22 @@ body.project-timeline-expanded #project-timeline-chart { flex: 0 0 auto; max-hei
 .bp-communication-summary { margin-top: 0.8rem; }
 .bp-communication-summary .btn-flat { padding-left: 0; }
 .bp-comm-row { margin-bottom: 0; }
-.project-contact-select-display {
+.select-wrapper.project-contact-select-has-links { position: relative; }
+.select-wrapper.project-contact-select-has-links input.select-dropdown {
+  color: transparent !important;
+  caret-color: transparent;
+}
+.project-contact-select-overlay {
+  position: absolute;
+  left: 0.8rem;
+  right: 2rem;
+  top: 0;
+  bottom: 0;
   display: flex;
   align-items: center;
   flex-wrap: wrap;
   gap: 0;
-  padding-top: 0.55rem;
-  padding-bottom: 0.55rem;
-  min-height: 2.65rem;
+  pointer-events: auto;
 }
 .project-contact-link { padding: 0; min-height: 1rem; line-height: 1.1rem; text-transform: none; color: #1565c0; text-decoration: underline; cursor: pointer; }
 .project-contact-separator { color: #7a8996; }

@@ -3238,25 +3238,38 @@ if (!isBrowserRuntime) {
     if (!partner || !selectedIdsSet.size) return [];
     return (partner.contacts || []).filter((contact) => selectedIdsSet.has(Number(contact.id)));
   };
-  const projectContactSelectDisplayHost = (selectEl, key) => {
+  const projectContactSelectOverlayHost = (selectEl, key) => {
     const wrapper = selectEl?.closest('.select-wrapper');
     if (!wrapper) return null;
-
-    let host = wrapper.querySelector(`[data-project-contact-select-display="${key}"]`);
-    if (host) return host;
 
     const dropdownInput = wrapper.querySelector('input.select-dropdown');
     if (!dropdownInput) return null;
 
-    host = document.createElement('div');
-    host.className = 'select-dropdown project-contact-select-display';
-    host.dataset.projectContactSelectDisplay = key;
-    dropdownInput.replaceWith(host);
+    let host = wrapper.querySelector(`[data-project-contact-overlay="${key}"]`);
+    if (!host) {
+      host = document.createElement('div');
+      host.className = 'project-contact-select-overlay';
+      host.dataset.projectContactOverlay = key;
+      wrapper.appendChild(host);
+    }
+    wrapper.classList.add('project-contact-select-has-links');
     return host;
   };
+  const clearProjectContactSelectOverlay = (selectEl, key) => {
+    const wrapper = selectEl?.closest('.select-wrapper');
+    if (!wrapper) return;
+    const host = wrapper.querySelector(`[data-project-contact-overlay="${key}"]`);
+    if (host) host.remove();
+    if (!wrapper.querySelector('[data-project-contact-overlay]')) {
+      wrapper.classList.remove('project-contact-select-has-links');
+    }
+  };
   const renderProjectContactLinks = ({ selectEl, contacts = [], key = 'contacts' } = {}) => {
-    if (projectViewMode !== 'view') return;
-    const host = projectContactSelectDisplayHost(selectEl, key);
+    if (projectViewMode !== 'view') {
+      clearProjectContactSelectOverlay(selectEl, key);
+      return;
+    }
+    const host = projectContactSelectOverlayHost(selectEl, key);
     if (!host) return;
     if (!contacts.length) {
       host.replaceChildren();
