@@ -3228,6 +3228,7 @@ if (!isBrowserRuntime) {
   const contactDisplayName = (contact) => {
     const full = `${contact?.name || ''} ${contact?.lastName || ''}`.trim();
     if (full) return full;
+    if (contact?.email) return String(contact.email);
     return contact?.id ? `Contact ${contact.id}` : 'Contact';
   };
   const selectedProjectPartnerContacts = ({ businessPartnerId, selectedContactIds = [] }) => {
@@ -3253,13 +3254,21 @@ if (!isBrowserRuntime) {
     if (!host) return;
     if (!contacts.length) {
       host.hidden = true;
-      host.innerHTML = '';
+      host.replaceChildren();
       return;
     }
+    const fragment = document.createDocumentFragment();
+    contacts.forEach((contact) => {
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.className = 'btn-flat project-contact-link';
+      button.dataset.action = 'open-project-contact-communication';
+      button.dataset.contactId = String(contact.id);
+      button.textContent = contactDisplayName(contact);
+      fragment.appendChild(button);
+    });
     host.hidden = false;
-    host.innerHTML = contacts
-      .map((contact) => `<button type="button" class="btn-flat project-contact-link" data-action="open-project-contact-communication" data-contact-id="${contact.id}">${contactDisplayName(contact)}</button>`)
-      .join('');
+    host.replaceChildren(fragment);
   };
   const renderProjectContactQuickLinks = () => {
     const clientContacts = selectedProjectPartnerContacts({
