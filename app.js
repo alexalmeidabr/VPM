@@ -2160,7 +2160,7 @@ if (!isBrowserRuntime) {
       const weekStart = weekDays[0];
       const weekEnd = weekDays[6];
       const dayKeys = weekDays.map((day) => formatIsoDate(day));
-      const headers = weekDays.map((day, idx) => `<th>${dayNames[idx]}<br>${day.getDate()}</th>`).join('');
+      const headers = weekDays.map((day, idx) => `<th>${dayNames[idx]}<br>${formatDate(day)}</th>`).join('');
       const rows = lines.map((line) => {
         const cells = dayKeys.map((key) => `<td>${Number(line.entries?.[key] || 0) ? Number(line.entries?.[key] || 0).toFixed(1) : ''}</td>`).join('');
         return `<tr><td>${timesheetLineDescription(line)}</td>${cells}<td>${lineTotalForDates(line, dayKeys).toFixed(1)}</td></tr>`;
