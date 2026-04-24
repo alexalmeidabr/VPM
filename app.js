@@ -3252,7 +3252,6 @@ if (!isBrowserRuntime) {
       host.dataset.projectContactOverlay = key;
       wrapper.appendChild(host);
     }
-    wrapper.classList.add('project-contact-select-has-links');
     return host;
   };
   const clearProjectContactSelectOverlay = (selectEl, key) => {
@@ -3265,16 +3264,18 @@ if (!isBrowserRuntime) {
     }
   };
   const renderProjectContactLinks = ({ selectEl, contacts = [], key = 'contacts' } = {}) => {
+    const wrapper = selectEl?.closest('.select-wrapper');
     if (projectViewMode !== 'view') {
       clearProjectContactSelectOverlay(selectEl, key);
       return;
     }
-    const host = projectContactSelectOverlayHost(selectEl, key);
-    if (!host) return;
     if (!contacts.length) {
-      host.replaceChildren();
+      clearProjectContactSelectOverlay(selectEl, key);
       return;
     }
+    const host = projectContactSelectOverlayHost(selectEl, key);
+    if (!host || !wrapper) return;
+    wrapper.classList.add('project-contact-select-has-links');
     const fragment = document.createDocumentFragment();
     contacts.forEach((contact, index) => {
       if (index > 0) {

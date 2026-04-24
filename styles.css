@@ -668,6 +668,8 @@ body.project-timeline-expanded #project-timeline-chart { flex: 0 0 auto; max-hei
 .select-wrapper.project-contact-select-has-links input.select-dropdown {
   color: transparent !important;
   caret-color: transparent;
+  position: relative;
+  z-index: 1;
 }
 .project-contact-select-overlay {
   position: absolute;
@@ -680,6 +682,7 @@ body.project-timeline-expanded #project-timeline-chart { flex: 0 0 auto; max-hei
   flex-wrap: wrap;
   gap: 0;
   pointer-events: auto;
+  z-index: 2;
 }
 .project-contact-link { padding: 0; min-height: 1rem; line-height: 1.1rem; text-transform: none; color: #1565c0; text-decoration: underline; cursor: pointer; }
 .project-contact-separator { color: #7a8996; }
