@@ -4033,15 +4033,35 @@ if (!isBrowserRuntime) {
   };
   const normalizeAllocationAssignmentDetail = (detail = {}, consultantId = null) => ({
     consultantId: Number(detail.consultantId ?? consultantId ?? 0),
+    consultantName: String(detail.consultantName || '').trim(),
     projectRole: String(detail.projectRole || 'Project Position').trim() || 'Project Position',
     allocation: Number.isFinite(Number(detail.allocation)) ? Number(detail.allocation) : 100
   });
+  const allocationSourceAssignmentsForProject = (project) => {
+    const sourceProject = projects.find((item) => Number(item.id) === Number(project?.sourceProjectId || 0));
+    if (!sourceProject) return [];
+    const positions = Array.isArray(sourceProject.projectPositions) ? sourceProject.projectPositions.filter((item) => item && item.consultantId) : [];
+    if (positions.length) {
+      return positions.map((item) => normalizeAllocationAssignmentDetail({
+        consultantId: item.consultantId,
+        consultantName: item.consultantName,
+        projectRole: item.projectRole,
+        allocation: item.allocation
+      }, item.consultantId));
+    }
+    return (sourceProject.consultantAssignments || []).map((item) => normalizeAllocationAssignmentDetail(item, item.consultantId));
+  };
   const ensureProjectAllocationAssignmentDetails = (project) => {
     project.consultantIds = Array.isArray(project.consultantIds) ? project.consultantIds.map((id) => Number(id)).filter((id) => id > 0) : [];
     project.assignmentDetails = Array.isArray(project.assignmentDetails) ? project.assignmentDetails : [];
-    const normalized = project.assignmentDetails
+    const normalizedStored = project.assignmentDetails
       .map((detail) => normalizeAllocationAssignmentDetail(detail))
       .filter((detail) => detail.consultantId > 0);
+    const normalizedSource = allocationSourceAssignmentsForProject(project);
+    const normalized = [...normalizedStored, ...normalizedSource].reduce((acc, item) => {
+      if (!acc.some((existing) => Number(existing.consultantId) === Number(item.consultantId))) acc.push(item);
+      return acc;
+    }, []);
     project.assignmentDetails = project.consultantIds.map((consultantId) => normalized.find((detail) => Number(detail.consultantId) === Number(consultantId))
       || normalizeAllocationAssignmentDetail({ consultantId }, consultantId));
   };
@@ -4101,10 +4121,11 @@ if (!isBrowserRuntime) {
         const assignmentDetail = allocationAssignmentDetailByConsultant(project, consultantId);
         const projectRoleLabel = String(assignmentDetail.projectRole || 'Project Position').trim() || 'Project Position';
         const allocationLabel = `${Math.round(Number(assignmentDetail.allocation ?? 100))}%`;
+        const consultantNameLabel = consultant?.name || assignmentDetail.consultantName || 'Consultant';
         const c = document.createElement('div');
         c.className = 'allocation-consultant-item';
         c.draggable = true;
-        c.innerHTML = `<div class="allocation-consultant-name">${consultant.name || 'Consultant'}</div><div class="allocation-consultant-meta">${projectRoleLabel} — ${allocationLabel}</div>`;
+        c.innerHTML = `<div class="allocation-consultant-name">${consultantNameLabel}</div><div class="allocation-consultant-meta">${projectRoleLabel} · ${allocationLabel}</div>`;
         c.addEventListener('dragstart', (event) => {
           event.dataTransfer.setData('application/json', JSON.stringify({
             type: 'consultant',
@@ -6037,8 +6058,8 @@ if (!isBrowserRuntime) {
         name: project.projectName,
         x: 20 + (index % 4) * 320,
         y: 20 + Math.floor(index / 4) * 240,
-        consultantIds: (project.consultantAssignments || []).map((item) => Number(item.consultantId)),
-        assignmentDetails: (project.consultantAssignments || []).map((item) => normalizeAllocationAssignmentDetail(item, item.consultantId)),
+        consultantIds: allocationSourceAssignmentsForProject({ sourceProjectId: project.id }).map((item) => Number(item.consultantId)),
+        assignmentDetails: allocationSourceAssignmentsForProject({ sourceProjectId: project.id }),
         vacancies: []
       });
     });
