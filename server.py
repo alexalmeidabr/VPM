@@ -4,7 +4,6 @@ import html
 import io
 import mimetypes
 import re
-import sqlite3
 import shutil
 import tempfile
 import threading
@@ -18,13 +17,15 @@ from urllib.error import URLError
 from urllib.parse import parse_qs, quote, urlparse
 from urllib.request import urlopen
 
+import db
+
 try:
   import holidays as pyholidays
 except ImportError:
   pyholidays = None
 
 BASE_DIR = Path(__file__).resolve().parent
-DB_PATH = BASE_DIR / 'projects.db'
+DB_PATH = db.DATABASE_PATH
 PROJECT_FILES_DIR = BASE_DIR / 'project-files'
 COMPANY_LOGO_DIR = BASE_DIR / 'company-logo'
 BACKUPS_DIR = BASE_DIR / 'backups'
@@ -40,12 +41,7 @@ DEFAULT_PROJECT_TYPES = ['Time Material', 'Fixed Price', 'Milestone Billing', 'N
 DEFAULT_COMPANY_BRANCHES = ['Poland', 'Germany']
 ALLOWED_PROJECT_STATUSES = {'Not Started', 'In Progress', 'Delayed', 'Completed'}
 
-
-def get_connection():
-  conn = sqlite3.connect(DB_PATH)
-  conn.row_factory = sqlite3.Row
-  conn.execute('PRAGMA foreign_keys = ON')
-  return conn
+get_connection = db.get_connection
 
 
 def ensure_column(conn, table, column, ddl):
@@ -571,7 +567,7 @@ class VPMHandler(SimpleHTTPRequestHandler):
     if not db_path or not Path(db_path).exists():
       raise ValueError('Backup does not contain a readable projects.db file')
     try:
-      with sqlite3.connect(db_path) as test_conn:
+      with db.get_connection(db_path) as test_conn:
         integrity_row = test_conn.execute('PRAGMA integrity_check').fetchone()
         integrity_status = str(integrity_row[0] if integrity_row else '').strip().lower()
         if integrity_status != 'ok':
@@ -579,7 +575,7 @@ class VPMHandler(SimpleHTTPRequestHandler):
         table_rows = test_conn.execute(
           "SELECT name FROM sqlite_master WHERE type = 'table'"
         ).fetchall()
-    except sqlite3.Error as error:
+    except db.Error as error:
       raise ValueError('Backup projects.db is not a valid SQLite database') from error
     existing_tables = {str(row[0]) for row in table_rows}
     missing = sorted(self._backup_required_tables() - existing_tables)
@@ -592,10 +588,10 @@ class VPMHandler(SimpleHTTPRequestHandler):
     source_conn = None
     snapshot_conn = None
     try:
-      source_conn = sqlite3.connect(source_uri, uri=True)
-      snapshot_conn = sqlite3.connect(output_path)
+      source_conn = db.get_connection(source_uri, uri=True)
+      snapshot_conn = db.get_connection(output_path)
       source_conn.backup(snapshot_conn)
-    except sqlite3.Error as error:
+    except db.Error as error:
       raise ValueError(f'Unable to create SQLite snapshot for backup: {error}') from error
     finally:
       if snapshot_conn is not None:
@@ -606,9 +602,9 @@ class VPMHandler(SimpleHTTPRequestHandler):
   def _build_backup_manifest(self, includes_company_logo=False):
     schema_version = None
     try:
-      with sqlite3.connect(DB_PATH) as conn:
+      with db.get_connection(DB_PATH) as conn:
         schema_version = conn.execute('PRAGMA user_version').fetchone()[0]
-    except sqlite3.Error:
+    except db.Error:
       schema_version = None
     return {
       'app_name': 'Inhouse PSA',
@@ -670,10 +666,10 @@ class VPMHandler(SimpleHTTPRequestHandler):
     source_conn = None
     safety_conn = None
     try:
-      source_conn = sqlite3.connect(source_uri, uri=True)
-      safety_conn = sqlite3.connect(safety_path)
+      source_conn = db.get_connection(source_uri, uri=True)
+      safety_conn = db.get_connection(safety_path)
       source_conn.backup(safety_conn)
-    except sqlite3.Error as error:
+    except db.Error as error:
       raise ValueError(f'Unable to create safety backup snapshot: {error}') from error
     finally:
       if safety_conn is not None:
@@ -687,10 +683,10 @@ class VPMHandler(SimpleHTTPRequestHandler):
     target_conn = None
     source_uri = f'file:{Path(imported_db_path).as_posix()}?mode=ro'
     try:
-      source_conn = sqlite3.connect(source_uri, uri=True)
-      target_conn = sqlite3.connect(DB_PATH)
+      source_conn = db.get_connection(source_uri, uri=True)
+      target_conn = db.get_connection(DB_PATH)
       source_conn.backup(target_conn)
-    except sqlite3.Error as error:
+    except db.Error as error:
       raise ValueError(f'Unable to restore live database from backup snapshot: {error}') from error
     finally:
       if target_conn is not None:
@@ -3588,7 +3584,7 @@ class VPMHandler(SimpleHTTPRequestHandler):
       with get_connection() as conn:
         try:
           cursor = conn.execute('INSERT INTO roles (name) VALUES (?)', (payload['name'],))
-        except sqlite3.IntegrityError:
+        except db.IntegrityError:
           self._send_json({'error': 'Role already exists'}, HTTPStatus.BAD_REQUEST)
           return
       self._send_json({'id': cursor.lastrowid}, HTTPStatus.CREATED)
@@ -3602,7 +3598,7 @@ class VPMHandler(SimpleHTTPRequestHandler):
       with get_connection() as conn:
         try:
           cursor = conn.execute('INSERT INTO areas (name) VALUES (?)', (payload['name'],))
-        except sqlite3.IntegrityError:
+        except db.IntegrityError:
           self._send_json({'error': 'Area already exists'}, HTTPStatus.BAD_REQUEST)
           return
       self._send_json({'id': cursor.lastrowid}, HTTPStatus.CREATED)
@@ -3616,7 +3612,7 @@ class VPMHandler(SimpleHTTPRequestHandler):
       with get_connection() as conn:
         try:
           cursor = conn.execute('INSERT INTO day_off_types (name) VALUES (?)', (payload['name'],))
-        except sqlite3.IntegrityError:
+        except db.IntegrityError:
           self._send_json({'error': 'Day off type already exists'}, HTTPStatus.BAD_REQUEST)
           return
       self._send_json({'id': cursor.lastrowid}, HTTPStatus.CREATED)
@@ -3630,7 +3626,7 @@ class VPMHandler(SimpleHTTPRequestHandler):
       with get_connection() as conn:
         try:
           cursor = conn.execute('INSERT INTO business_partner_types (name) VALUES (?)', (payload['name'],))
-        except sqlite3.IntegrityError:
+        except db.IntegrityError:
           self._send_json({'error': 'Business partner type already exists'}, HTTPStatus.BAD_REQUEST)
           return
       self._send_json({'id': cursor.lastrowid}, HTTPStatus.CREATED)
@@ -3644,7 +3640,7 @@ class VPMHandler(SimpleHTTPRequestHandler):
       with get_connection() as conn:
         try:
           cursor = conn.execute('INSERT INTO project_types (name) VALUES (?)', (payload['name'],))
-        except sqlite3.IntegrityError:
+        except db.IntegrityError:
           self._send_json({'error': 'Project type already exists'}, HTTPStatus.BAD_REQUEST)
           return
       self._send_json({'id': cursor.lastrowid}, HTTPStatus.CREATED)
@@ -3673,7 +3669,7 @@ class VPMHandler(SimpleHTTPRequestHandler):
               str(payload.get('country', '')).strip()
             )
           )
-        except sqlite3.IntegrityError:
+        except db.IntegrityError:
           self._send_json({'error': 'Company branch already exists'}, HTTPStatus.BAD_REQUEST)
           return
       self._send_json({'id': cursor.lastrowid}, HTTPStatus.CREATED)
@@ -3740,7 +3736,7 @@ class VPMHandler(SimpleHTTPRequestHandler):
             'INSERT INTO holiday_locations (label, country_code, region_code) VALUES (?, ?, ?)',
             (payload['label'], payload['countryCode'], payload['regionCode'])
           )
-        except sqlite3.IntegrityError:
+        except db.IntegrityError:
           self._send_json({'error': 'Holiday location already exists for this country/region'}, HTTPStatus.BAD_REQUEST)
           return
       self._send_json({'id': cursor.lastrowid}, HTTPStatus.CREATED)
@@ -4179,7 +4175,7 @@ class VPMHandler(SimpleHTTPRequestHandler):
               company_branch_id
             )
           )
-        except sqlite3.IntegrityError:
+        except db.IntegrityError:
           self._send_json({'error': 'Company branch already exists'}, HTTPStatus.BAD_REQUEST)
           return
       if cursor.rowcount == 0:
@@ -4256,7 +4252,7 @@ class VPMHandler(SimpleHTTPRequestHandler):
             'UPDATE holiday_locations SET label = ?, country_code = ?, region_code = ? WHERE id = ?',
             (payload['label'], payload['countryCode'], payload['regionCode'], holiday_location_id)
           )
-        except sqlite3.IntegrityError:
+        except db.IntegrityError:
           self._send_json({'error': 'Holiday location already exists for this country/region'}, HTTPStatus.BAD_REQUEST)
           return
       if cursor.rowcount == 0:

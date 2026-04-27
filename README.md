@@ -39,6 +39,15 @@ python3 server.py
 
 Then open `http://localhost:8000`.
 
+## Database configuration
+
+- Backend database access is centralized in `db.py`.
+- Current supported backend is SQLite only.
+- By default, SQLite uses `projects.db` in the project root.
+- Set `DATABASE_PATH` to point to a different SQLite file if needed.
+- `DATABASE_TYPE` defaults to `sqlite`; any other value currently raises an unsupported database type error.
+- Future Azure SQL support should be implemented behind the same `db.py` interface without changing API routes/contracts.
+
 ## API endpoints
 
 - `GET/POST /api/projects`
