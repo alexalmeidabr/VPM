@@ -18,7 +18,7 @@ from urllib.parse import parse_qs, quote, urlparse
 from urllib.request import urlopen
 
 import db
-from repositories import consultants_repository, projects_repository
+from repositories import budgets_repository, business_partners_repository, consultants_repository, invoices_repository, projects_repository, timesheets_repository
 
 try:
   import holidays as pyholidays
@@ -1451,54 +1451,7 @@ class VPMHandler(SimpleHTTPRequestHandler):
     ]
 
   def _fetch_business_partners(self, conn):
-    partners = conn.execute(
-      '''
-      SELECT id, company_name, tax_identification, address_street, address_number, postal_code, city, region, country, business_partner_type_id
-      FROM business_partners
-      ORDER BY company_name
-      '''
-    ).fetchall()
-    result = []
-    for partner in partners:
-      contacts = conn.execute(
-        'SELECT id, name, last_name, email FROM business_partner_contacts WHERE business_partner_id = ? ORDER BY id',
-        (partner['id'],)
-      ).fetchall()
-      contact_payload = []
-      for contact in contacts:
-        emails = conn.execute(
-          'SELECT email FROM business_partner_contact_emails WHERE contact_id = ? ORDER BY id',
-          (contact['id'],)
-        ).fetchall()
-        phones = conn.execute(
-          'SELECT phone_number FROM business_partner_contact_phones WHERE contact_id = ? ORDER BY id',
-          (contact['id'],)
-        ).fetchall()
-        normalized_emails = [item['email'] for item in emails if str(item['email'] or '').strip()]
-        if not normalized_emails and str(contact['email'] or '').strip():
-          normalized_emails = [str(contact['email']).strip()]
-        contact_payload.append({
-          'id': contact['id'],
-          'name': contact['name'],
-          'lastName': contact['last_name'],
-          'email': normalized_emails[0] if normalized_emails else '',
-          'emails': normalized_emails,
-          'phoneNumbers': [item['phone_number'] for item in phones]
-        })
-      result.append({
-        'id': partner['id'],
-        'companyName': partner['company_name'],
-        'taxIdentification': partner['tax_identification'],
-        'addressStreet': partner['address_street'],
-        'addressNumber': partner['address_number'],
-        'postalCode': partner['postal_code'],
-        'city': partner['city'],
-        'region': partner['region'],
-        'country': partner['country'],
-        'businessPartnerTypeId': partner['business_partner_type_id'],
-        'contacts': contact_payload
-      })
-    return result
+    return business_partners_repository.list_business_partners(conn)
 
   def _fetch_consultants(self, conn):
     return consultants_repository.list_consultants(conn)
@@ -1675,84 +1628,10 @@ class VPMHandler(SimpleHTTPRequestHandler):
     return start.isoformat(), end.isoformat()
 
   def _ensure_monthly_timesheet(self, conn, consultant_id, month_start):
-    conn.execute('INSERT INTO monthly_timesheets (consultant_id, month_start) VALUES (?, ?) ON CONFLICT(consultant_id, month_start) DO NOTHING', (consultant_id, month_start))
-    row = conn.execute('SELECT id, consultant_id, month_start, status FROM monthly_timesheets WHERE consultant_id = ? AND month_start = ?', (consultant_id, month_start)).fetchone()
-    if not row:
-      return None
-
-    month_start_iso, month_end_iso = self._month_range(month_start)
-    assigned_projects = conn.execute('SELECT DISTINCT p.id AS project_id, p.project_name FROM projects p JOIN project_consultants pc ON pc.project_id = p.id WHERE pc.consultant_id = ? AND COALESCE(pc.start_date, p.start_date) <= ? AND COALESCE(pc.end_date, p.end_date) >= ? ORDER BY p.project_name', (consultant_id, month_end_iso, month_start_iso)).fetchall()
-
-    existing_project_ids = {int(item['project_id']) for item in conn.execute('SELECT project_id FROM monthly_timesheet_lines WHERE timesheet_id = ? AND project_id IS NOT NULL', (row['id'],)).fetchall()}
-    for project in assigned_projects:
-      project_id = int(project['project_id'])
-      if project_id in existing_project_ids:
-        continue
-      conn.execute('INSERT INTO monthly_timesheet_lines (timesheet_id, project_id, activity, is_manual) VALUES (?, ?, ?, 0)', (row['id'], project_id, None))
-
-    existing_time_off_labels = {
-      str(item['activity']).strip().lower()
-      for item in conn.execute(
-        '''
-        SELECT activity
-        FROM monthly_timesheet_lines
-        WHERE timesheet_id = ?
-          AND project_id IS NULL
-          AND is_manual = 0
-          AND activity IS NOT NULL
-          AND TRIM(activity) <> ''
-        ''',
-        (row['id'],)
-      ).fetchall()
-    }
-    availability_types = conn.execute(
-      '''
-      SELECT DISTINCT COALESCE(NULLIF(TRIM(dot.name), ''), NULLIF(TRIM(ca.type), ''), 'Time Off') AS type_name
-      FROM consultant_availability ca
-      LEFT JOIN day_off_types dot ON dot.id = ca.day_off_type_id
-      WHERE ca.consultant_id = ?
-        AND ca.start_date <= ?
-        AND ca.end_date >= ?
-      ORDER BY type_name
-      ''',
-      (consultant_id, month_end_iso, month_start_iso)
-    ).fetchall()
-    for availability in availability_types:
-      type_name = str(availability['type_name'] or '').strip()
-      if not type_name:
-        continue
-      if type_name.lower() in existing_time_off_labels:
-        continue
-      conn.execute(
-        'INSERT INTO monthly_timesheet_lines (timesheet_id, project_id, activity, is_manual) VALUES (?, NULL, ?, 0)',
-        (row['id'], type_name)
-      )
-      existing_time_off_labels.add(type_name.lower())
-
-    return row
+    return timesheets_repository.ensure_monthly_timesheet(conn, consultant_id, month_start)
 
   def _fetch_timesheet_months(self, conn, consultant_id):
-    consultant = conn.execute('SELECT start_date FROM consultants WHERE id = ?', (consultant_id,)).fetchone()
-    if not consultant:
-      return None
-    if not consultant['start_date']:
-      return []
-    try:
-      start = datetime.strptime(consultant['start_date'], '%Y-%m-%d').date().replace(day=1)
-    except ValueError:
-      return []
-    today = datetime.utcnow().date().replace(day=1)
-    months = []
-    cursor = start
-    while cursor <= today:
-      month_start = cursor.isoformat()
-      existing = conn.execute('SELECT id, status FROM monthly_timesheets WHERE consultant_id = ? AND month_start = ?', (consultant_id, month_start)).fetchone()
-      months.append({'monthStart': month_start, 'label': cursor.strftime('%B %Y'), 'timesheetId': existing['id'] if existing else None, 'status': existing['status'] if existing else None})
-      if cursor.month == 12:
-        cursor = cursor.replace(year=cursor.year + 1, month=1)
-      else:
-        cursor = cursor.replace(month=cursor.month + 1)
-    return months
+    return timesheets_repository.fetch_timesheet_months(conn, consultant_id)
 
   def _working_days_between(self, start_date, end_date):
     if not start_date or not end_date:
@@ -1810,26 +1689,10 @@ class VPMHandler(SimpleHTTPRequestHandler):
     return float(total)
 
   def calculate_invoice_paid_amount(self, conn, invoice_id):
-    row = conn.execute('SELECT COALESCE(SUM(amount), 0) AS total FROM invoice_payments WHERE invoice_id = ?', (invoice_id,)).fetchone()
-    return float(row['total'] if row and row['total'] is not None else 0.0)
+    return invoices_repository.calculate_invoice_paid_amount(conn, invoice_id)
 
   def recalculate_invoice_status(self, conn, invoice_id):
-    invoice = conn.execute('SELECT id, amount, status FROM invoices WHERE id = ?', (invoice_id,)).fetchone()
-    if not invoice:
-      return None
-    paid_amount = self.calculate_invoice_paid_amount(conn, invoice_id)
-    base_status = str(invoice['status'] or 'Draft')
-    if base_status == 'Draft':
-      return {'status': 'Draft', 'paidAmount': paid_amount}
-    amount = float(invoice['amount'] if invoice['amount'] is not None else 0.0)
-    if paid_amount >= amount and amount > 0:
-      next_status = 'Paid'
-    elif paid_amount > 0:
-      next_status = 'Partially Paid'
-    else:
-      next_status = 'Issued'
-    conn.execute('UPDATE invoices SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?', (next_status, invoice_id))
-    return {'status': next_status, 'paidAmount': paid_amount}
+    return invoices_repository.recalculate_invoice_status(conn, invoice_id)
 
   def get_project_revenue_summary(self, conn, project_id):
     project = conn.execute('SELECT project_type FROM projects WHERE id = ?', (project_id,)).fetchone()
@@ -1899,71 +1762,16 @@ class VPMHandler(SimpleHTTPRequestHandler):
     }
 
   def _fetch_project_budgets(self, conn, project_id):
-    return conn.execute(
-      '''
-      SELECT id, project_id, budget_name, budget_type, status, start_date, end_date, amount, currency, notes, created_at, updated_at
-      FROM project_budgets
-      WHERE project_id = ?
-      ORDER BY start_date, id
-      ''',
-      (project_id,)
-    ).fetchall()
+    return budgets_repository.fetch_project_budgets(conn, project_id)
 
   def _budget_counts_for_totals(self, status):
-    return str(status or '').strip().lower() in {'approved', 'closed'}
+    return budgets_repository.budget_counts_for_totals(status)
 
   def _budget_monthly_allocation_rows(self, start_date, end_date, amount):
-    allocations = []
-    amount = float(amount or 0.0)
-    if amount == 0 or not start_date or not end_date or end_date < start_date:
-      return allocations
-    month_ranges = []
-    total_working_days = 0
-    for month_start, month_end in self.iterate_months_between(start_date, end_date):
-      overlap_start = max(start_date, month_start.isoformat())
-      overlap_end = min(end_date, month_end.isoformat())
-      if overlap_end < overlap_start:
-        continue
-      working_days = self._working_days_between(overlap_start, overlap_end)
-      if working_days <= 0:
-        continue
-      month_key = month_start.strftime('%Y-%m')
-      month_ranges.append((month_key, month_start.strftime('%b %Y'), working_days))
-      total_working_days += working_days
-    if total_working_days <= 0 and month_ranges:
-      share = amount / len(month_ranges)
-      return [(month_key, month_label, share) for month_key, month_label, _ in month_ranges]
-    for month_key, month_label, working_days in month_ranges:
-      allocations.append((month_key, month_label, amount * working_days / total_working_days))
-    return allocations
+    return budgets_repository.budget_monthly_allocation_rows(self.iterate_months_between, self._working_days_between, start_date, end_date, amount)
 
   def calculate_fixed_price_budget_summary(self, conn, project_id):
-    budgets = self._fetch_project_budgets(conn, project_id)
-    initial_budget = 0.0
-    approved_extensions = 0.0
-    total_approved = 0.0
-    committed_rows = []
-    for row in budgets:
-      if self._budget_counts_for_totals(row['status']):
-        committed_rows.append(row)
-        amount = float(row['amount'] if row['amount'] is not None else 0.0)
-        total_approved += amount
-        if str(row['budget_type'] or '').strip().lower() == 'extension':
-          approved_extensions += amount
-        else:
-          initial_budget += amount
-    coverage_start = min((row['start_date'] for row in committed_rows if row['start_date']), default=None)
-    coverage_end = max((row['end_date'] for row in committed_rows if row['end_date']), default=None)
-    coverage_label = f'{coverage_start} → {coverage_end}' if coverage_start and coverage_end else 'No approved budget periods'
-    return {
-      'initialBudget': initial_budget,
-      'approvedExtensions': approved_extensions,
-      'totalApprovedBudget': total_approved,
-      'coverageStartDate': coverage_start,
-      'coverageEndDate': coverage_end,
-      'coverageLabel': coverage_label,
-      'budgets': budgets
-    }
+    return budgets_repository.calculate_fixed_price_budget_summary(conn, project_id)
 
   def calculate_fixed_price_revenue_forecast(self, conn, project_id):
     project = conn.execute('SELECT start_date, end_date, project_type FROM projects WHERE id = ?', (project_id,)).fetchone()
@@ -2697,29 +2505,7 @@ class VPMHandler(SimpleHTTPRequestHandler):
     }
 
   def _fetch_timesheet_detail(self, conn, consultant_id, month_start):
-    row = self._ensure_monthly_timesheet(conn, consultant_id, month_start)
-    if not row:
-      return None
-    lines = conn.execute('SELECT l.id, l.project_id, l.activity, l.is_manual, p.project_name FROM monthly_timesheet_lines l LEFT JOIN projects p ON p.id = l.project_id WHERE l.timesheet_id = ? ORDER BY l.is_manual, p.project_name, l.id', (row['id'],)).fetchall()
-    line_ids = [line['id'] for line in lines]
-    entry_rows = []
-    if line_ids:
-      placeholders = ','.join('?' for _ in line_ids)
-      entry_rows = conn.execute(f'SELECT line_id, entry_date, hours FROM monthly_timesheet_entries WHERE line_id IN ({placeholders})', tuple(line_ids)).fetchall()
-    entries_by_line = {}
-    for entry in entry_rows:
-      entries_by_line.setdefault(entry['line_id'], {})[entry['entry_date']] = entry['hours']
-
-    return {
-      'timesheetId': row['id'],
-      'consultantId': row['consultant_id'],
-      'monthStart': row['month_start'],
-      'status': row['status'],
-      'lines': [
-        {'id': item['id'], 'projectId': item['project_id'], 'projectName': item['project_name'], 'activity': item['activity'] or '', 'isManual': bool(item['is_manual']), 'entries': entries_by_line.get(item['id'], {})}
-        for item in lines
-      ]
-    }
+    return timesheets_repository.fetch_timesheet_detail(conn, consultant_id, month_start)
 
   def do_GET(self):
     path = self._path()
@@ -2939,55 +2725,14 @@ class VPMHandler(SimpleHTTPRequestHandler):
         if not self._ids_exist(conn, 'projects', [project_id]):
           self._send_json({'error': 'Project not found'}, HTTPStatus.NOT_FOUND)
           return
-        invoices = conn.execute(
-          '''
-          SELECT i.*
-          FROM invoices i
-          WHERE i.project_id = ?
-          ORDER BY i.invoice_date DESC, i.id DESC
-          ''',
-          (project_id,)
-        ).fetchall()
-        payload = []
-        for invoice in invoices:
-          paid_amount = self.calculate_invoice_paid_amount(conn, invoice['id'])
-          payload.append({
-            'id': invoice['id'],
-            'projectId': invoice['project_id'],
-            'positionId': invoice['position_id'],
-            'invoiceRef': invoice['invoice_ref'] or '',
-            'periodFrom': invoice['period_from'],
-            'periodTo': invoice['period_to'],
-            'invoiceDate': invoice['invoice_date'],
-            'dueDate': invoice['due_date'] or '',
-            'amount': float(invoice['amount'] if invoice['amount'] is not None else 0.0),
-            'paidAmount': paid_amount,
-            'status': invoice['status'] or 'Draft',
-            'notes': invoice['notes'] or ''
-          })
-        self._send_json({'invoices': payload})
+        self._send_json({'invoices': invoices_repository.list_project_invoices(conn, project_id)})
         return
       if invoice_payments_match:
         invoice_id = int(invoice_payments_match.group(1))
         if not self._ids_exist(conn, 'invoices', [invoice_id]):
           self._send_json({'error': 'Invoice not found'}, HTTPStatus.NOT_FOUND)
           return
-        rows = conn.execute(
-          'SELECT id, invoice_id, payment_date, amount, notes, created_at, updated_at FROM invoice_payments WHERE invoice_id = ? ORDER BY payment_date DESC, id DESC',
-          (invoice_id,)
-        ).fetchall()
-        self._send_json({'payments': [
-          {
-            'id': row['id'],
-            'invoiceId': row['invoice_id'],
-            'paymentDate': row['payment_date'],
-            'amount': float(row['amount'] if row['amount'] is not None else 0.0),
-            'notes': row['notes'] or '',
-            'createdAt': row['created_at'],
-            'updatedAt': row['updated_at']
-          }
-          for row in rows
-        ]})
+        self._send_json({'payments': invoices_repository.list_invoice_payments(conn, invoice_id)})
         return
       if path == '/api/consultants':
         self._send_json({'consultants': self._fetch_consultants(conn)})
@@ -3189,14 +2934,8 @@ class VPMHandler(SimpleHTTPRequestHandler):
           if not row:
             self._send_json({'error': 'positionId is not part of this project'}, HTTPStatus.BAD_REQUEST)
             return
-        cursor = conn.execute(
-          '''
-          INSERT INTO invoices (project_id, position_id, invoice_ref, period_from, period_to, invoice_date, due_date, amount, status, notes)
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-          ''',
-          (project_id, position_id, invoice_ref, period_from, period_to, invoice_date, due_date or None, amount, status, notes)
-        )
-      self._send_json({'id': cursor.lastrowid}, HTTPStatus.CREATED)
+        invoice_id = invoices_repository.create_invoice(conn, project_id, position_id, invoice_ref, period_from, period_to, invoice_date, due_date, amount, status, notes)
+      self._send_json({'id': invoice_id}, HTTPStatus.CREATED)
       return
 
     if project_budgets_match:
@@ -3234,14 +2973,8 @@ class VPMHandler(SimpleHTTPRequestHandler):
           if str(project['project_type'] or '').strip().lower() != 'fixed price':
             self._send_json({'error': 'Budgets can be managed only for Fixed Price projects'}, HTTPStatus.BAD_REQUEST)
             return
-          cursor = conn.execute(
-            '''
-            INSERT INTO project_budgets (project_id, budget_name, budget_type, status, start_date, end_date, amount, currency, notes)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-            ''',
-            (project_id, budget_name, budget_type, status, start_date, end_date, amount, currency, notes)
-          )
-        self._send_json({'id': cursor.lastrowid}, HTTPStatus.CREATED)
+          budget_id = budgets_repository.create_project_budget(conn, project_id, budget_name, budget_type, status, start_date, end_date, amount, currency, notes)
+        self._send_json({'id': budget_id}, HTTPStatus.CREATED)
       except Exception as error:
         self._send_json({'error': f'Unexpected budget save error: {error}'}, HTTPStatus.INTERNAL_SERVER_ERROR)
       return
@@ -3265,12 +2998,8 @@ class VPMHandler(SimpleHTTPRequestHandler):
         if not self._ids_exist(conn, 'invoices', [invoice_id]):
           self._send_json({'error': 'Invoice not found'}, HTTPStatus.NOT_FOUND)
           return
-        cursor = conn.execute(
-          'INSERT INTO invoice_payments (invoice_id, payment_date, amount, notes) VALUES (?, ?, ?, ?)',
-          (invoice_id, payment_date, amount, notes)
-        )
-        self.recalculate_invoice_status(conn, invoice_id)
-      self._send_json({'id': cursor.lastrowid}, HTTPStatus.CREATED)
+        payment_id = invoices_repository.create_invoice_payment(conn, invoice_id, payment_date, amount, notes)
+      self._send_json({'id': payment_id}, HTTPStatus.CREATED)
       return
 
     consultant_id, _ = self._availability_route()
@@ -3456,43 +3185,7 @@ class VPMHandler(SimpleHTTPRequestHandler):
         self._send_json({'error': 'contacts must be a list'}, HTTPStatus.BAD_REQUEST)
         return
       with get_connection() as conn:
-        cursor = conn.execute(
-          '''
-          INSERT INTO business_partners (company_name, tax_identification, address_street, address_number, postal_code, city, region, country, business_partner_type_id)
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-          ''',
-          (
-            company_name,
-            str(payload.get('taxIdentification', '')).strip(),
-            str(payload.get('addressStreet', '')).strip(),
-            str(payload.get('addressNumber', '')).strip(),
-            str(payload.get('postalCode', '')).strip(),
-            str(payload.get('city', '')).strip(),
-            str(payload.get('region', '')).strip(),
-            str(payload.get('country', '')).strip(),
-            int(payload['businessPartnerTypeId']) if payload.get('businessPartnerTypeId') not in (None, '') else None
-          )
-        )
-        partner_id = cursor.lastrowid
-        for contact in contacts:
-          email_values = [str(email).strip() for email in (contact.get('emails') or []) if str(email).strip()]
-          if not email_values and str(contact.get('email', '')).strip():
-            email_values = [str(contact.get('email', '')).strip()]
-          c = conn.execute(
-            'INSERT INTO business_partner_contacts (business_partner_id, name, last_name, email) VALUES (?, ?, ?, ?)',
-            (
-              partner_id,
-              str(contact.get('name', '')).strip(),
-              str(contact.get('lastName', '')).strip(),
-              email_values[0] if email_values else ''
-            )
-          )
-          for email in email_values:
-            conn.execute('INSERT INTO business_partner_contact_emails (contact_id, email) VALUES (?, ?)', (c.lastrowid, email))
-          for phone in (contact.get('phoneNumbers') or []):
-            phone_value = str(phone).strip()
-            if phone_value:
-              conn.execute('INSERT INTO business_partner_contact_phones (contact_id, phone_number) VALUES (?, ?)', (c.lastrowid, phone_value))
+        partner_id = business_partners_repository.create_business_partner(conn, payload)
       self._send_json({'id': partner_id}, HTTPStatus.CREATED)
       return
 
@@ -3542,15 +3235,15 @@ class VPMHandler(SimpleHTTPRequestHandler):
         self._send_json({'error': 'activity is required'}, HTTPStatus.BAD_REQUEST)
         return
       with get_connection() as conn:
-        timesheet_row = conn.execute('SELECT id, status FROM monthly_timesheets WHERE id = ?', (timesheet_id,)).fetchone()
+        timesheet_row = timesheets_repository.get_timesheet_row(conn, timesheet_id)
         if not timesheet_row:
           self._send_json({'error': 'Timesheet not found'}, HTTPStatus.NOT_FOUND)
           return
         if str(timesheet_row['status'] or '').strip().lower() == 'completed':
           self._send_json({'error': 'Completed timesheets cannot be edited'}, HTTPStatus.BAD_REQUEST)
           return
-        cursor = conn.execute('INSERT INTO monthly_timesheet_lines (timesheet_id, activity, is_manual) VALUES (?, ?, 1)', (timesheet_id, activity))
-      self._send_json({'id': cursor.lastrowid}, HTTPStatus.CREATED)
+        line_id = timesheets_repository.create_manual_line(conn, timesheet_id, activity)
+      self._send_json({'id': line_id}, HTTPStatus.CREATED)
       return
 
     if path == '/api/monthly-timesheets/entry':
@@ -3572,22 +3265,14 @@ class VPMHandler(SimpleHTTPRequestHandler):
         self._send_json({'error': 'hours must be between 0 and 24'}, HTTPStatus.BAD_REQUEST)
         return
       with get_connection() as conn:
-        row = conn.execute(
-          '''
-          SELECT l.id, t.status
-          FROM monthly_timesheet_lines l
-          JOIN monthly_timesheets t ON t.id = l.timesheet_id
-          WHERE l.id = ?
-          ''',
-          (line_id,)
-        ).fetchone()
+        row = timesheets_repository.get_line_with_timesheet_status(conn, line_id)
         if not row:
           self._send_json({'error': 'Timesheet line not found'}, HTTPStatus.NOT_FOUND)
           return
         if str(row['status'] or '').strip().lower() == 'completed':
           self._send_json({'error': 'Completed timesheets cannot be edited'}, HTTPStatus.BAD_REQUEST)
           return
-        conn.execute('INSERT INTO monthly_timesheet_entries (line_id, entry_date, hours, updated_at) VALUES (?, ?, ?, CURRENT_TIMESTAMP) ON CONFLICT(line_id, entry_date) DO UPDATE SET hours = excluded.hours, updated_at = CURRENT_TIMESTAMP', (line_id, entry_date, hours))
+        timesheets_repository.update_entry(conn, line_id, entry_date, hours)
       self._send_json({'status': 'updated'})
       return
 
@@ -3677,8 +3362,8 @@ class VPMHandler(SimpleHTTPRequestHandler):
         self._send_json({'error': 'status must be one of: In Progress, Completed'}, HTTPStatus.BAD_REQUEST)
         return
       with get_connection() as conn:
-        cursor = conn.execute('UPDATE monthly_timesheets SET status = ? WHERE id = ?', (status, timesheet_id))
-      if cursor.rowcount == 0:
+        updated_rows = timesheets_repository.update_timesheet_status(conn, timesheet_id, status)
+      if updated_rows == 0:
         self._send_json({'error': 'Monthly timesheet not found'}, HTTPStatus.NOT_FOUND)
         return
       self._send_json({'status': status})
@@ -3732,15 +3417,7 @@ class VPMHandler(SimpleHTTPRequestHandler):
           if not row:
             self._send_json({'error': 'positionId is not part of this project'}, HTTPStatus.BAD_REQUEST)
             return
-        conn.execute(
-          '''
-          UPDATE invoices
-          SET position_id = ?, invoice_ref = ?, period_from = ?, period_to = ?, invoice_date = ?, due_date = ?, amount = ?, status = ?, notes = ?, updated_at = CURRENT_TIMESTAMP
-          WHERE id = ?
-          ''',
-          (position_id, invoice_ref, period_from, period_to, invoice_date, due_date or None, amount, status, notes, invoice_id)
-        )
-        self.recalculate_invoice_status(conn, invoice_id)
+        invoices_repository.update_invoice(conn, invoice_id, position_id, invoice_ref, period_from, period_to, invoice_date, due_date, amount, status, notes)
       self._send_json({'status': 'updated'})
       return
 
@@ -3760,15 +3437,11 @@ class VPMHandler(SimpleHTTPRequestHandler):
         self._send_json({'error': 'paymentDate must be YYYY-MM-DD'}, HTTPStatus.BAD_REQUEST)
         return
       with get_connection() as conn:
-        payment = conn.execute('SELECT invoice_id FROM invoice_payments WHERE id = ?', (payment_id,)).fetchone()
+        payment = invoices_repository.get_payment(conn, payment_id)
         if not payment:
           self._send_json({'error': 'Payment not found'}, HTTPStatus.NOT_FOUND)
           return
-        conn.execute(
-          'UPDATE invoice_payments SET payment_date = ?, amount = ?, notes = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
-          (payment_date, amount, notes, payment_id)
-        )
-        self.recalculate_invoice_status(conn, payment['invoice_id'])
+        invoices_repository.update_invoice_payment(conn, payment_id, payment_date, amount, notes)
       self._send_json({'status': 'updated'})
       return
 
@@ -3799,29 +3472,14 @@ class VPMHandler(SimpleHTTPRequestHandler):
         self._send_json({'error': 'amount must be greater than or equal to 0'}, HTTPStatus.BAD_REQUEST)
         return
       with get_connection() as conn:
-        budget = conn.execute(
-          '''
-          SELECT pb.id, p.project_type
-          FROM project_budgets pb
-          JOIN projects p ON p.id = pb.project_id
-          WHERE pb.id = ?
-          ''',
-          (budget_id,)
-        ).fetchone()
+        budget = budgets_repository.get_project_budget(conn, budget_id)
         if not budget:
           self._send_json({'error': 'Budget not found'}, HTTPStatus.NOT_FOUND)
           return
         if str(budget['project_type'] or '').strip().lower() != 'fixed price':
           self._send_json({'error': 'Budgets can be managed only for Fixed Price projects'}, HTTPStatus.BAD_REQUEST)
           return
-        conn.execute(
-          '''
-          UPDATE project_budgets
-          SET budget_name = ?, budget_type = ?, status = ?, start_date = ?, end_date = ?, amount = ?, currency = ?, notes = ?, updated_at = CURRENT_TIMESTAMP
-          WHERE id = ?
-          ''',
-          (budget_name, budget_type, status, start_date, end_date, amount, currency, notes, budget_id)
-        )
+        budgets_repository.update_project_budget(conn, budget_id, budget_name, budget_type, status, start_date, end_date, amount, currency, notes)
       self._send_json({'status': 'updated'})
       return
 
@@ -3916,50 +3574,10 @@ class VPMHandler(SimpleHTTPRequestHandler):
         self._send_json({'error': 'contacts must be a list'}, HTTPStatus.BAD_REQUEST)
         return
       with get_connection() as conn:
-        cursor = conn.execute(
-          '''
-          UPDATE business_partners
-          SET company_name = ?, tax_identification = ?, address_street = ?, address_number = ?, postal_code = ?, city = ?, region = ?, country = ?, business_partner_type_id = ?
-          WHERE id = ?
-          ''',
-          (
-            company_name,
-            str(payload.get('taxIdentification', '')).strip(),
-            str(payload.get('addressStreet', '')).strip(),
-            str(payload.get('addressNumber', '')).strip(),
-            str(payload.get('postalCode', '')).strip(),
-            str(payload.get('city', '')).strip(),
-            str(payload.get('region', '')).strip(),
-            str(payload.get('country', '')).strip(),
-            int(payload['businessPartnerTypeId']) if payload.get('businessPartnerTypeId') not in (None, '') else None,
-            business_partner_id
-          )
-        )
-        if cursor.rowcount == 0:
+        updated_rows = business_partners_repository.update_business_partner(conn, business_partner_id, payload)
+        if updated_rows == 0:
           self._send_json({'error': 'Business partner not found'}, HTTPStatus.NOT_FOUND)
           return
-        conn.execute('DELETE FROM business_partner_contact_emails WHERE contact_id IN (SELECT id FROM business_partner_contacts WHERE business_partner_id = ?)', (business_partner_id,))
-        conn.execute('DELETE FROM business_partner_contact_phones WHERE contact_id IN (SELECT id FROM business_partner_contacts WHERE business_partner_id = ?)', (business_partner_id,))
-        conn.execute('DELETE FROM business_partner_contacts WHERE business_partner_id = ?', (business_partner_id,))
-        for contact in contacts:
-          email_values = [str(email).strip() for email in (contact.get('emails') or []) if str(email).strip()]
-          if not email_values and str(contact.get('email', '')).strip():
-            email_values = [str(contact.get('email', '')).strip()]
-          c = conn.execute(
-            'INSERT INTO business_partner_contacts (business_partner_id, name, last_name, email) VALUES (?, ?, ?, ?)',
-            (
-              business_partner_id,
-              str(contact.get('name', '')).strip(),
-              str(contact.get('lastName', '')).strip(),
-              email_values[0] if email_values else ''
-            )
-          )
-          for email in email_values:
-            conn.execute('INSERT INTO business_partner_contact_emails (contact_id, email) VALUES (?, ?)', (c.lastrowid, email))
-          for phone in (contact.get('phoneNumbers') or []):
-            phone_value = str(phone).strip()
-            if phone_value:
-              conn.execute('INSERT INTO business_partner_contact_phones (contact_id, phone_number) VALUES (?, ?)', (c.lastrowid, phone_value))
       self._send_json({'status': 'updated'})
       return
 
@@ -4039,8 +3657,8 @@ class VPMHandler(SimpleHTTPRequestHandler):
     if invoice_match:
       invoice_id = int(invoice_match.group(1))
       with get_connection() as conn:
-        cursor = conn.execute('DELETE FROM invoices WHERE id = ?', (invoice_id,))
-      if cursor.rowcount == 0:
+        deleted_rows = invoices_repository.delete_invoice(conn, invoice_id)
+      if deleted_rows == 0:
         self._send_json({'error': 'Invoice not found'}, HTTPStatus.NOT_FOUND)
         return
       self._send_json({'status': 'deleted'})
@@ -4049,20 +3667,18 @@ class VPMHandler(SimpleHTTPRequestHandler):
     if payment_match:
       payment_id = int(payment_match.group(1))
       with get_connection() as conn:
-        payment = conn.execute('SELECT invoice_id FROM invoice_payments WHERE id = ?', (payment_id,)).fetchone()
-        if not payment:
+        deleted_invoice_id = invoices_repository.delete_invoice_payment(conn, payment_id)
+        if deleted_invoice_id is None:
           self._send_json({'error': 'Payment not found'}, HTTPStatus.NOT_FOUND)
           return
-        conn.execute('DELETE FROM invoice_payments WHERE id = ?', (payment_id,))
-        self.recalculate_invoice_status(conn, payment['invoice_id'])
       self._send_json({'status': 'deleted'})
       return
 
     if budget_match:
       budget_id = int(budget_match.group(1))
       with get_connection() as conn:
-        cursor = conn.execute('DELETE FROM project_budgets WHERE id = ?', (budget_id,))
-      if cursor.rowcount == 0:
+        deleted_rows = budgets_repository.delete_project_budget(conn, budget_id)
+      if deleted_rows == 0:
         self._send_json({'error': 'Budget not found'}, HTTPStatus.NOT_FOUND)
         return
       self._send_json({'status': 'deleted'})
@@ -4151,8 +3767,8 @@ class VPMHandler(SimpleHTTPRequestHandler):
 
     if business_partner_id is not None:
       with get_connection() as conn:
-        cursor = conn.execute('DELETE FROM business_partners WHERE id = ?', (business_partner_id,))
-      if cursor.rowcount == 0:
+        deleted_rows = business_partners_repository.delete_business_partner(conn, business_partner_id)
+      if deleted_rows == 0:
         self._send_json({'error': 'Business partner not found'}, HTTPStatus.NOT_FOUND)
         return
       self._send_json({'status': 'deleted'})
@@ -4171,8 +3787,8 @@ class VPMHandler(SimpleHTTPRequestHandler):
         self._send_json({'error': 'month must be in YYYY-MM format'}, HTTPStatus.BAD_REQUEST)
         return
       with get_connection() as conn:
-        cursor = conn.execute('DELETE FROM monthly_timesheets WHERE consultant_id = ? AND month_start = ?', (consultant_id, month_start))
-      if cursor.rowcount == 0:
+        deleted_rows = timesheets_repository.delete_monthly_timesheet(conn, consultant_id, month_start)
+      if deleted_rows == 0:
         self._send_json({'error': 'Timesheet not found'}, HTTPStatus.NOT_FOUND)
         return
       self._send_json({'status': 'deleted'})

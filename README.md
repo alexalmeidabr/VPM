@@ -48,7 +48,8 @@ Then open `http://localhost:8000`.
 - `DATABASE_TYPE` defaults to `sqlite`; any other value currently raises an unsupported database type error.
 - Future Azure SQL support should be implemented behind the same `db.py` interface without changing API routes/contracts.
 - Consultant and project SQL CRUD/list logic is now extracted to `repositories/consultants_repository.py` and `repositories/projects_repository.py`.
-- `server.py` still owns HTTP routing, validation, and currently keeps other domain SQL (invoices, budgets, holidays, backups, time tracking, allocation simulations) until later phases.
+- Additional domains now extracted to repositories include business partners, monthly timesheets, invoices/payments, and budgets.
+- `server.py` still owns HTTP routing and validation, and still keeps non-CRUD domain logic such as holiday loading, backup/restore, company logo handling, allocation simulations, and profitability/revenue forecasting.
 
 ## API endpoints
 
