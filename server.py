@@ -18,6 +18,7 @@ from urllib.parse import parse_qs, quote, urlparse
 from urllib.request import urlopen
 
 import db
+from repositories import consultants_repository, projects_repository
 
 try:
   import holidays as pyholidays
@@ -1500,198 +1501,10 @@ class VPMHandler(SimpleHTTPRequestHandler):
     return result
 
   def _fetch_consultants(self, conn):
-    rows = conn.execute(
-      '''
-      SELECT c.id, c.name, c.salary, c.holiday_location_id, c.start_date, c.company_branch_id, cb.name AS company_branch_name
-      FROM consultants c
-      LEFT JOIN company_branches cb ON cb.id = c.company_branch_id
-      ORDER BY c.created_at DESC, c.id DESC
-      '''
-    ).fetchall()
-    consultants = []
-    for consultant in rows:
-      role_row = conn.execute(
-        '''
-        SELECT r.id, r.name FROM consultant_roles cr
-        JOIN roles r ON r.id = cr.role_id
-        WHERE cr.consultant_id = ? ORDER BY r.name LIMIT 1
-        ''',
-        (consultant['id'],)
-      ).fetchone()
-
-      area_rows = conn.execute(
-        '''
-        SELECT a.id, a.name FROM consultant_areas ca
-        JOIN areas a ON a.id = ca.area_id
-        WHERE ca.consultant_id = ? ORDER BY a.name
-        ''',
-        (consultant['id'],)
-      ).fetchall()
-
-      availability_rows = conn.execute(
-        '''
-        SELECT ca.id, ca.day_off_type_id, ca.type, ca.start_date, ca.end_date, dot.name AS type_name
-        FROM consultant_availability ca
-        LEFT JOIN day_off_types dot ON dot.id = ca.day_off_type_id
-        WHERE ca.consultant_id = ?
-        ORDER BY ca.start_date
-        ''',
-        (consultant['id'],)
-      ).fetchall()
-
-      holiday_load_row = conn.execute(
-        '''
-        SELECT year, country_code, region_code, loaded_at
-        FROM consultant_holiday_loads
-        WHERE consultant_id = ?
-        ORDER BY loaded_at DESC, id DESC
-        LIMIT 1
-        ''',
-        (consultant['id'],)
-      ).fetchone()
-
-      consultants.append({
-        'id': consultant['id'],
-        'name': consultant['name'],
-        'salary': consultant['salary'],
-        'startDate': consultant['start_date'],
-        'companyRoleId': role_row['id'] if role_row else None,
-        'companyRole': role_row['name'] if role_row else None,
-        'areaIds': [row['id'] for row in area_rows],
-        'areaNames': [row['name'] for row in area_rows],
-        'holidayLocationId': consultant['holiday_location_id'],
-        'companyBranchId': consultant['company_branch_id'],
-        'companyBranchName': consultant['company_branch_name'],
-        'holidayCalendarLoad': {
-          'year': holiday_load_row['year'],
-          'countryCode': holiday_load_row['country_code'],
-          'regionCode': holiday_load_row['region_code'],
-          'loadedAt': holiday_load_row['loaded_at']
-        } if holiday_load_row else None,
-        'availability': [
-          {
-            'id': row['id'],
-            'dayOffTypeId': row['day_off_type_id'],
-            'type': row['type_name'] or row['type'] or 'Days Off',
-            'startDate': row['start_date'],
-            'endDate': row['end_date']
-          }
-          for row in availability_rows
-        ]
-      })
-    return consultants
+    return consultants_repository.list_consultants(conn)
 
   def _fetch_projects(self, conn):
-    rows = conn.execute(
-      '''
-      SELECT p.id, p.project_name, p.client_name, p.client_contact, p.start_date, p.end_date,
-             p.project_type, p.project_status, p.manager_consultant_id, p.client_business_partner_id, p.delivery_partner_business_partner_id,
-             p.contract_with_branch_id, c.name AS manager_name, cb.name AS contract_with_branch_name
-      FROM projects p
-      LEFT JOIN consultants c ON c.id = p.manager_consultant_id
-      LEFT JOIN company_branches cb ON cb.id = p.contract_with_branch_id
-      ORDER BY p.created_at DESC, p.id DESC
-      '''
-    ).fetchall()
-
-    projects = []
-    for row in rows:
-      positions = conn.execute(
-        '''
-        SELECT pp.id, pp.consultant_id, pp.area_id, pp.project_role, pp.start_date, pp.end_date, pp.allocation, pp.billable, pp.daily_rate, pp.daily_rate_currency, pp.comments, pp.status, c.name AS consultant_name
-        FROM project_positions pp
-        LEFT JOIN consultants c ON c.id = pp.consultant_id
-        WHERE pp.project_id = ?
-        ORDER BY pp.id
-        ''',
-        (row['id'],)
-      ).fetchall()
-      phases = conn.execute(
-        'SELECT id, name, start_date, end_date FROM project_phases WHERE project_id = ? ORDER BY start_date, id',
-        (row['id'],)
-      ).fetchall()
-      milestones = conn.execute(
-        'SELECT id, phase_id, name, start_date, end_date FROM project_milestones WHERE project_id = ? ORDER BY start_date, id',
-        (row['id'],)
-      ).fetchall()
-      client_contacts = conn.execute(
-        '''
-        SELECT bc.id, bc.name, bc.last_name, bc.email
-        FROM project_client_contacts pcc
-        JOIN business_partner_contacts bc ON bc.id = pcc.contact_id
-        WHERE pcc.project_id = ?
-        ORDER BY bc.id
-        ''',
-        (row['id'],)
-      ).fetchall()
-      delivery_contacts = conn.execute(
-        '''
-        SELECT bc.id, bc.name, bc.last_name, bc.email
-        FROM project_delivery_partner_contacts pdc
-        JOIN business_partner_contacts bc ON bc.id = pdc.contact_id
-        WHERE pdc.project_id = ?
-        ORDER BY bc.id
-        ''',
-        (row['id'],)
-      ).fetchall()
-      projects.append({
-        'id': row['id'],
-        'projectName': row['project_name'],
-        'clientName': row['client_name'],
-        'clientContact': row['client_contact'],
-        'clientBusinessPartnerId': row['client_business_partner_id'],
-        'deliveryPartnerBusinessPartnerId': row['delivery_partner_business_partner_id'],
-        'contractWithBranchId': row['contract_with_branch_id'],
-        'contractWithBranchName': row['contract_with_branch_name'],
-        'clientContacts': [{'id': c['id'], 'name': c['name'], 'lastName': c['last_name'], 'email': c['email']} for c in client_contacts],
-        'deliveryPartnerContacts': [{'id': c['id'], 'name': c['name'], 'lastName': c['last_name'], 'email': c['email']} for c in delivery_contacts],
-        'startDate': row['start_date'],
-        'endDate': row['end_date'],
-        'projectType': row['project_type'],
-        'projectStatus': row['project_status'],
-        'managerConsultantId': row['manager_consultant_id'],
-        'managerName': row['manager_name'],
-        'projectPhases': [
-          {'id': str(p['id']), 'name': p['name'], 'startDate': p['start_date'], 'endDate': p['end_date']}
-          for p in phases
-        ],
-        'projectMilestones': [
-          {'id': str(m['id']), 'phaseId': str(m['phase_id']) if m['phase_id'] is not None else '', 'name': m['name'], 'startDate': m['start_date'], 'endDate': m['end_date']}
-          for m in milestones
-        ],
-        'projectPositions': [
-          {
-            'id': m['id'],
-            'consultantId': m['consultant_id'],
-            'consultantName': m['consultant_name'],
-            'areaId': m['area_id'],
-            'projectRole': m['project_role'] or 'Project Position',
-            'startDate': m['start_date'] or '',
-            'endDate': m['end_date'] or '',
-            'allocation': m['allocation'] if m['allocation'] is not None else 100,
-            'billable': bool(m['billable']) if m['billable'] is not None else True,
-            'dailyRate': m['daily_rate'],
-            'dailyRateCurrency': m['daily_rate_currency'],
-            'comments': m['comments'] or '',
-            'status': m['status'] or ('Assigned' if m['consultant_id'] else 'Open')
-          }
-          for m in positions
-        ],
-        'consultantAssignments': [
-          {
-            'consultantId': m['consultant_id'],
-            'consultantName': m['consultant_name'],
-            'projectRole': m['project_role'] or 'Project Position',
-            'startDate': m['start_date'] or '',
-            'endDate': m['end_date'] or '',
-            'allocation': m['allocation'] if m['allocation'] is not None else 100,
-            'billable': bool(m['billable']) if m['billable'] is not None else True,
-            'comments': m['comments'] or ''
-          }
-          for m in positions if m['consultant_id'] is not None
-        ]
-      })
-    return projects
+    return projects_repository.list_projects(conn)
 
   def _fetch_project_files(self, conn, project_id):
     rows = conn.execute(
@@ -3492,40 +3305,7 @@ class VPMHandler(SimpleHTTPRequestHandler):
           return
 
         manager_name = self._consultant_name(conn, payload['managerConsultantId'])
-        cursor = conn.execute(
-          '''
-          INSERT INTO projects (project_name, client_name, project_lead, client_contact, start_date, end_date, manager_consultant_id, project_type, project_status, client_business_partner_id, delivery_partner_business_partner_id, contract_with_branch_id)
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-          ''',
-          (payload['projectName'], '', manager_name or 'Manager', '', payload['startDate'], payload['endDate'], payload['managerConsultantId'], payload['projectType'], payload['projectStatus'], payload['clientBusinessPartnerId'], payload['deliveryPartnerBusinessPartnerId'], payload['contractWithBranchId'])
-        )
-        project_id = cursor.lastrowid
-        for item in payload['consultantAssignments']:
-          conn.execute(
-            'INSERT INTO project_consultants (project_id, consultant_id, project_role, start_date, end_date, billable) VALUES (?, ?, ?, ?, ?, ?)',
-            (project_id, item['consultantId'], item['projectRole'], item['startDate'], item['endDate'], 1 if item.get('billable', True) else 0)
-          )
-        for item in payload.get('projectPositions', []):
-          conn.execute(
-            'INSERT INTO project_positions (project_id, consultant_id, area_id, project_role, start_date, end_date, allocation, billable, daily_rate, daily_rate_currency, comments, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-            (project_id, item.get('consultantId'), item.get('areaId'), item['projectRole'], item['startDate'], item['endDate'], item.get('allocation', 100), 1 if item.get('billable', True) else 0, item.get('dailyRate'), item.get('dailyRateCurrency'), item.get('comments', ''), item.get('status', 'Open'))
-          )
-        phase_id_map = {}
-        for phase in payload['projectPhases']:
-          cursor_phase = conn.execute(
-            'INSERT INTO project_phases (project_id, name, start_date, end_date) VALUES (?, ?, ?, ?)',
-            (project_id, phase['name'], phase['startDate'], phase['endDate'])
-          )
-          phase_id_map[phase['id']] = cursor_phase.lastrowid
-        for milestone in payload['projectMilestones']:
-          conn.execute(
-            'INSERT INTO project_milestones (project_id, phase_id, name, start_date, end_date) VALUES (?, ?, ?, ?, ?)',
-            (project_id, phase_id_map.get(milestone['phaseId']), milestone['name'], milestone['startDate'], milestone['endDate'])
-          )
-        for contact_id in payload['clientContactIds']:
-          conn.execute('INSERT INTO project_client_contacts (project_id, contact_id) VALUES (?, ?)', (project_id, contact_id))
-        for contact_id in payload['deliveryPartnerContactIds']:
-          conn.execute('INSERT INTO project_delivery_partner_contacts (project_id, contact_id) VALUES (?, ?)', (project_id, contact_id))
+        project_id = projects_repository.create_project(conn, payload, manager_name)
       self._send_json({'id': project_id}, HTTPStatus.CREATED)
       return
 
@@ -3541,22 +3321,13 @@ class VPMHandler(SimpleHTTPRequestHandler):
         if not self._ids_exist(conn, 'roles', [payload['companyRoleId']]):
           self._send_json({'error': 'Selected company role does not exist'}, HTTPStatus.BAD_REQUEST)
           return
-        first_area = conn.execute('SELECT name FROM areas WHERE id = ? LIMIT 1', (payload['areaIds'][0],)).fetchone()
-        role_row = conn.execute('SELECT name FROM roles WHERE id = ? LIMIT 1', (payload['companyRoleId'],)).fetchone()
         if payload['holidayLocationId'] is not None and not self._ids_exist(conn, 'holiday_locations', [payload['holidayLocationId']]):
           self._send_json({'error': 'Selected holiday location does not exist'}, HTTPStatus.BAD_REQUEST)
           return
         if payload['companyBranchId'] is not None and not self._ids_exist(conn, 'company_branches', [payload['companyBranchId']]):
           self._send_json({'error': 'Selected company branch does not exist'}, HTTPStatus.BAD_REQUEST)
           return
-        cursor = conn.execute(
-          'INSERT INTO consultants (name, area, position, salary, holiday_location_id, company_branch_id, start_date) VALUES (?, ?, ?, ?, ?, ?, ?)',
-          (payload['name'], first_area['name'] if first_area else None, role_row['name'] if role_row else None, payload['salary'], payload['holidayLocationId'], payload['companyBranchId'], payload['startDate'])
-        )
-        consultant_id = cursor.lastrowid
-        for area_id in sorted(set(payload['areaIds'])):
-          conn.execute('INSERT INTO consultant_areas (consultant_id, area_id) VALUES (?, ?)', (consultant_id, area_id))
-        conn.execute('INSERT INTO consultant_roles (consultant_id, role_id) VALUES (?, ?)', (consultant_id, payload['companyRoleId']))
+        consultant_id = consultants_repository.create_consultant(conn, payload)
       self._send_json({'id': consultant_id}, HTTPStatus.CREATED)
       return
 
@@ -4069,49 +3840,10 @@ class VPMHandler(SimpleHTTPRequestHandler):
           return
 
         manager_name = self._consultant_name(conn, payload['managerConsultantId'])
-        cursor = conn.execute(
-          '''
-          UPDATE projects
-          SET project_name = ?, client_name = ?, project_lead = ?, client_contact = ?, start_date = ?, end_date = ?, manager_consultant_id = ?, project_type = ?, project_status = ?, client_business_partner_id = ?, delivery_partner_business_partner_id = ?, contract_with_branch_id = ?
-          WHERE id = ?
-          ''',
-          (payload['projectName'], '', manager_name or 'Manager', '', payload['startDate'], payload['endDate'], payload['managerConsultantId'], payload['projectType'], payload['projectStatus'], payload['clientBusinessPartnerId'], payload['deliveryPartnerBusinessPartnerId'], payload['contractWithBranchId'], project_id)
-        )
-        if cursor.rowcount == 0:
+        updated_rows = projects_repository.update_project(conn, project_id, payload, manager_name)
+        if updated_rows == 0:
           self._send_json({'error': 'Project not found'}, HTTPStatus.NOT_FOUND)
           return
-        conn.execute('DELETE FROM project_consultants WHERE project_id = ?', (project_id,))
-        conn.execute('DELETE FROM project_positions WHERE project_id = ?', (project_id,))
-        conn.execute('DELETE FROM project_milestones WHERE project_id = ?', (project_id,))
-        conn.execute('DELETE FROM project_phases WHERE project_id = ?', (project_id,))
-        conn.execute('DELETE FROM project_client_contacts WHERE project_id = ?', (project_id,))
-        conn.execute('DELETE FROM project_delivery_partner_contacts WHERE project_id = ?', (project_id,))
-        for item in payload['consultantAssignments']:
-          conn.execute(
-            'INSERT INTO project_consultants (project_id, consultant_id, project_role, start_date, end_date, billable) VALUES (?, ?, ?, ?, ?, ?)',
-            (project_id, item['consultantId'], item['projectRole'], item['startDate'], item['endDate'], 1 if item.get('billable', True) else 0)
-          )
-        for item in payload.get('projectPositions', []):
-          conn.execute(
-            'INSERT INTO project_positions (project_id, consultant_id, area_id, project_role, start_date, end_date, allocation, billable, daily_rate, daily_rate_currency, comments, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-            (project_id, item.get('consultantId'), item.get('areaId'), item['projectRole'], item['startDate'], item['endDate'], item.get('allocation', 100), 1 if item.get('billable', True) else 0, item.get('dailyRate'), item.get('dailyRateCurrency'), item.get('comments', ''), item.get('status', 'Open'))
-          )
-        phase_id_map = {}
-        for phase in payload['projectPhases']:
-          cursor_phase = conn.execute(
-            'INSERT INTO project_phases (project_id, name, start_date, end_date) VALUES (?, ?, ?, ?)',
-            (project_id, phase['name'], phase['startDate'], phase['endDate'])
-          )
-          phase_id_map[phase['id']] = cursor_phase.lastrowid
-        for milestone in payload['projectMilestones']:
-          conn.execute(
-            'INSERT INTO project_milestones (project_id, phase_id, name, start_date, end_date) VALUES (?, ?, ?, ?, ?)',
-            (project_id, phase_id_map.get(milestone['phaseId']), milestone['name'], milestone['startDate'], milestone['endDate'])
-          )
-        for contact_id in payload['clientContactIds']:
-          conn.execute('INSERT INTO project_client_contacts (project_id, contact_id) VALUES (?, ?)', (project_id, contact_id))
-        for contact_id in payload['deliveryPartnerContactIds']:
-          conn.execute('INSERT INTO project_delivery_partner_contacts (project_id, contact_id) VALUES (?, ?)', (project_id, contact_id))
       self._send_json({'status': 'updated'})
       return
 
@@ -4133,20 +3865,10 @@ class VPMHandler(SimpleHTTPRequestHandler):
         if payload['companyBranchId'] is not None and not self._ids_exist(conn, 'company_branches', [payload['companyBranchId']]):
           self._send_json({'error': 'Selected company branch does not exist'}, HTTPStatus.BAD_REQUEST)
           return
-        first_area = conn.execute('SELECT name FROM areas WHERE id = ? LIMIT 1', (payload['areaIds'][0],)).fetchone()
-        role_row = conn.execute('SELECT name FROM roles WHERE id = ? LIMIT 1', (payload['companyRoleId'],)).fetchone()
-        cursor = conn.execute(
-          'UPDATE consultants SET name = ?, area = ?, position = ?, salary = ?, holiday_location_id = ?, company_branch_id = ?, start_date = ? WHERE id = ?',
-          (payload['name'], first_area['name'] if first_area else None, role_row['name'] if role_row else None, payload['salary'], payload['holidayLocationId'], payload['companyBranchId'], payload['startDate'], consultant_id)
-        )
-        if cursor.rowcount == 0:
+        updated_rows = consultants_repository.update_consultant(conn, consultant_id, payload)
+        if updated_rows == 0:
           self._send_json({'error': 'Consultant not found'}, HTTPStatus.NOT_FOUND)
           return
-        conn.execute('DELETE FROM consultant_areas WHERE consultant_id = ?', (consultant_id,))
-        conn.execute('DELETE FROM consultant_roles WHERE consultant_id = ?', (consultant_id,))
-        for area_id in sorted(set(payload['areaIds'])):
-          conn.execute('INSERT INTO consultant_areas (consultant_id, area_id) VALUES (?, ?)', (consultant_id, area_id))
-        conn.execute('INSERT INTO consultant_roles (consultant_id, role_id) VALUES (?, ?)', (consultant_id, payload['companyRoleId']))
       self._send_json({'status': 'updated'})
       return
 
@@ -4357,8 +4079,8 @@ class VPMHandler(SimpleHTTPRequestHandler):
 
     if project_id is not None:
       with get_connection() as conn:
-        cursor = conn.execute('DELETE FROM projects WHERE id = ?', (project_id,))
-      if cursor.rowcount == 0:
+        deleted_rows = projects_repository.delete_project(conn, project_id)
+      if deleted_rows == 0:
         self._send_json({'error': 'Project not found'}, HTTPStatus.NOT_FOUND)
         return
       self._send_json({'status': 'deleted'})
@@ -4366,8 +4088,8 @@ class VPMHandler(SimpleHTTPRequestHandler):
 
     if consultant_id is not None:
       with get_connection() as conn:
-        cursor = conn.execute('DELETE FROM consultants WHERE id = ?', (consultant_id,))
-      if cursor.rowcount == 0:
+        deleted_rows = consultants_repository.delete_consultant(conn, consultant_id)
+      if deleted_rows == 0:
         self._send_json({'error': 'Consultant not found'}, HTTPStatus.NOT_FOUND)
         return
       self._send_json({'status': 'deleted'})

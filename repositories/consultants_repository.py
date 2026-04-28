@@ -1,0 +1,123 @@
+import db
+
+
+def list_consultants(conn=None):
+  if conn is None:
+    with db.get_connection() as db_conn:
+      return list_consultants(db_conn)
+  rows = conn.execute(
+    '''
+    SELECT c.id, c.name, c.salary, c.holiday_location_id, c.start_date, c.company_branch_id, cb.name AS company_branch_name
+    FROM consultants c
+    LEFT JOIN company_branches cb ON cb.id = c.company_branch_id
+    ORDER BY c.created_at DESC, c.id DESC
+    '''
+  ).fetchall()
+  consultants = []
+  for consultant in rows:
+    role_row = conn.execute(
+      '''
+      SELECT r.id, r.name FROM consultant_roles cr
+      JOIN roles r ON r.id = cr.role_id
+      WHERE cr.consultant_id = ? ORDER BY r.name LIMIT 1
+      ''',
+      (consultant['id'],)
+    ).fetchone()
+
+    area_rows = conn.execute(
+      '''
+      SELECT a.id, a.name FROM consultant_areas ca
+      JOIN areas a ON a.id = ca.area_id
+      WHERE ca.consultant_id = ? ORDER BY a.name
+      ''',
+      (consultant['id'],)
+    ).fetchall()
+
+    availability_rows = conn.execute(
+      '''
+      SELECT ca.id, ca.day_off_type_id, ca.type, ca.start_date, ca.end_date, dot.name AS type_name
+      FROM consultant_availability ca
+      LEFT JOIN day_off_types dot ON dot.id = ca.day_off_type_id
+      WHERE ca.consultant_id = ?
+      ORDER BY ca.start_date
+      ''',
+      (consultant['id'],)
+    ).fetchall()
+
+    holiday_load_row = conn.execute(
+      '''
+      SELECT year, country_code, region_code, loaded_at
+      FROM consultant_holiday_loads
+      WHERE consultant_id = ?
+      ORDER BY loaded_at DESC, id DESC
+      LIMIT 1
+      ''',
+      (consultant['id'],)
+    ).fetchone()
+
+    consultants.append({
+      'id': consultant['id'],
+      'name': consultant['name'],
+      'salary': consultant['salary'],
+      'startDate': consultant['start_date'],
+      'companyRoleId': role_row['id'] if role_row else None,
+      'companyRole': role_row['name'] if role_row else None,
+      'areaIds': [row['id'] for row in area_rows],
+      'areaNames': [row['name'] for row in area_rows],
+      'holidayLocationId': consultant['holiday_location_id'],
+      'companyBranchId': consultant['company_branch_id'],
+      'companyBranchName': consultant['company_branch_name'],
+      'holidayCalendarLoad': {
+        'year': holiday_load_row['year'],
+        'countryCode': holiday_load_row['country_code'],
+        'regionCode': holiday_load_row['region_code'],
+        'loadedAt': holiday_load_row['loaded_at']
+      } if holiday_load_row else None,
+      'availability': [
+        {
+          'id': row['id'],
+          'dayOffTypeId': row['day_off_type_id'],
+          'type': row['type_name'] or row['type'] or 'Days Off',
+          'startDate': row['start_date'],
+          'endDate': row['end_date']
+        }
+        for row in availability_rows
+      ]
+    })
+  return consultants
+
+
+def create_consultant(conn, payload):
+  first_area = conn.execute('SELECT name FROM areas WHERE id = ? LIMIT 1', (payload['areaIds'][0],)).fetchone()
+  role_row = conn.execute('SELECT name FROM roles WHERE id = ? LIMIT 1', (payload['companyRoleId'],)).fetchone()
+  cursor = conn.execute(
+    'INSERT INTO consultants (name, area, position, salary, holiday_location_id, company_branch_id, start_date) VALUES (?, ?, ?, ?, ?, ?, ?)',
+    (payload['name'], first_area['name'] if first_area else None, role_row['name'] if role_row else None, payload['salary'], payload['holidayLocationId'], payload['companyBranchId'], payload['startDate'])
+  )
+  consultant_id = cursor.lastrowid
+  for area_id in sorted(set(payload['areaIds'])):
+    conn.execute('INSERT INTO consultant_areas (consultant_id, area_id) VALUES (?, ?)', (consultant_id, area_id))
+  conn.execute('INSERT INTO consultant_roles (consultant_id, role_id) VALUES (?, ?)', (consultant_id, payload['companyRoleId']))
+  return consultant_id
+
+
+def update_consultant(conn, consultant_id, payload):
+  first_area = conn.execute('SELECT name FROM areas WHERE id = ? LIMIT 1', (payload['areaIds'][0],)).fetchone()
+  role_row = conn.execute('SELECT name FROM roles WHERE id = ? LIMIT 1', (payload['companyRoleId'],)).fetchone()
+  cursor = conn.execute(
+    'UPDATE consultants SET name = ?, area = ?, position = ?, salary = ?, holiday_location_id = ?, company_branch_id = ?, start_date = ? WHERE id = ?',
+    (payload['name'], first_area['name'] if first_area else None, role_row['name'] if role_row else None, payload['salary'], payload['holidayLocationId'], payload['companyBranchId'], payload['startDate'], consultant_id)
+  )
+  if cursor.rowcount == 0:
+    return 0
+  conn.execute('DELETE FROM consultant_areas WHERE consultant_id = ?', (consultant_id,))
+  conn.execute('DELETE FROM consultant_roles WHERE consultant_id = ?', (consultant_id,))
+  for area_id in sorted(set(payload['areaIds'])):
+    conn.execute('INSERT INTO consultant_areas (consultant_id, area_id) VALUES (?, ?)', (consultant_id, area_id))
+  conn.execute('INSERT INTO consultant_roles (consultant_id, role_id) VALUES (?, ?)', (consultant_id, payload['companyRoleId']))
+  return cursor.rowcount
+
+
+def delete_consultant(conn, consultant_id):
+  cursor = conn.execute('DELETE FROM consultants WHERE id = ?', (consultant_id,))
+  return cursor.rowcount
