@@ -1,3 +1,6 @@
+import db
+
+
 def list_holiday_locations(conn):
   rows = conn.execute(
     '''
@@ -19,8 +22,13 @@ def list_holiday_locations(conn):
 
 def ensure_holiday_location(conn, country_code, region_code, label):
   row = conn.execute(
-    'SELECT id FROM holiday_locations WHERE country_code = ? AND region_code IS ?',
-    (country_code, region_code)
+    '''
+    SELECT id
+    FROM holiday_locations
+    WHERE country_code = ?
+      AND ((region_code IS NULL AND ? IS NULL) OR region_code = ?)
+    ''',
+    (country_code, region_code, region_code)
   ).fetchone()
   if row:
     return row['id']
@@ -63,47 +71,105 @@ def fetch_holidays(conn, year, country_code, region_code):
 
 def get_holiday_cache_fetched_at(conn, year, country_code, region_code):
   row = conn.execute(
-    'SELECT fetched_at FROM holiday_cache WHERE country_code = ? AND region_code IS ? AND year = ?',
-    (country_code, region_code, year)
+    '''
+    SELECT fetched_at
+    FROM holiday_cache
+    WHERE country_code = ?
+      AND ((region_code IS NULL AND ? IS NULL) OR region_code = ?)
+      AND year = ?
+    ''',
+    (country_code, region_code, region_code, year)
   ).fetchone()
   return row['fetched_at'] if row else None
 
 
 def upsert_holidays(conn, entries_to_store, country_code, year):
   for row, row_region, row_scope in entries_to_store:
-    conn.execute(
+    if db.is_sqlite():
+      conn.execute(
+        '''
+        INSERT INTO holidays (date, name, country_code, region_code, scope, year, source)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+        ON CONFLICT(date, country_code, region_code, scope)
+        DO UPDATE SET name = excluded.name, source = excluded.source, year = excluded.year
+        ''',
+        (row['date'], row['name'], country_code, row_region, row_scope, year, row['source'])
+      )
+      continue
+    updated = conn.execute(
       '''
-      INSERT INTO holidays (date, name, country_code, region_code, scope, year, source)
-      VALUES (?, ?, ?, ?, ?, ?, ?)
-      ON CONFLICT(date, country_code, region_code, scope)
-      DO UPDATE SET name = excluded.name, source = excluded.source, year = excluded.year
+      UPDATE holidays
+      SET name = ?, source = ?, year = ?
+      WHERE date = ? AND country_code = ? AND scope = ?
+        AND ((region_code IS NULL AND ? IS NULL) OR region_code = ?)
       ''',
-      (row['date'], row['name'], country_code, row_region, row_scope, year, row['source'])
+      (row['name'], row['source'], year, row['date'], country_code, row_scope, row_region, row_region)
     )
+    if getattr(updated, 'rowcount', 0) == 0:
+      conn.execute(
+        'INSERT INTO holidays (date, name, country_code, region_code, scope, year, source) VALUES (?, ?, ?, ?, ?, ?, ?)',
+        (row['date'], row['name'], country_code, row_region, row_scope, year, row['source'])
+      )
 
 
 def upsert_holiday_cache(conn, country_code, region_code, year):
-  conn.execute(
+  if db.is_sqlite():
+    conn.execute(
+      '''
+      INSERT INTO holiday_cache (country_code, region_code, year, fetched_at)
+      VALUES (?, ?, ?, CURRENT_TIMESTAMP)
+      ON CONFLICT(country_code, region_code, year)
+      DO UPDATE SET fetched_at = CURRENT_TIMESTAMP
+      ''',
+      (country_code, region_code, year)
+    )
+    return
+  updated = conn.execute(
     '''
-    INSERT INTO holiday_cache (country_code, region_code, year, fetched_at)
-    VALUES (?, ?, ?, CURRENT_TIMESTAMP)
-    ON CONFLICT(country_code, region_code, year)
-    DO UPDATE SET fetched_at = CURRENT_TIMESTAMP
+    UPDATE holiday_cache
+    SET fetched_at = CURRENT_TIMESTAMP
+    WHERE country_code = ?
+      AND ((region_code IS NULL AND ? IS NULL) OR region_code = ?)
+      AND year = ?
     ''',
-    (country_code, region_code, year)
+    (country_code, region_code, region_code, year)
   )
+  if getattr(updated, 'rowcount', 0) == 0:
+    conn.execute(
+      'INSERT INTO holiday_cache (country_code, region_code, year, fetched_at) VALUES (?, ?, ?, CURRENT_TIMESTAMP)',
+      (country_code, region_code, year)
+    )
 
 
 def upsert_consultant_holiday_load(conn, consultant_id, year, country_code, region_code):
-  conn.execute(
+  if db.is_sqlite():
+    conn.execute(
+      '''
+      INSERT INTO consultant_holiday_loads (consultant_id, year, country_code, region_code, loaded_at)
+      VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP)
+      ON CONFLICT(consultant_id, year, country_code, region_code)
+      DO UPDATE SET loaded_at = CURRENT_TIMESTAMP
+      ''',
+      (consultant_id, year, country_code, region_code)
+    )
+    return
+  updated = conn.execute(
     '''
-    INSERT INTO consultant_holiday_loads (consultant_id, year, country_code, region_code, loaded_at)
-    VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP)
-    ON CONFLICT(consultant_id, year, country_code, region_code)
-    DO UPDATE SET loaded_at = CURRENT_TIMESTAMP
+    UPDATE consultant_holiday_loads
+    SET loaded_at = CURRENT_TIMESTAMP
+    WHERE consultant_id = ? AND year = ? AND country_code = ?
+      AND ((region_code IS NULL AND ? IS NULL) OR region_code = ?)
     ''',
-    (consultant_id, year, country_code, region_code)
+    (consultant_id, year, country_code, region_code, region_code)
   )
+  if getattr(updated, 'rowcount', 0) == 0:
+    conn.execute(
+      '''
+      INSERT INTO consultant_holiday_loads (consultant_id, year, country_code, region_code, loaded_at)
+      VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP)
+      ''',
+      (consultant_id, year, country_code, region_code)
+    )
 
 
 def create_holiday_location(conn, label, country_code, region_code):

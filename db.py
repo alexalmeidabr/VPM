@@ -112,3 +112,11 @@ def execute_many(query: str, params_list: Iterable[Sequence[Any]]) -> None:
   with get_connection() as conn:
     conn.executemany(query, params_list)
     conn.commit()
+
+
+def get_last_insert_id(cursor, conn=None) -> int:
+  lastrowid = getattr(cursor, 'lastrowid', None)
+  if lastrowid is not None:
+    return int(lastrowid)
+  # Azure SQL insert-id retrieval should be explicit in SQL (e.g. OUTPUT INSERTED.id).
+  raise ValueError('Insert id is unavailable on this backend/cursor; use backend-specific insert-id retrieval.')

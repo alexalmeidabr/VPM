@@ -1,4 +1,5 @@
 from datetime import datetime, timedelta
+import db
 
 
 def month_range(month_start):
@@ -12,7 +13,12 @@ def month_range(month_start):
 
 
 def ensure_monthly_timesheet(conn, consultant_id, month_start):
-  conn.execute('INSERT INTO monthly_timesheets (consultant_id, month_start) VALUES (?, ?) ON CONFLICT(consultant_id, month_start) DO NOTHING', (consultant_id, month_start))
+  if db.is_sqlite():
+    conn.execute('INSERT INTO monthly_timesheets (consultant_id, month_start) VALUES (?, ?) ON CONFLICT(consultant_id, month_start) DO NOTHING', (consultant_id, month_start))
+  else:
+    exists = conn.execute('SELECT 1 FROM monthly_timesheets WHERE consultant_id = ? AND month_start = ?', (consultant_id, month_start)).fetchone()
+    if not exists:
+      conn.execute('INSERT INTO monthly_timesheets (consultant_id, month_start) VALUES (?, ?)', (consultant_id, month_start))
   row = conn.execute('SELECT id, consultant_id, month_start, status FROM monthly_timesheets WHERE consultant_id = ? AND month_start = ?', (consultant_id, month_start)).fetchone()
   if not row:
     return None
@@ -138,14 +144,25 @@ def get_line_with_timesheet_status(conn, line_id):
 
 
 def update_entry(conn, line_id, entry_date, hours):
-  conn.execute(
-    '''
-    INSERT INTO monthly_timesheet_entries (line_id, entry_date, hours, updated_at)
-    VALUES (?, ?, ?, CURRENT_TIMESTAMP)
-    ON CONFLICT(line_id, entry_date) DO UPDATE SET hours = excluded.hours, updated_at = CURRENT_TIMESTAMP
-    ''',
-    (line_id, entry_date, hours)
+  if db.is_sqlite():
+    conn.execute(
+      '''
+      INSERT INTO monthly_timesheet_entries (line_id, entry_date, hours, updated_at)
+      VALUES (?, ?, ?, CURRENT_TIMESTAMP)
+      ON CONFLICT(line_id, entry_date) DO UPDATE SET hours = excluded.hours, updated_at = CURRENT_TIMESTAMP
+      ''',
+      (line_id, entry_date, hours)
+    )
+    return
+  updated = conn.execute(
+    'UPDATE monthly_timesheet_entries SET hours = ?, updated_at = CURRENT_TIMESTAMP WHERE line_id = ? AND entry_date = ?',
+    (hours, line_id, entry_date)
   )
+  if getattr(updated, 'rowcount', 0) == 0:
+    conn.execute(
+      'INSERT INTO monthly_timesheet_entries (line_id, entry_date, hours, updated_at) VALUES (?, ?, ?, CURRENT_TIMESTAMP)',
+      (line_id, entry_date, hours)
+    )
 
 
 def update_timesheet_status(conn, timesheet_id, status):
