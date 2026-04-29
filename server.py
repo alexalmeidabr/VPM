@@ -757,7 +757,6 @@ class VPMHandler(SimpleHTTPRequestHandler):
       LEFT JOIN company_branches cb ON cb.id = p.contract_with_branch_id
       LEFT JOIN business_partners bp ON bp.id = p.client_business_partner_id
       WHERE i.id = ?
-      LIMIT 1
       ''',
       (invoice_id,)
     ).fetchone()
@@ -942,7 +941,6 @@ class VPMHandler(SimpleHTTPRequestHandler):
       FROM consultant_roles cr
       JOIN roles r ON r.id = cr.role_id
       WHERE cr.consultant_id = ? AND r.name = 'Project Manager'
-      LIMIT 1
       ''',
       (consultant_id,)
     ).fetchone()
@@ -1021,7 +1019,7 @@ class VPMHandler(SimpleHTTPRequestHandler):
         payload['contractWithBranchId'] = int(contract_with_branch)
       except (TypeError, ValueError):
         return 'contractWithBranchId must be numeric'
-      branch_exists = conn.execute('SELECT 1 FROM company_branches WHERE id = ? LIMIT 1', (payload['contractWithBranchId'],)).fetchone()
+      branch_exists = conn.execute('SELECT 1 FROM company_branches WHERE id = ?', (payload['contractWithBranchId'],)).fetchone()
       if not branch_exists:
         return 'contractWithBranchId must reference an existing company branch'
 
@@ -1042,7 +1040,7 @@ class VPMHandler(SimpleHTTPRequestHandler):
       return 'projectStatus must be one of: Not Started, In Progress, Delayed, Completed'
     payload['projectStatus'] = project_status
 
-    type_exists = conn.execute('SELECT 1 FROM project_types WHERE name = ? LIMIT 1', (payload['projectType'],)).fetchone()
+    type_exists = conn.execute('SELECT 1 FROM project_types WHERE name = ?', (payload['projectType'],)).fetchone()
     if not type_exists:
       return 'projectType must exist in configured project types'
     if payload['startDate'] > payload['endDate']:

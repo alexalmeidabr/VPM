@@ -28,11 +28,18 @@ The backend is closer to meaningful Azure runtime testing, but is **not fully Az
    - Holiday NULL-safe region comparisons
    - Explicit inserted-id SQL (`OUTPUT INSERTED.id`) in priority and active create flows
 
+
+3. **Inline server runtime LIMIT cleanup completed for key paths**
+   - `_invoice_print_html()` invoice lookup
+   - `_consultant_has_project_manager_role()` existence check
+   - `_project_payload_error()` checks for company branch/project type existence
+   - Removed unnecessary `LIMIT 1` in these runtime queries to reduce SQLite-specific syntax usage.
+
 ## 4) Remaining runtime portability risks
 
 | Area | Remaining issue | Recommended next action |
 |---|---|---|
-| inline server runtime SQL | some runtime inline queries still use SQLite-specific syntax patterns (e.g. `LIMIT` in selected server paths) | continue targeted server inline runtime SQL pass by endpoint family |
+| inline server runtime SQL | key `LIMIT 1` runtime occurrences were removed in critical helper/validation paths; additional inline query portability review may still be needed in later passes | continue targeted server inline runtime SQL pass by endpoint family |
 | non-create runtime SQL breadth | selected queries may still rely on SQLite tolerance/behavior | continue incremental repository + server runtime query review during Azure test hardening |
 | pyodbc row-shape expectations | codebase broadly assumes dict-style row access (`row['col']`) while pyodbc row handling differs | introduce a safe row-shaping abstraction for azure mode before broad runtime testing |
 
