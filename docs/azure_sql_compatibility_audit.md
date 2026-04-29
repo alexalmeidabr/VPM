@@ -1,65 +1,54 @@
-# Azure SQL Compatibility Audit (Phase 2A/2B/2C runtime prep)
+# Azure SQL Compatibility Audit (Phase 2A/2B/2C + runtime query family review)
 
 ## 1) Executive summary
 
-Connection-mode support exists (`sqlite` default, `azure_sql` optional), and runtime portability work has progressed in phases.
+Connection-mode support exists (`sqlite` default, `azure_sql` optional), and insert-id portability for active create flows is substantially improved.
 
-This Phase 2C pass implemented **real Azure-safe inserted-id SQL paths** (`OUTPUT INSERTED.id`) for priority create flows while keeping SQLite behavior unchanged.
+This phase reviewed runtime SQL portability by endpoint/repository families and applied only low-risk query portability fixes.
 
-The backend is still not fully Azure runtime-ready, but key create-path blocker risk is now significantly reduced.
+The backend is closer to meaningful Azure runtime testing, but is **not fully Azure runtime-ready** yet.
 
-## 2) What Phase 2C addressed
+## 2) Families reviewed in this phase
 
-### A) Real Azure-safe insert-id retrieval added (priority flows)
-The following create flows now use backend-aware insert SQL via `db.execute_insert_and_get_id(...)`:
+- **Group A**: projects / consultants / business partners
+- **Group B**: timesheets / holidays
+- **Group C**: revenue / invoices / budgets / profitability
+- **Group D**: project files / allocation simulations / company branches / admin runtime paths
 
-- `repositories/projects_repository.py`
-  - `create_project`
-  - phase inserts in `create_project` / `update_project` phase mapping paths
-- `repositories/consultants_repository.py`
-  - `create_consultant`
-- `repositories/business_partners_repository.py`
-  - `create_business_partner`
-  - `_replace_contacts` contact insert
-- `repositories/invoices_repository.py`
-  - `create_invoice`
-  - `create_invoice_payment`
-- `repositories/timesheets_repository.py`
-  - `create_manual_line`
-- `repositories/holidays_repository.py`
-  - `create_holiday_location`
-  - insert path in `ensure_holiday_location`
+## 3) Runtime portability issues fixed in this phase
 
-SQLite path: unchanged (`lastrowid` behavior preserved through helper).  
-Azure path: explicit `OUTPUT INSERTED.id` retrieval.
+1. **Removed SQLite-specific `LIMIT 1` usage in consultant role/area lookups**
+   - File: `repositories/consultants_repository.py`
+   - Functions: `create_consultant`, `update_consultant`
+   - Change: replaced `... WHERE id = ? LIMIT 1` with `... WHERE id = ?` (same result semantics by PK, better SQL Server portability).
 
-### B) Runtime query group review status
-- **Group A (projects/consultants/business partners)**: reviewed and priority create paths upgraded to explicit inserted-id SQL.
-- **Group B (timesheets/holidays)**: prior Phase 2B upsert/null portability retained; create-path inserted-id upgraded.
-- **Group C (invoices/budgets/project files/allocation simulations/company branches)**:
-  - invoices, budgets, project files, company branches, and allocation simulations create flows upgraded to explicit inserted-id SQL.
-  - active server-side catalog/availability create endpoints upgraded to backend-aware insert-id retrieval.
+2. **Revalidated and retained previous runtime portability fixes**
+   - Timesheet runtime upsert branching (sqlite conflict vs non-sqlite update/insert)
+   - Holiday runtime upsert branching
+   - Holiday NULL-safe region comparisons
+   - Explicit inserted-id SQL (`OUTPUT INSERTED.id`) in priority and active create flows
 
-## 3) Remaining runtime blockers before meaningful Azure runtime testing
+## 4) Remaining runtime portability risks
 
 | Area | Remaining issue | Recommended next action |
 |---|---|---|
-| insert-id handling in remaining low-touch create paths | most active repository/server create flows now use explicit inserted-id SQL; some low-priority paths may still need explicit review | continue incremental sweep and convert any remaining helper-only paths |
-| runtime SQL portability breadth | selected non-create runtime queries still may rely on SQLite behavior/functions | continue endpoint-group runtime query review and patch non-portable constructs |
-| operational parity | backup/restore and SQLite maintenance utilities remain SQLite-only by design | keep deferred until Azure operational phase |
+| inline server runtime SQL | some runtime inline queries still use SQLite-specific syntax patterns (e.g. `LIMIT` in selected server paths) | continue targeted server inline runtime SQL pass by endpoint family |
+| non-create runtime SQL breadth | selected queries may still rely on SQLite tolerance/behavior | continue incremental repository + server runtime query review during Azure test hardening |
+| pyodbc row-shape expectations | codebase broadly assumes dict-style row access (`row['col']`) while pyodbc row handling differs | introduce a safe row-shaping abstraction for azure mode before broad runtime testing |
 
-## 4) Must change before Azure schema creation/migration
+## 5) Still intentionally deferred (not in this phase)
 
-| File/Area | Issue summary | Next action |
-|---|---|---|
-| `server.py` bootstrap/migrations | SQLite DDL (`executescript`), `PRAGMA table_info`, `AUTOINCREMENT`, SQLite metadata assumptions | implement dedicated Azure schema/migration scripts and migration workflow |
+- schema/bootstrap portability (`init_db`, `executescript`, `PRAGMA table_info`, `AUTOINCREMENT`)
+- backup/restore and SQLite operational tooling
+- Azure schema creation/migration scripts
 
-## 5) Recommended next step
+## 6) Current readiness statement
 
-1. Finish explicit `OUTPUT INSERTED.id` rollout for any remaining helper-only create paths not covered by active endpoints.
-2. Continue runtime query portability review by endpoint family.
-3. Maintain SQLite parity validation for each portability patch.
+- Connection-mode: available
+- Active create inserted-id handling: substantially improved with explicit Azure paths
+- Runtime query portability: improved incrementally, but still incomplete
+- Schema/migration readiness: deferred to later phase
 
 ---
 
-This document does **not** claim full Azure runtime readiness. It records targeted, real progress on high-priority inserted-id and runtime portability blockers.
+This document intentionally does **not** claim full Azure runtime readiness. It records concrete runtime portability progress and remaining blockers.

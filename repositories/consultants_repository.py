@@ -115,8 +115,8 @@ def list_consultants(conn=None):
 
 
 def create_consultant(conn, payload):
-  first_area = conn.execute('SELECT name FROM areas WHERE id = ? LIMIT 1', (payload['areaIds'][0],)).fetchone()
-  role_row = conn.execute('SELECT name FROM roles WHERE id = ? LIMIT 1', (payload['companyRoleId'],)).fetchone()
+  first_area = conn.execute('SELECT name FROM areas WHERE id = ?', (payload['areaIds'][0],)).fetchone()
+  role_row = conn.execute('SELECT name FROM roles WHERE id = ?', (payload['companyRoleId'],)).fetchone()
   consultant_id = db.execute_insert_and_get_id(
     conn,
     'INSERT INTO consultants (name, area, position, salary, holiday_location_id, company_branch_id, start_date) VALUES (?, ?, ?, ?, ?, ?, ?)',
@@ -130,8 +130,8 @@ def create_consultant(conn, payload):
 
 
 def update_consultant(conn, consultant_id, payload):
-  first_area = conn.execute('SELECT name FROM areas WHERE id = ? LIMIT 1', (payload['areaIds'][0],)).fetchone()
-  role_row = conn.execute('SELECT name FROM roles WHERE id = ? LIMIT 1', (payload['companyRoleId'],)).fetchone()
+  first_area = conn.execute('SELECT name FROM areas WHERE id = ?', (payload['areaIds'][0],)).fetchone()
+  role_row = conn.execute('SELECT name FROM roles WHERE id = ?', (payload['companyRoleId'],)).fetchone()
   cursor = conn.execute(
     'UPDATE consultants SET name = ?, area = ?, position = ?, salary = ?, holiday_location_id = ?, company_branch_id = ?, start_date = ? WHERE id = ?',
     (payload['name'], first_area['name'] if first_area else None, role_row['name'] if role_row else None, payload['salary'], payload['holidayLocationId'], payload['companyBranchId'], payload['startDate'], consultant_id)
