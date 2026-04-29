@@ -13,47 +13,74 @@ def list_consultants(conn=None):
     ORDER BY c.created_at DESC, c.id DESC
     '''
   ).fetchall()
+  consultant_ids = [row['id'] for row in rows]
+  if not consultant_ids:
+    return []
+
+  placeholders = ','.join('?' for _ in consultant_ids)
+
+  role_rows = conn.execute(
+    f'''
+    SELECT cr.consultant_id, r.id, r.name
+    FROM consultant_roles cr
+    JOIN roles r ON r.id = cr.role_id
+    WHERE cr.consultant_id IN ({placeholders})
+    ORDER BY cr.consultant_id, r.name
+    ''',
+    tuple(consultant_ids)
+  ).fetchall()
+  role_by_consultant = {}
+  for row in role_rows:
+    role_by_consultant.setdefault(row['consultant_id'], row)
+
+  area_rows = conn.execute(
+    f'''
+    SELECT ca.consultant_id, a.id, a.name
+    FROM consultant_areas ca
+    JOIN areas a ON a.id = ca.area_id
+    WHERE ca.consultant_id IN ({placeholders})
+    ORDER BY ca.consultant_id, a.name
+    ''',
+    tuple(consultant_ids)
+  ).fetchall()
+  areas_by_consultant = {}
+  for row in area_rows:
+    areas_by_consultant.setdefault(row['consultant_id'], []).append(row)
+
+  availability_rows = conn.execute(
+    f'''
+    SELECT ca.consultant_id, ca.id, ca.day_off_type_id, ca.type, ca.start_date, ca.end_date, dot.name AS type_name
+    FROM consultant_availability ca
+    LEFT JOIN day_off_types dot ON dot.id = ca.day_off_type_id
+    WHERE ca.consultant_id IN ({placeholders})
+    ORDER BY ca.consultant_id, ca.start_date
+    ''',
+    tuple(consultant_ids)
+  ).fetchall()
+  availability_by_consultant = {}
+  for row in availability_rows:
+    availability_by_consultant.setdefault(row['consultant_id'], []).append(row)
+
+  holiday_load_rows = conn.execute(
+    f'''
+    SELECT consultant_id, year, country_code, region_code, loaded_at, id
+    FROM consultant_holiday_loads
+    WHERE consultant_id IN ({placeholders})
+    ORDER BY consultant_id, loaded_at DESC, id DESC
+    ''',
+    tuple(consultant_ids)
+  ).fetchall()
+  holiday_load_by_consultant = {}
+  for row in holiday_load_rows:
+    holiday_load_by_consultant.setdefault(row['consultant_id'], row)
+
   consultants = []
   for consultant in rows:
-    role_row = conn.execute(
-      '''
-      SELECT r.id, r.name FROM consultant_roles cr
-      JOIN roles r ON r.id = cr.role_id
-      WHERE cr.consultant_id = ? ORDER BY r.name LIMIT 1
-      ''',
-      (consultant['id'],)
-    ).fetchone()
-
-    area_rows = conn.execute(
-      '''
-      SELECT a.id, a.name FROM consultant_areas ca
-      JOIN areas a ON a.id = ca.area_id
-      WHERE ca.consultant_id = ? ORDER BY a.name
-      ''',
-      (consultant['id'],)
-    ).fetchall()
-
-    availability_rows = conn.execute(
-      '''
-      SELECT ca.id, ca.day_off_type_id, ca.type, ca.start_date, ca.end_date, dot.name AS type_name
-      FROM consultant_availability ca
-      LEFT JOIN day_off_types dot ON dot.id = ca.day_off_type_id
-      WHERE ca.consultant_id = ?
-      ORDER BY ca.start_date
-      ''',
-      (consultant['id'],)
-    ).fetchall()
-
-    holiday_load_row = conn.execute(
-      '''
-      SELECT year, country_code, region_code, loaded_at
-      FROM consultant_holiday_loads
-      WHERE consultant_id = ?
-      ORDER BY loaded_at DESC, id DESC
-      LIMIT 1
-      ''',
-      (consultant['id'],)
-    ).fetchone()
+    consultant_id = consultant['id']
+    role_row = role_by_consultant.get(consultant_id)
+    consultant_areas = areas_by_consultant.get(consultant_id, [])
+    consultant_availability = availability_by_consultant.get(consultant_id, [])
+    holiday_load_row = holiday_load_by_consultant.get(consultant_id)
 
     consultants.append({
       'id': consultant['id'],
@@ -62,8 +89,8 @@ def list_consultants(conn=None):
       'startDate': consultant['start_date'],
       'companyRoleId': role_row['id'] if role_row else None,
       'companyRole': role_row['name'] if role_row else None,
-      'areaIds': [row['id'] for row in area_rows],
-      'areaNames': [row['name'] for row in area_rows],
+      'areaIds': [row['id'] for row in consultant_areas],
+      'areaNames': [row['name'] for row in consultant_areas],
       'holidayLocationId': consultant['holiday_location_id'],
       'companyBranchId': consultant['company_branch_id'],
       'companyBranchName': consultant['company_branch_name'],
@@ -81,7 +108,7 @@ def list_consultants(conn=None):
           'startDate': row['start_date'],
           'endDate': row['end_date']
         }
-        for row in availability_rows
+        for row in consultant_availability
       ]
     })
   return consultants

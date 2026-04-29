@@ -16,47 +16,89 @@ def list_projects(conn=None):
     ORDER BY p.created_at DESC, p.id DESC
     '''
   ).fetchall()
+  project_ids = [row['id'] for row in rows]
+  if not project_ids:
+    return []
+
+  placeholders = ','.join('?' for _ in project_ids)
+  params = tuple(project_ids)
+
+  position_rows = conn.execute(
+    f'''
+    SELECT pp.project_id, pp.id, pp.consultant_id, pp.area_id, pp.project_role, pp.start_date, pp.end_date, pp.allocation, pp.billable, pp.daily_rate, pp.daily_rate_currency, pp.comments, pp.status, c.name AS consultant_name
+    FROM project_positions pp
+    LEFT JOIN consultants c ON c.id = pp.consultant_id
+    WHERE pp.project_id IN ({placeholders})
+    ORDER BY pp.project_id, pp.id
+    ''',
+    params
+  ).fetchall()
+  positions_by_project = {}
+  for row in position_rows:
+    positions_by_project.setdefault(row['project_id'], []).append(row)
+
+  phase_rows = conn.execute(
+    f'''
+    SELECT project_id, id, name, start_date, end_date
+    FROM project_phases
+    WHERE project_id IN ({placeholders})
+    ORDER BY project_id, start_date, id
+    ''',
+    params
+  ).fetchall()
+  phases_by_project = {}
+  for row in phase_rows:
+    phases_by_project.setdefault(row['project_id'], []).append(row)
+
+  milestone_rows = conn.execute(
+    f'''
+    SELECT project_id, id, phase_id, name, start_date, end_date
+    FROM project_milestones
+    WHERE project_id IN ({placeholders})
+    ORDER BY project_id, start_date, id
+    ''',
+    params
+  ).fetchall()
+  milestones_by_project = {}
+  for row in milestone_rows:
+    milestones_by_project.setdefault(row['project_id'], []).append(row)
+
+  client_contact_rows = conn.execute(
+    f'''
+    SELECT pcc.project_id, bc.id, bc.name, bc.last_name, bc.email
+    FROM project_client_contacts pcc
+    JOIN business_partner_contacts bc ON bc.id = pcc.contact_id
+    WHERE pcc.project_id IN ({placeholders})
+    ORDER BY pcc.project_id, bc.id
+    ''',
+    params
+  ).fetchall()
+  client_contacts_by_project = {}
+  for row in client_contact_rows:
+    client_contacts_by_project.setdefault(row['project_id'], []).append(row)
+
+  delivery_contact_rows = conn.execute(
+    f'''
+    SELECT pdc.project_id, bc.id, bc.name, bc.last_name, bc.email
+    FROM project_delivery_partner_contacts pdc
+    JOIN business_partner_contacts bc ON bc.id = pdc.contact_id
+    WHERE pdc.project_id IN ({placeholders})
+    ORDER BY pdc.project_id, bc.id
+    ''',
+    params
+  ).fetchall()
+  delivery_contacts_by_project = {}
+  for row in delivery_contact_rows:
+    delivery_contacts_by_project.setdefault(row['project_id'], []).append(row)
 
   projects = []
   for row in rows:
-    positions = conn.execute(
-      '''
-      SELECT pp.id, pp.consultant_id, pp.area_id, pp.project_role, pp.start_date, pp.end_date, pp.allocation, pp.billable, pp.daily_rate, pp.daily_rate_currency, pp.comments, pp.status, c.name AS consultant_name
-      FROM project_positions pp
-      LEFT JOIN consultants c ON c.id = pp.consultant_id
-      WHERE pp.project_id = ?
-      ORDER BY pp.id
-      ''',
-      (row['id'],)
-    ).fetchall()
-    phases = conn.execute(
-      'SELECT id, name, start_date, end_date FROM project_phases WHERE project_id = ? ORDER BY start_date, id',
-      (row['id'],)
-    ).fetchall()
-    milestones = conn.execute(
-      'SELECT id, phase_id, name, start_date, end_date FROM project_milestones WHERE project_id = ? ORDER BY start_date, id',
-      (row['id'],)
-    ).fetchall()
-    client_contacts = conn.execute(
-      '''
-      SELECT bc.id, bc.name, bc.last_name, bc.email
-      FROM project_client_contacts pcc
-      JOIN business_partner_contacts bc ON bc.id = pcc.contact_id
-      WHERE pcc.project_id = ?
-      ORDER BY bc.id
-      ''',
-      (row['id'],)
-    ).fetchall()
-    delivery_contacts = conn.execute(
-      '''
-      SELECT bc.id, bc.name, bc.last_name, bc.email
-      FROM project_delivery_partner_contacts pdc
-      JOIN business_partner_contacts bc ON bc.id = pdc.contact_id
-      WHERE pdc.project_id = ?
-      ORDER BY bc.id
-      ''',
-      (row['id'],)
-    ).fetchall()
+    project_id = row['id']
+    positions = positions_by_project.get(project_id, [])
+    phases = phases_by_project.get(project_id, [])
+    milestones = milestones_by_project.get(project_id, [])
+    client_contacts = client_contacts_by_project.get(project_id, [])
+    delivery_contacts = delivery_contacts_by_project.get(project_id, [])
     projects.append({
       'id': row['id'],
       'projectName': row['project_name'],

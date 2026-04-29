@@ -1,7 +1,5 @@
 from datetime import datetime, timedelta
 
-import db
-
 
 def month_range(month_start):
   start = datetime.strptime(month_start, '%Y-%m-%d').date()
@@ -142,9 +140,9 @@ def get_line_with_timesheet_status(conn, line_id):
 def update_entry(conn, line_id, entry_date, hours):
   conn.execute(
     '''
-    INSERT INTO monthly_timesheet_entries (line_id, entry_date, hours)
-    VALUES (?, ?, ?)
-    ON CONFLICT(line_id, entry_date) DO UPDATE SET hours = excluded.hours
+    INSERT INTO monthly_timesheet_entries (line_id, entry_date, hours, updated_at)
+    VALUES (?, ?, ?, CURRENT_TIMESTAMP)
+    ON CONFLICT(line_id, entry_date) DO UPDATE SET hours = excluded.hours, updated_at = CURRENT_TIMESTAMP
     ''',
     (line_id, entry_date, hours)
   )

@@ -1,6 +1,3 @@
-import db
-
-
 def calculate_invoice_paid_amount(conn, invoice_id):
   row = conn.execute('SELECT COALESCE(SUM(amount), 0) AS total FROM invoice_payments WHERE invoice_id = ?', (invoice_id,)).fetchone()
   return float(row['total'] if row and row['total'] is not None else 0.0)
@@ -35,6 +32,20 @@ def list_project_invoices(conn, project_id):
     ''',
     (project_id,)
   ).fetchall()
+  invoice_ids = [row['id'] for row in invoices]
+  paid_by_invoice_id = {}
+  if invoice_ids:
+    placeholders = ','.join('?' for _ in invoice_ids)
+    paid_rows = conn.execute(
+      f'''
+      SELECT invoice_id, COALESCE(SUM(amount), 0) AS total
+      FROM invoice_payments
+      WHERE invoice_id IN ({placeholders})
+      GROUP BY invoice_id
+      ''',
+      tuple(invoice_ids)
+    ).fetchall()
+    paid_by_invoice_id = {row['invoice_id']: float(row['total'] or 0.0) for row in paid_rows}
   return [
     {
       'id': invoice['id'],
@@ -46,7 +57,7 @@ def list_project_invoices(conn, project_id):
       'invoiceDate': invoice['invoice_date'],
       'dueDate': invoice['due_date'] or '',
       'amount': float(invoice['amount'] if invoice['amount'] is not None else 0.0),
-      'paidAmount': calculate_invoice_paid_amount(conn, invoice['id']),
+      'paidAmount': paid_by_invoice_id.get(invoice['id'], 0.0),
       'status': invoice['status'] or 'Draft',
       'notes': invoice['notes'] or ''
     }
