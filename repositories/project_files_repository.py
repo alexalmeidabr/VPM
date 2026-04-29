@@ -35,11 +35,16 @@ def get_project_file(conn, project_id, file_id):
 
 
 def create_project_file(conn, project_id, original_filename, stored_filename, file_size):
-  cursor = conn.execute(
+  return db.execute_insert_and_get_id(
+    conn,
     '''
     INSERT INTO project_files (project_id, original_filename, stored_filename, file_size)
     VALUES (?, ?, ?, ?)
     ''',
+    '''
+    INSERT INTO project_files (project_id, original_filename, stored_filename, file_size)
+    OUTPUT INSERTED.id
+    VALUES (?, ?, ?, ?)
+    ''',
     (project_id, original_filename, stored_filename, file_size)
   )
-  return db.get_last_insert_id(cursor, conn)

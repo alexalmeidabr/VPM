@@ -34,11 +34,12 @@ def get_allocation_simulation(conn, simulation_id):
 
 
 def create_allocation_simulation(conn, simulation_name, state):
-  cursor = conn.execute(
+  return db.execute_insert_and_get_id(
+    conn,
     'INSERT INTO allocation_simulations (name, state_json) VALUES (?, ?)',
+    'INSERT INTO allocation_simulations (name, state_json) OUTPUT INSERTED.id VALUES (?, ?)',
     (simulation_name, json.dumps(state))
   )
-  return db.get_last_insert_id(cursor, conn)
 
 
 def update_allocation_simulation(conn, simulation_id, simulation_name, state):

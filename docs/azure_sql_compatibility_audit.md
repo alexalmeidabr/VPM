@@ -37,14 +37,14 @@ Azure path: explicit `OUTPUT INSERTED.id` retrieval.
 - **Group A (projects/consultants/business partners)**: reviewed and priority create paths upgraded to explicit inserted-id SQL.
 - **Group B (timesheets/holidays)**: prior Phase 2B upsert/null portability retained; create-path inserted-id upgraded.
 - **Group C (invoices/budgets/project files/allocation simulations/company branches)**:
-  - invoices priority create flows upgraded to explicit inserted-id SQL.
-  - other create flows still use helper-only pattern (see remaining blockers).
+  - invoices, budgets, project files, company branches, and allocation simulations create flows upgraded to explicit inserted-id SQL.
+  - active server-side catalog/availability create endpoints upgraded to backend-aware insert-id retrieval.
 
 ## 3) Remaining runtime blockers before meaningful Azure runtime testing
 
 | Area | Remaining issue | Recommended next action |
 |---|---|---|
-| insert-id handling in non-priority create flows | several repositories still rely on helper-only `lastrowid` behavior without explicit azure insert SQL | incrementally migrate remaining create methods to `OUTPUT INSERTED.id` queries |
+| insert-id handling in remaining low-touch create paths | most active repository/server create flows now use explicit inserted-id SQL; some low-priority paths may still need explicit review | continue incremental sweep and convert any remaining helper-only paths |
 | runtime SQL portability breadth | selected non-create runtime queries still may rely on SQLite behavior/functions | continue endpoint-group runtime query review and patch non-portable constructs |
 | operational parity | backup/restore and SQLite maintenance utilities remain SQLite-only by design | keep deferred until Azure operational phase |
 
@@ -56,7 +56,7 @@ Azure path: explicit `OUTPUT INSERTED.id` retrieval.
 
 ## 5) Recommended next step
 
-1. Finish explicit `OUTPUT INSERTED.id` rollout for remaining create flows (budgets/project_files/company_branches/allocation_simulations and any leftover server create paths).
+1. Finish explicit `OUTPUT INSERTED.id` rollout for any remaining helper-only create paths not covered by active endpoints.
 2. Continue runtime query portability review by endpoint family.
 3. Maintain SQLite parity validation for each portability patch.
 

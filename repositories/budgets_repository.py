@@ -79,14 +79,19 @@ def calculate_fixed_price_budget_summary(conn, project_id):
 
 
 def create_project_budget(conn, project_id, budget_name, budget_type, status, start_date, end_date, amount, currency, notes):
-  cursor = conn.execute(
+  return db.execute_insert_and_get_id(
+    conn,
     '''
     INSERT INTO project_budgets (project_id, budget_name, budget_type, status, start_date, end_date, amount, currency, notes)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
     ''',
+    '''
+    INSERT INTO project_budgets (project_id, budget_name, budget_type, status, start_date, end_date, amount, currency, notes)
+    OUTPUT INSERTED.id
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+    ''',
     (project_id, budget_name, budget_type, status, start_date, end_date, amount, currency, notes)
   )
-  return db.get_last_insert_id(cursor, conn)
 
 
 def get_project_budget(conn, budget_id):

@@ -2802,11 +2802,13 @@ class VPMHandler(SimpleHTTPRequestHandler):
         if error:
           self._send_json({'error': error}, HTTPStatus.BAD_REQUEST)
           return
-        cursor = conn.execute(
+        availability_id = db.execute_insert_and_get_id(
+          conn,
           'INSERT INTO consultant_availability (consultant_id, day_off_type_id, type, start_date, end_date) VALUES (?, ?, ?, ?, ?)',
+          'INSERT INTO consultant_availability (consultant_id, day_off_type_id, type, start_date, end_date) OUTPUT INSERTED.id VALUES (?, ?, ?, ?, ?)',
           (consultant_id, payload['dayOffTypeId'], payload['typeName'], payload['startDate'], payload['endDate'])
         )
-      self._send_json({'id': cursor.lastrowid}, HTTPStatus.CREATED)
+      self._send_json({'id': availability_id}, HTTPStatus.CREATED)
       return
 
     if path == '/api/projects':
@@ -2870,11 +2872,16 @@ class VPMHandler(SimpleHTTPRequestHandler):
         return
       with get_connection() as conn:
         try:
-          cursor = conn.execute('INSERT INTO roles (name) VALUES (?)', (payload['name'],))
+          role_id = db.execute_insert_and_get_id(
+            conn,
+            'INSERT INTO roles (name) VALUES (?)',
+            'INSERT INTO roles (name) OUTPUT INSERTED.id VALUES (?)',
+            (payload['name'],)
+          )
         except db.IntegrityError:
           self._send_json({'error': 'Role already exists'}, HTTPStatus.BAD_REQUEST)
           return
-      self._send_json({'id': cursor.lastrowid}, HTTPStatus.CREATED)
+      self._send_json({'id': role_id}, HTTPStatus.CREATED)
       return
 
     if path == '/api/areas':
@@ -2884,11 +2891,16 @@ class VPMHandler(SimpleHTTPRequestHandler):
         return
       with get_connection() as conn:
         try:
-          cursor = conn.execute('INSERT INTO areas (name) VALUES (?)', (payload['name'],))
+          area_id = db.execute_insert_and_get_id(
+            conn,
+            'INSERT INTO areas (name) VALUES (?)',
+            'INSERT INTO areas (name) OUTPUT INSERTED.id VALUES (?)',
+            (payload['name'],)
+          )
         except db.IntegrityError:
           self._send_json({'error': 'Area already exists'}, HTTPStatus.BAD_REQUEST)
           return
-      self._send_json({'id': cursor.lastrowid}, HTTPStatus.CREATED)
+      self._send_json({'id': area_id}, HTTPStatus.CREATED)
       return
 
     if path == '/api/day-off-types':
@@ -2898,11 +2910,16 @@ class VPMHandler(SimpleHTTPRequestHandler):
         return
       with get_connection() as conn:
         try:
-          cursor = conn.execute('INSERT INTO day_off_types (name) VALUES (?)', (payload['name'],))
+          day_off_type_id = db.execute_insert_and_get_id(
+            conn,
+            'INSERT INTO day_off_types (name) VALUES (?)',
+            'INSERT INTO day_off_types (name) OUTPUT INSERTED.id VALUES (?)',
+            (payload['name'],)
+          )
         except db.IntegrityError:
           self._send_json({'error': 'Day off type already exists'}, HTTPStatus.BAD_REQUEST)
           return
-      self._send_json({'id': cursor.lastrowid}, HTTPStatus.CREATED)
+      self._send_json({'id': day_off_type_id}, HTTPStatus.CREATED)
       return
 
     if path == '/api/business-partner-types':
@@ -2912,11 +2929,16 @@ class VPMHandler(SimpleHTTPRequestHandler):
         return
       with get_connection() as conn:
         try:
-          cursor = conn.execute('INSERT INTO business_partner_types (name) VALUES (?)', (payload['name'],))
+          business_partner_type_id = db.execute_insert_and_get_id(
+            conn,
+            'INSERT INTO business_partner_types (name) VALUES (?)',
+            'INSERT INTO business_partner_types (name) OUTPUT INSERTED.id VALUES (?)',
+            (payload['name'],)
+          )
         except db.IntegrityError:
           self._send_json({'error': 'Business partner type already exists'}, HTTPStatus.BAD_REQUEST)
           return
-      self._send_json({'id': cursor.lastrowid}, HTTPStatus.CREATED)
+      self._send_json({'id': business_partner_type_id}, HTTPStatus.CREATED)
       return
 
     if path == '/api/project-types':
@@ -2926,11 +2948,16 @@ class VPMHandler(SimpleHTTPRequestHandler):
         return
       with get_connection() as conn:
         try:
-          cursor = conn.execute('INSERT INTO project_types (name) VALUES (?)', (payload['name'],))
+          project_type_id = db.execute_insert_and_get_id(
+            conn,
+            'INSERT INTO project_types (name) VALUES (?)',
+            'INSERT INTO project_types (name) OUTPUT INSERTED.id VALUES (?)',
+            (payload['name'],)
+          )
         except db.IntegrityError:
           self._send_json({'error': 'Project type already exists'}, HTTPStatus.BAD_REQUEST)
           return
-      self._send_json({'id': cursor.lastrowid}, HTTPStatus.CREATED)
+      self._send_json({'id': project_type_id}, HTTPStatus.CREATED)
       return
 
     if path == '/api/company-branches':

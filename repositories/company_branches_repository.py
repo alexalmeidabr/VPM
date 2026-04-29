@@ -25,9 +25,15 @@ def list_company_branches(conn):
 
 
 def create_company_branch(conn, payload):
-  cursor = conn.execute(
+  return db.execute_insert_and_get_id(
+    conn,
     '''
     INSERT INTO company_branches (name, tax_identification, street_name, street_number, postal_code, city, region, country)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    ''',
+    '''
+    INSERT INTO company_branches (name, tax_identification, street_name, street_number, postal_code, city, region, country)
+    OUTPUT INSERTED.id
     VALUES (?, ?, ?, ?, ?, ?, ?, ?)
     ''',
     (
@@ -41,7 +47,6 @@ def create_company_branch(conn, payload):
       str(payload.get('country', '')).strip()
     )
   )
-  return db.get_last_insert_id(cursor, conn)
 
 
 def update_company_branch(conn, company_branch_id, payload):
