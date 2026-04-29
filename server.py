@@ -1540,7 +1540,7 @@ class VPMHandler(SimpleHTTPRequestHandler):
     return billable_days * float(daily_rate)
 
   def calculate_time_material_forecast(self, conn, project_id):
-    project = conn.execute('SELECT start_date, end_date, project_type FROM projects WHERE id = ?', (project_id,)).fetchone()
+    project = revenue_repository.get_project_dates_and_type(conn, project_id)
     if not project:
       return 0.0
     if str(project['project_type'] or '').strip().lower() != 'time material':
@@ -1549,14 +1549,7 @@ class VPMHandler(SimpleHTTPRequestHandler):
     project_end = project['end_date']
     if not project_start or not project_end:
       return 0.0
-    rows = conn.execute(
-      '''
-      SELECT id, start_date, end_date, allocation, billable, daily_rate
-      FROM project_positions
-      WHERE project_id = ?
-      ''',
-      (project_id,)
-    ).fetchall()
+    rows = revenue_repository.list_project_positions_for_forecast_total(conn, project_id)
     total = 0.0
     for row in rows:
       if not bool(row['billable']):
@@ -1637,7 +1630,7 @@ class VPMHandler(SimpleHTTPRequestHandler):
     return budgets_repository.calculate_fixed_price_budget_summary(conn, project_id)
 
   def calculate_fixed_price_revenue_forecast(self, conn, project_id):
-    project = conn.execute('SELECT start_date, end_date, project_type FROM projects WHERE id = ?', (project_id,)).fetchone()
+    project = revenue_repository.get_project_dates_and_type(conn, project_id)
     if not project or str(project['project_type'] or '').strip().lower() != 'fixed price':
       return {'summary': {'totalContractedRevenue': 0.0, 'revenueThisMonth': 0.0, 'revenueNext3Months': 0.0, 'totalForecastRevenueUntilProjectEnd': 0.0}, 'rows': []}
     budget_summary = self.calculate_fixed_price_budget_summary(conn, project_id)
@@ -1947,7 +1940,7 @@ class VPMHandler(SimpleHTTPRequestHandler):
     return {'amount': total, 'currency': currency}
 
   def get_revenue_invoice_periods(self, conn, project_id):
-    project = conn.execute('SELECT start_date, end_date, project_type FROM projects WHERE id = ?', (project_id,)).fetchone()
+    project = revenue_repository.get_project_dates_and_type(conn, project_id)
     if not project or not project['start_date']:
       return {'periods': []}
     start = datetime.strptime(project['start_date'], '%Y-%m-%d').date().replace(day=1)
@@ -2036,17 +2029,7 @@ class VPMHandler(SimpleHTTPRequestHandler):
   def calculate_project_internal_cost_forecast_monthly(self, conn, project_id, start_date, end_date):
     if not start_date or not end_date or end_date < start_date:
       return []
-    positions = conn.execute(
-      '''
-      SELECT pp.id, pp.consultant_id, pp.start_date, pp.end_date, pp.allocation, pp.status, c.salary
-      FROM project_positions pp
-      LEFT JOIN consultants c ON c.id = pp.consultant_id
-      WHERE pp.project_id = ?
-        AND pp.consultant_id IS NOT NULL
-      ORDER BY pp.id
-      ''',
-      (project_id,)
-    ).fetchall()
+    positions = revenue_repository.list_project_positions_for_internal_cost(conn, project_id)
     monthly = {}
     for position in positions:
       if position['consultant_id'] is None:
@@ -2247,7 +2230,7 @@ class VPMHandler(SimpleHTTPRequestHandler):
     }
 
   def calculate_fixed_price_profitability(self, conn, project_id):
-    project = conn.execute('SELECT start_date, end_date, project_type FROM projects WHERE id = ?', (project_id,)).fetchone()
+    project = revenue_repository.get_project_dates_and_type(conn, project_id)
     if not project or str(project['project_type'] or '').strip().lower() != 'fixed price':
       return {
         'summary': {

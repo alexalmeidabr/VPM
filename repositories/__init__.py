@@ -13,6 +13,15 @@ from .invoices_repository import (
   update_invoice,
   update_invoice_payment
 )
+from .allocation_simulations_repository import (
+  create_allocation_simulation,
+  delete_allocation_simulation,
+  get_allocation_simulation,
+  list_allocation_simulations,
+  update_allocation_simulation
+)
+from .company_branches_repository import create_company_branch, delete_company_branch, list_company_branches, update_company_branch
+from .holidays_repository import create_holiday_location, delete_holiday_location, list_holiday_locations, update_holiday_location
 from .project_files_repository import create_project_file, get_project_file, list_project_files
 from .projects_repository import create_project, delete_project, list_projects, update_project
 from .timesheets_repository import create_manual_line, delete_monthly_timesheet, ensure_monthly_timesheet, fetch_timesheet_detail, fetch_timesheet_months, update_entry, update_timesheet_status
@@ -20,8 +29,11 @@ from .timesheets_repository import create_manual_line, delete_monthly_timesheet,
 __all__ = [
   'calculate_fixed_price_budget_summary',
   'calculate_invoice_paid_amount',
+  'create_allocation_simulation',
   'create_business_partner',
+  'create_company_branch',
   'create_consultant',
+  'create_holiday_location',
   'create_invoice',
   'create_invoice_payment',
   'create_manual_line',
@@ -29,6 +41,7 @@ __all__ = [
   'create_project_budget',
   'create_project_file',
   'delete_business_partner',
+  'delete_company_branch',
   'delete_consultant',
   'delete_invoice',
   'delete_invoice_payment',
@@ -39,20 +52,29 @@ __all__ = [
   'fetch_project_budgets',
   'fetch_timesheet_detail',
   'fetch_timesheet_months',
+  'get_allocation_simulation',
   'get_project_file',
+  'list_allocation_simulations',
   'list_business_partners',
+  'list_company_branches',
   'list_consultants',
+  'list_holiday_locations',
   'list_invoice_payments',
   'list_project_files',
   'list_project_invoices',
   'list_projects',
   'recalculate_invoice_status',
   'update_business_partner',
+  'update_company_branch',
   'update_consultant',
   'update_entry',
   'update_invoice',
   'update_invoice_payment',
   'update_project',
   'update_project_budget',
-  'update_timesheet_status'
+  'update_timesheet_status',
+  'delete_allocation_simulation',
+  'delete_holiday_location',
+  'update_allocation_simulation',
+  'update_holiday_location'
 ]

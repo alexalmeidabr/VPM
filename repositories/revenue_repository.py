@@ -108,3 +108,23 @@ def get_consultant_salary_map(conn, consultant_ids):
   placeholders = ','.join(['?'] * len(ids))
   rows = conn.execute(f'SELECT id, salary FROM consultants WHERE id IN ({placeholders})', ids).fetchall()
   return {int(row['id']): row['salary'] for row in rows}
+
+
+def get_project_dates_and_type(conn, project_id):
+  return conn.execute(
+    'SELECT start_date, end_date, project_type FROM projects WHERE id = ?',
+    (project_id,)
+  ).fetchone()
+
+
+def list_project_positions_for_internal_cost(conn, project_id):
+  return conn.execute(
+    '''
+    SELECT pp.id, pp.consultant_id, pp.start_date, pp.end_date, pp.allocation, pp.status, c.salary
+    FROM project_positions pp
+    LEFT JOIN consultants c ON c.id = pp.consultant_id
+    WHERE pp.project_id = ?
+    ORDER BY pp.id
+    ''',
+    (project_id,)
+  ).fetchall()
