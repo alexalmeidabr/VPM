@@ -1,0 +1,56 @@
+import json
+
+
+def list_allocation_simulations(conn):
+  rows = conn.execute(
+    'SELECT id, name, created_at, updated_at FROM allocation_simulations ORDER BY created_at DESC, id DESC'
+  ).fetchall()
+  return [
+    {'id': row['id'], 'name': row['name'], 'createdAt': row['created_at'], 'updatedAt': row['updated_at']}
+    for row in rows
+  ]
+
+
+def get_allocation_simulation(conn, simulation_id):
+  row = conn.execute(
+    'SELECT id, name, state_json, created_at, updated_at FROM allocation_simulations WHERE id = ?',
+    (simulation_id,)
+  ).fetchone()
+  if not row:
+    return None
+  try:
+    state = json.loads(row['state_json'])
+  except json.JSONDecodeError:
+    state = {}
+  return {
+    'id': row['id'],
+    'name': row['name'],
+    'state': state,
+    'createdAt': row['created_at'],
+    'updatedAt': row['updated_at']
+  }
+
+
+def create_allocation_simulation(conn, simulation_name, state):
+  cursor = conn.execute(
+    'INSERT INTO allocation_simulations (name, state_json) VALUES (?, ?)',
+    (simulation_name, json.dumps(state))
+  )
+  return cursor.lastrowid
+
+
+def update_allocation_simulation(conn, simulation_id, simulation_name, state):
+  cursor = conn.execute(
+    '''
+    UPDATE allocation_simulations
+    SET name = ?, state_json = ?, updated_at = CURRENT_TIMESTAMP
+    WHERE id = ?
+    ''',
+    (simulation_name, json.dumps(state), simulation_id)
+  )
+  return cursor.rowcount
+
+
+def delete_allocation_simulation(conn, simulation_id):
+  cursor = conn.execute('DELETE FROM allocation_simulations WHERE id = ?', (simulation_id,))
+  return cursor.rowcount

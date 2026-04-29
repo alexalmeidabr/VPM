@@ -18,7 +18,18 @@ from urllib.parse import parse_qs, quote, urlparse
 from urllib.request import urlopen
 
 import db
-from repositories import budgets_repository, business_partners_repository, consultants_repository, invoices_repository, projects_repository, timesheets_repository
+from repositories import (
+  allocation_simulations_repository,
+  budgets_repository,
+  business_partners_repository,
+  company_branches_repository,
+  consultants_repository,
+  holidays_repository,
+  invoices_repository,
+  projects_repository,
+  revenue_repository,
+  timesheets_repository
+)
 
 try:
   import holidays as pyholidays
@@ -1240,81 +1251,24 @@ class VPMHandler(SimpleHTTPRequestHandler):
     return None
 
   def _fetch_holiday_locations(self, conn):
-    rows = conn.execute(
-      '''
-      SELECT id, label, country_code, region_code
-      FROM holiday_locations
-      ORDER BY country_code, region_code, label
-      '''
-    ).fetchall()
-    return [
-      {
-        'id': row['id'],
-        'label': row['label'],
-        'countryCode': row['country_code'],
-        'regionCode': row['region_code']
-      }
-      for row in rows
-    ]
+    return holidays_repository.list_holiday_locations(conn)
 
   def _holiday_location_label(self, country_code, region_code):
     return f'{country_code} - {region_code}' if region_code else country_code
 
   def _ensure_holiday_location(self, conn, country_code, region_code):
-    row = conn.execute(
-      'SELECT id FROM holiday_locations WHERE country_code = ? AND region_code IS ?',
-      (country_code, region_code)
-    ).fetchone()
-    if row:
-      return row['id']
     label = self._holiday_location_label(country_code, region_code)
-    cursor = conn.execute(
-      'INSERT INTO holiday_locations (label, country_code, region_code) VALUES (?, ?, ?)',
-      (label, country_code, region_code)
-    )
-    return cursor.lastrowid
+    return holidays_repository.ensure_holiday_location(conn, country_code, region_code, label)
 
   def _fetch_holidays(self, conn, year, country_code, region_code):
-    rows = conn.execute(
-      '''
-      SELECT id, date, name, country_code, region_code, scope, year, source
-      FROM holidays
-      WHERE year = ? AND country_code = ?
-        AND (region_code IS NULL OR region_code = ?)
-      ORDER BY date, CASE scope WHEN 'company_override' THEN 0 WHEN 'regional' THEN 1 ELSE 2 END
-      ''',
-      (year, country_code, region_code)
-    ).fetchall()
-    by_date = {}
-    for row in rows:
-      date_key = row['date']
-      current = by_date.get(date_key)
-      candidate = {
-        'id': row['id'],
-        'date': row['date'],
-        'name': row['name'],
-        'countryCode': row['country_code'],
-        'regionCode': row['region_code'],
-        'scope': row['scope'],
-        'year': row['year'],
-        'source': row['source']
-      }
-      if current is None:
-        by_date[date_key] = candidate
-        continue
-      if candidate['scope'] == 'company_override':
-        by_date[date_key] = candidate
-    return list(by_date.values())
+    return holidays_repository.fetch_holidays(conn, year, country_code, region_code)
 
   def _cache_is_fresh(self, conn, year, country_code, region_code):
-    row = conn.execute(
-      'SELECT fetched_at FROM holiday_cache WHERE country_code = ? AND region_code IS ? AND year = ?',
-      (country_code, region_code, year)
-    ).fetchone()
-    if not row:
+    fetched_at = holidays_repository.get_holiday_cache_fetched_at(conn, year, country_code, region_code)
+    if not fetched_at:
       return False
     try:
-      fetched = datetime.fromisoformat(str(row['fetched_at']).replace('Z', '+00:00'))
+      fetched = datetime.fromisoformat(str(fetched_at).replace('Z', '+00:00'))
     except ValueError:
       return False
     return fetched >= datetime.utcnow() - timedelta(days=30)
@@ -1376,26 +1330,8 @@ class VPMHandler(SimpleHTTPRequestHandler):
         regional = self._generate_holidays_for_location(year, country_code, region_code)
         entries_to_store.extend([(row, region_code, 'regional') for row in regional])
 
-      for row, row_region, row_scope in entries_to_store:
-        conn.execute(
-          '''
-          INSERT INTO holidays (date, name, country_code, region_code, scope, year, source)
-          VALUES (?, ?, ?, ?, ?, ?, ?)
-          ON CONFLICT(date, country_code, region_code, scope)
-          DO UPDATE SET name = excluded.name, source = excluded.source, year = excluded.year
-          ''',
-          (row['date'], row['name'], country_code, row_region, row_scope, year, row['source'])
-        )
-
-      conn.execute(
-        '''
-        INSERT INTO holiday_cache (country_code, region_code, year, fetched_at)
-        VALUES (?, ?, ?, CURRENT_TIMESTAMP)
-        ON CONFLICT(country_code, region_code, year)
-        DO UPDATE SET fetched_at = CURRENT_TIMESTAMP
-        ''',
-        (country_code, region_code, year)
-      )
+      holidays_repository.upsert_holidays(conn, entries_to_store, country_code, year)
+      holidays_repository.upsert_holiday_cache(conn, country_code, region_code, year)
     return self._fetch_holidays(conn, year, country_code, region_code)
 
   def _availability_payload_error(self, conn, payload):
@@ -1428,27 +1364,7 @@ class VPMHandler(SimpleHTTPRequestHandler):
     return [{'id': row['id'], 'name': row['name']} for row in rows]
 
   def _fetch_company_branches(self, conn):
-    rows = conn.execute(
-      '''
-      SELECT id, name, tax_identification, street_name, street_number, postal_code, city, region, country
-      FROM company_branches
-      ORDER BY name
-      '''
-    ).fetchall()
-    return [
-      {
-        'id': row['id'],
-        'name': row['name'],
-        'taxIdentification': row['tax_identification'],
-        'streetName': row['street_name'],
-        'streetNumber': row['street_number'],
-        'postalCode': row['postal_code'],
-        'city': row['city'],
-        'region': row['region'],
-        'country': row['country']
-      }
-      for row in rows
-    ]
+    return company_branches_repository.list_company_branches(conn)
 
   def _fetch_business_partners(self, conn):
     return business_partners_repository.list_business_partners(conn)
@@ -1583,32 +1499,10 @@ class VPMHandler(SimpleHTTPRequestHandler):
     return None
 
   def _fetch_allocation_simulations(self, conn):
-    rows = conn.execute(
-      'SELECT id, name, created_at, updated_at FROM allocation_simulations ORDER BY created_at DESC, id DESC'
-    ).fetchall()
-    return [
-      {'id': row['id'], 'name': row['name'], 'createdAt': row['created_at'], 'updatedAt': row['updated_at']}
-      for row in rows
-    ]
+    return allocation_simulations_repository.list_allocation_simulations(conn)
 
   def _fetch_allocation_simulation(self, conn, simulation_id):
-    row = conn.execute(
-      'SELECT id, name, state_json, created_at, updated_at FROM allocation_simulations WHERE id = ?',
-      (simulation_id,)
-    ).fetchone()
-    if not row:
-      return None
-    try:
-      state = json.loads(row['state_json'])
-    except json.JSONDecodeError:
-      state = {}
-    return {
-      'id': row['id'],
-      'name': row['name'],
-      'state': state,
-      'createdAt': row['created_at'],
-      'updatedAt': row['updated_at']
-    }
+    return allocation_simulations_repository.get_allocation_simulation(conn, simulation_id)
 
   def _parse_month_start(self, value):
     month_raw = str(value or '').strip()
@@ -2033,36 +1927,10 @@ class VPMHandler(SimpleHTTPRequestHandler):
 
   def _fetch_monthly_project_timesheet_hours_by_consultant(self, conn, project_id, month_start):
     month_from, month_to = self._month_range(month_start)
-    rows = conn.execute(
-      '''
-      SELECT t.consultant_id, COALESCE(SUM(e.hours), 0) AS total_hours
-      FROM monthly_timesheets t
-      JOIN monthly_timesheet_lines l ON l.timesheet_id = t.id
-      LEFT JOIN monthly_timesheet_entries e ON e.line_id = l.id
-      WHERE l.project_id = ?
-        AND t.month_start = ?
-        AND (e.entry_date IS NULL OR (e.entry_date >= ? AND e.entry_date <= ?))
-      GROUP BY t.consultant_id
-      ''',
-      (project_id, month_start, month_from, month_to)
-    ).fetchall()
-    return {int(row['consultant_id']): float(row['total_hours'] or 0.0) for row in rows if row['consultant_id'] is not None}
+    return revenue_repository.fetch_monthly_project_timesheet_hours_by_consultant(conn, project_id, month_start, month_from, month_to)
 
   def _project_active_assigned_positions_for_month(self, conn, project_id, month_start, month_end):
-    rows = conn.execute(
-      '''
-      SELECT pp.id, pp.consultant_id, pp.project_role, pp.start_date, pp.end_date, pp.allocation, pp.billable, pp.daily_rate, pp.daily_rate_currency, c.name AS consultant_name
-      FROM project_positions pp
-      LEFT JOIN consultants c ON c.id = pp.consultant_id
-      WHERE pp.project_id = ?
-        AND pp.consultant_id IS NOT NULL
-        AND COALESCE(pp.start_date, ?) <= ?
-        AND COALESCE(pp.end_date, ?) >= ?
-      ORDER BY pp.id
-      ''',
-      (project_id, month_end, month_end, month_start, month_start)
-    ).fetchall()
-    return rows
+    return revenue_repository.project_active_assigned_positions_for_month(conn, project_id, month_start, month_end)
 
   def _calculate_project_timesheet_status_for_month(self, conn, project_id, month_start, month_end):
     positions = self._project_active_assigned_positions_for_month(conn, project_id, month_start, month_end)
@@ -2152,16 +2020,7 @@ class VPMHandler(SimpleHTTPRequestHandler):
         continue
       status = self._calculate_project_timesheet_status_for_month(conn, project_id, period_from, period_to)
       proposal = self._calculate_proposed_invoice_amount_for_month(conn, project_id, period_from, period_to)
-      invoice_summary = conn.execute(
-        '''
-        SELECT COUNT(*) AS invoice_count, COALESCE(SUM(amount), 0) AS billed_total
-        FROM invoices
-        WHERE project_id = ?
-          AND period_from <= ?
-          AND period_to >= ?
-        ''',
-        (project_id, period_to, period_from)
-      ).fetchone()
+      invoice_summary = revenue_repository.revenue_invoice_overlap_summary(conn, project_id, period_from, period_to)
       rows.append({
         'month': month_start.strftime('%Y-%m'),
         'monthLabel': month_start.strftime('%B %Y'),
@@ -2199,10 +2058,7 @@ class VPMHandler(SimpleHTTPRequestHandler):
       if consultant_id is None:
         continue
       total_hours = float(hours_map.get(consultant_id, 0.0))
-      timesheet_row = conn.execute(
-        'SELECT id FROM monthly_timesheets WHERE consultant_id = ? AND month_start = ?',
-        (consultant_id, month_start_iso)
-      ).fetchone()
+      timesheet_row = revenue_repository.get_monthly_timesheet_for_consultant(conn, consultant_id, month_start_iso)
       if total_hours > 0:
         status = 'Completed'
       elif timesheet_row:
@@ -3069,11 +2925,8 @@ class VPMHandler(SimpleHTTPRequestHandler):
       simulation_name = payload.get('name') or f'Simulation {now}'
       state = payload.get('state') or {'projects': [], 'unassignedConsultantIds': []}
       with get_connection() as conn:
-        cursor = conn.execute(
-          'INSERT INTO allocation_simulations (name, state_json) VALUES (?, ?)',
-          (simulation_name, json.dumps(state))
-        )
-      self._send_json({'id': cursor.lastrowid, 'name': simulation_name}, HTTPStatus.CREATED)
+        simulation_id = allocation_simulations_repository.create_allocation_simulation(conn, simulation_name, state)
+      self._send_json({'id': simulation_id, 'name': simulation_name}, HTTPStatus.CREATED)
       return
 
     if path == '/api/roles':
@@ -3153,26 +3006,12 @@ class VPMHandler(SimpleHTTPRequestHandler):
         return
       with get_connection() as conn:
         try:
-          cursor = conn.execute(
-            '''
-            INSERT INTO company_branches (name, tax_identification, street_name, street_number, postal_code, city, region, country)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-            ''',
-            (
-              name,
-              str(payload.get('taxIdentification', '')).strip(),
-              str(payload.get('streetName', '')).strip(),
-              str(payload.get('streetNumber', '')).strip(),
-              str(payload.get('postalCode', '')).strip(),
-              str(payload.get('city', '')).strip(),
-              str(payload.get('region', '')).strip(),
-              str(payload.get('country', '')).strip()
-            )
-          )
+          payload['name'] = name
+          branch_id = company_branches_repository.create_company_branch(conn, payload)
         except db.IntegrityError:
           self._send_json({'error': 'Company branch already exists'}, HTTPStatus.BAD_REQUEST)
           return
-      self._send_json({'id': cursor.lastrowid}, HTTPStatus.CREATED)
+      self._send_json({'id': branch_id}, HTTPStatus.CREATED)
       return
 
     if path == '/api/business-partners':
@@ -3310,15 +3149,7 @@ class VPMHandler(SimpleHTTPRequestHandler):
             'UPDATE consultants SET holiday_location_id = ? WHERE id = ?',
             (holiday_location_id, consultant_id)
           )
-          conn.execute(
-            '''
-            INSERT INTO consultant_holiday_loads (consultant_id, year, country_code, region_code, loaded_at)
-            VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP)
-            ON CONFLICT(consultant_id, year, country_code, region_code)
-            DO UPDATE SET loaded_at = CURRENT_TIMESTAMP
-            ''',
-            (consultant_id, payload['year'], payload['countryCode'], payload['regionCode'])
-          )
+          holidays_repository.upsert_consultant_holiday_load(conn, consultant_id, payload['year'], payload['countryCode'], payload['regionCode'])
           response_payload['holidayLocationId'] = holiday_location_id
           response_payload['holidayCalendarLoad'] = {
             'year': payload['year'],
@@ -3537,28 +3368,12 @@ class VPMHandler(SimpleHTTPRequestHandler):
         return
       with get_connection() as conn:
         try:
-          cursor = conn.execute(
-            '''
-            UPDATE company_branches
-            SET name = ?, tax_identification = ?, street_name = ?, street_number = ?, postal_code = ?, city = ?, region = ?, country = ?
-            WHERE id = ?
-            ''',
-            (
-              name,
-              str(payload.get('taxIdentification', '')).strip(),
-              str(payload.get('streetName', '')).strip(),
-              str(payload.get('streetNumber', '')).strip(),
-              str(payload.get('postalCode', '')).strip(),
-              str(payload.get('city', '')).strip(),
-              str(payload.get('region', '')).strip(),
-              str(payload.get('country', '')).strip(),
-              company_branch_id
-            )
-          )
+          payload['name'] = name
+          updated_rows = company_branches_repository.update_company_branch(conn, company_branch_id, payload)
         except db.IntegrityError:
           self._send_json({'error': 'Company branch already exists'}, HTTPStatus.BAD_REQUEST)
           return
-      if cursor.rowcount == 0:
+      if updated_rows == 0:
         self._send_json({'error': 'Company branch not found'}, HTTPStatus.NOT_FOUND)
         return
       self._send_json({'status': 'updated'})
@@ -3608,15 +3423,8 @@ class VPMHandler(SimpleHTTPRequestHandler):
         return
       simulation_name = payload.get('name', '').strip() or f"Simulation {datetime.utcnow().strftime('%Y-%m-%d %H:%M')}"
       with get_connection() as conn:
-        cursor = conn.execute(
-          '''
-          UPDATE allocation_simulations
-          SET name = ?, state_json = ?, updated_at = CURRENT_TIMESTAMP
-          WHERE id = ?
-          ''',
-          (simulation_name, json.dumps(payload['state']), allocation_simulation_id)
-        )
-      if cursor.rowcount == 0:
+        updated_rows = allocation_simulations_repository.update_allocation_simulation(conn, allocation_simulation_id, simulation_name, payload['state'])
+      if updated_rows == 0:
         self._send_json({'error': 'Allocation simulation not found'}, HTTPStatus.NOT_FOUND)
         return
       self._send_json({'status': 'updated'})
@@ -3758,8 +3566,8 @@ class VPMHandler(SimpleHTTPRequestHandler):
 
     if company_branch_id is not None:
       with get_connection() as conn:
-        cursor = conn.execute('DELETE FROM company_branches WHERE id = ?', (company_branch_id,))
-      if cursor.rowcount == 0:
+        deleted_rows = company_branches_repository.delete_company_branch(conn, company_branch_id)
+      if deleted_rows == 0:
         self._send_json({'error': 'Company branch not found'}, HTTPStatus.NOT_FOUND)
         return
       self._send_json({'status': 'deleted'})
@@ -3796,8 +3604,8 @@ class VPMHandler(SimpleHTTPRequestHandler):
 
     if allocation_simulation_id is not None:
       with get_connection() as conn:
-        cursor = conn.execute('DELETE FROM allocation_simulations WHERE id = ?', (allocation_simulation_id,))
-      if cursor.rowcount == 0:
+        deleted_rows = allocation_simulations_repository.delete_allocation_simulation(conn, allocation_simulation_id)
+      if deleted_rows == 0:
         self._send_json({'error': 'Allocation simulation not found'}, HTTPStatus.NOT_FOUND)
         return
       self._send_json({'status': 'deleted'})
