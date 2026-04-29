@@ -160,14 +160,19 @@ def list_projects(conn=None):
 
 
 def create_project(conn, payload, manager_name):
-  cursor = conn.execute(
+  project_id = db.execute_insert_and_get_id(
+    conn,
     '''
     INSERT INTO projects (project_name, client_name, project_lead, client_contact, start_date, end_date, manager_consultant_id, project_type, project_status, client_business_partner_id, delivery_partner_business_partner_id, contract_with_branch_id)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     ''',
+    '''
+    INSERT INTO projects (project_name, client_name, project_lead, client_contact, start_date, end_date, manager_consultant_id, project_type, project_status, client_business_partner_id, delivery_partner_business_partner_id, contract_with_branch_id)
+    OUTPUT INSERTED.id
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    ''',
     (payload['projectName'], '', manager_name or 'Manager', '', payload['startDate'], payload['endDate'], payload['managerConsultantId'], payload['projectType'], payload['projectStatus'], payload['clientBusinessPartnerId'], payload['deliveryPartnerBusinessPartnerId'], payload['contractWithBranchId'])
   )
-  project_id = db.get_last_insert_id(cursor, conn)
   for item in payload['consultantAssignments']:
     conn.execute(
       'INSERT INTO project_consultants (project_id, consultant_id, project_role, start_date, end_date, billable) VALUES (?, ?, ?, ?, ?, ?)',
@@ -180,11 +185,12 @@ def create_project(conn, payload, manager_name):
     )
   phase_id_map = {}
   for phase in payload['projectPhases']:
-    cursor_phase = conn.execute(
+    phase_id_map[phase['id']] = db.execute_insert_and_get_id(
+      conn,
       'INSERT INTO project_phases (project_id, name, start_date, end_date) VALUES (?, ?, ?, ?)',
+      'INSERT INTO project_phases (project_id, name, start_date, end_date) OUTPUT INSERTED.id VALUES (?, ?, ?, ?)',
       (project_id, phase['name'], phase['startDate'], phase['endDate'])
     )
-    phase_id_map[phase['id']] = db.get_last_insert_id(cursor_phase, conn)
   for milestone in payload['projectMilestones']:
     conn.execute(
       'INSERT INTO project_milestones (project_id, phase_id, name, start_date, end_date) VALUES (?, ?, ?, ?, ?)',
@@ -226,11 +232,12 @@ def update_project(conn, project_id, payload, manager_name):
     )
   phase_id_map = {}
   for phase in payload['projectPhases']:
-    cursor_phase = conn.execute(
+    phase_id_map[phase['id']] = db.execute_insert_and_get_id(
+      conn,
       'INSERT INTO project_phases (project_id, name, start_date, end_date) VALUES (?, ?, ?, ?)',
+      'INSERT INTO project_phases (project_id, name, start_date, end_date) OUTPUT INSERTED.id VALUES (?, ?, ?, ?)',
       (project_id, phase['name'], phase['startDate'], phase['endDate'])
     )
-    phase_id_map[phase['id']] = db.get_last_insert_id(cursor_phase, conn)
   for milestone in payload['projectMilestones']:
     conn.execute(
       'INSERT INTO project_milestones (project_id, phase_id, name, start_date, end_date) VALUES (?, ?, ?, ?, ?)',

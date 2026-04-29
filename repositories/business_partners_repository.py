@@ -90,8 +90,10 @@ def _replace_contacts(conn, business_partner_id, contacts):
     email_values = [str(email).strip() for email in (contact.get('emails') or []) if str(email).strip()]
     if not email_values and str(contact.get('email', '')).strip():
       email_values = [str(contact.get('email', '')).strip()]
-    c = conn.execute(
+    contact_id = db.execute_insert_and_get_id(
+      conn,
       'INSERT INTO business_partner_contacts (business_partner_id, name, last_name, email) VALUES (?, ?, ?, ?)',
+      'INSERT INTO business_partner_contacts (business_partner_id, name, last_name, email) OUTPUT INSERTED.id VALUES (?, ?, ?, ?)',
       (
         business_partner_id,
         str(contact.get('name', '')).strip(),
@@ -99,7 +101,6 @@ def _replace_contacts(conn, business_partner_id, contacts):
         email_values[0] if email_values else ''
       )
     )
-    contact_id = db.get_last_insert_id(c, conn)
     for email in email_values:
       conn.execute('INSERT INTO business_partner_contact_emails (contact_id, email) VALUES (?, ?)', (contact_id, email))
     for phone in (contact.get('phoneNumbers') or []):
@@ -109,9 +110,15 @@ def _replace_contacts(conn, business_partner_id, contacts):
 
 
 def create_business_partner(conn, payload):
-  cursor = conn.execute(
+  partner_id = db.execute_insert_and_get_id(
+    conn,
     '''
     INSERT INTO business_partners (company_name, tax_identification, address_street, address_number, postal_code, city, region, country, business_partner_type_id)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+    ''',
+    '''
+    INSERT INTO business_partners (company_name, tax_identification, address_street, address_number, postal_code, city, region, country, business_partner_type_id)
+    OUTPUT INSERTED.id
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
     ''',
     (
@@ -126,7 +133,6 @@ def create_business_partner(conn, payload):
       int(payload['businessPartnerTypeId']) if payload.get('businessPartnerTypeId') not in (None, '') else None
     )
   )
-  partner_id = db.get_last_insert_id(cursor, conn)
   _replace_contacts(conn, partner_id, payload.get('contacts', []))
   return partner_id
 

@@ -32,11 +32,12 @@ def ensure_holiday_location(conn, country_code, region_code, label):
   ).fetchone()
   if row:
     return row['id']
-  cursor = conn.execute(
+  return db.execute_insert_and_get_id(
+    conn,
     'INSERT INTO holiday_locations (label, country_code, region_code) VALUES (?, ?, ?)',
+    'INSERT INTO holiday_locations (label, country_code, region_code) OUTPUT INSERTED.id VALUES (?, ?, ?)',
     (label, country_code, region_code)
   )
-  return db.get_last_insert_id(cursor, conn)
 
 
 def fetch_holidays(conn, year, country_code, region_code):
@@ -173,11 +174,12 @@ def upsert_consultant_holiday_load(conn, consultant_id, year, country_code, regi
 
 
 def create_holiday_location(conn, label, country_code, region_code):
-  cursor = conn.execute(
+  return db.execute_insert_and_get_id(
+    conn,
     'INSERT INTO holiday_locations (label, country_code, region_code) VALUES (?, ?, ?)',
+    'INSERT INTO holiday_locations (label, country_code, region_code) OUTPUT INSERTED.id VALUES (?, ?, ?)',
     (label, country_code, region_code)
   )
-  return db.get_last_insert_id(cursor, conn)
 
 
 def update_holiday_location(conn, holiday_location_id, label, country_code, region_code):

@@ -120,3 +120,13 @@ def get_last_insert_id(cursor, conn=None) -> int:
     return int(lastrowid)
   # Azure SQL insert-id retrieval should be explicit in SQL (e.g. OUTPUT INSERTED.id).
   raise ValueError('Insert id is unavailable on this backend/cursor; use backend-specific insert-id retrieval.')
+
+
+def execute_insert_and_get_id(conn, sqlite_query: str, azure_query: str, params: Sequence[Any]) -> int:
+  if is_sqlite():
+    cursor = conn.execute(sqlite_query, params)
+    return get_last_insert_id(cursor, conn)
+  row = conn.execute(azure_query, params).fetchone()
+  if not row:
+    raise ValueError('Insert id was not returned by Azure SQL insert query.')
+  return int(row[0])

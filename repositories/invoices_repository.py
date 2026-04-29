@@ -91,14 +91,19 @@ def get_invoice(conn, invoice_id):
 
 
 def create_invoice(conn, project_id, position_id, invoice_ref, period_from, period_to, invoice_date, due_date, amount, status, notes):
-  cursor = conn.execute(
+  return db.execute_insert_and_get_id(
+    conn,
     '''
     INSERT INTO invoices (project_id, position_id, invoice_ref, period_from, period_to, invoice_date, due_date, amount, status, notes)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     ''',
+    '''
+    INSERT INTO invoices (project_id, position_id, invoice_ref, period_from, period_to, invoice_date, due_date, amount, status, notes)
+    OUTPUT INSERTED.id
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    ''',
     (project_id, position_id, invoice_ref, period_from, period_to, invoice_date, due_date or None, amount, status, notes)
   )
-  return db.get_last_insert_id(cursor, conn)
 
 
 def update_invoice(conn, invoice_id, position_id, invoice_ref, period_from, period_to, invoice_date, due_date, amount, status, notes):
@@ -119,9 +124,14 @@ def delete_invoice(conn, invoice_id):
 
 
 def create_invoice_payment(conn, invoice_id, payment_date, amount, notes):
-  cursor = conn.execute('INSERT INTO invoice_payments (invoice_id, payment_date, amount, notes) VALUES (?, ?, ?, ?)', (invoice_id, payment_date, amount, notes))
+  payment_id = db.execute_insert_and_get_id(
+    conn,
+    'INSERT INTO invoice_payments (invoice_id, payment_date, amount, notes) VALUES (?, ?, ?, ?)',
+    'INSERT INTO invoice_payments (invoice_id, payment_date, amount, notes) OUTPUT INSERTED.id VALUES (?, ?, ?, ?)',
+    (invoice_id, payment_date, amount, notes)
+  )
   recalculate_invoice_status(conn, invoice_id)
-  return db.get_last_insert_id(cursor, conn)
+  return payment_id
 
 
 def get_payment(conn, payment_id):

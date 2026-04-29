@@ -117,11 +117,12 @@ def list_consultants(conn=None):
 def create_consultant(conn, payload):
   first_area = conn.execute('SELECT name FROM areas WHERE id = ? LIMIT 1', (payload['areaIds'][0],)).fetchone()
   role_row = conn.execute('SELECT name FROM roles WHERE id = ? LIMIT 1', (payload['companyRoleId'],)).fetchone()
-  cursor = conn.execute(
+  consultant_id = db.execute_insert_and_get_id(
+    conn,
     'INSERT INTO consultants (name, area, position, salary, holiday_location_id, company_branch_id, start_date) VALUES (?, ?, ?, ?, ?, ?, ?)',
+    'INSERT INTO consultants (name, area, position, salary, holiday_location_id, company_branch_id, start_date) OUTPUT INSERTED.id VALUES (?, ?, ?, ?, ?, ?, ?)',
     (payload['name'], first_area['name'] if first_area else None, role_row['name'] if role_row else None, payload['salary'], payload['holidayLocationId'], payload['companyBranchId'], payload['startDate'])
   )
-  consultant_id = db.get_last_insert_id(cursor, conn)
   for area_id in sorted(set(payload['areaIds'])):
     conn.execute('INSERT INTO consultant_areas (consultant_id, area_id) VALUES (?, ?)', (consultant_id, area_id))
   conn.execute('INSERT INTO consultant_roles (consultant_id, role_id) VALUES (?, ?)', (consultant_id, payload['companyRoleId']))
