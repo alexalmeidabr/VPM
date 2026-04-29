@@ -50,6 +50,14 @@ def _build_azure_sql_connection_string(settings: dict[str, str]) -> str:
 DATABASE_TYPE = _get_database_type()
 DATABASE_PATH = Path(os.getenv('DATABASE_PATH') or DEFAULT_DATABASE_PATH)
 
+
+def is_sqlite() -> bool:
+  return DATABASE_TYPE == 'sqlite'
+
+
+def is_azure_sql() -> bool:
+  return DATABASE_TYPE == 'azure_sql'
+
 if DATABASE_TYPE == 'azure_sql' and pyodbc is not None:
   Error = pyodbc.Error
   IntegrityError = pyodbc.IntegrityError
@@ -61,7 +69,7 @@ else:
 
 
 def get_connection(database_path: str | Path | None = None, uri: bool = False):
-  if DATABASE_TYPE == 'sqlite':
+  if is_sqlite():
     if database_path is None:
       db_target: str | Path = DATABASE_PATH
     elif uri:

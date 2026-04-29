@@ -3543,7 +3543,7 @@ class VPMHandler(SimpleHTTPRequestHandler):
 
 
 if __name__ == '__main__':
-  if db.DATABASE_TYPE == 'sqlite':
+  if db.is_sqlite():
     init_db()
   server = ThreadingHTTPServer(('0.0.0.0', 8000), VPMHandler)
   print('Serving on http://0.0.0.0:8000')
