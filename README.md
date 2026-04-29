@@ -1,6 +1,6 @@
 # VPM Starter Feature: Project & Consultant Management
 
-This starter feature includes SQLite-backed management for projects, consultants, and administration catalogs.
+This starter feature includes project, consultant, and administration management with a default SQLite backend.
 
 ## Included capabilities
 
@@ -41,15 +41,30 @@ Then open `http://localhost:8000`.
 
 ## Database configuration
 
-- Backend database access is centralized in `db.py`.
-- Current supported backend is SQLite only.
-- By default, SQLite uses `projects.db` in the project root.
-- Set `DATABASE_PATH` to point to a different SQLite file if needed.
-- `DATABASE_TYPE` defaults to `sqlite`; any other value currently raises an unsupported database type error.
-- Future Azure SQL support should be implemented behind the same `db.py` interface without changing API routes/contracts.
-- Consultant and project SQL CRUD/list logic is now extracted to `repositories/consultants_repository.py` and `repositories/projects_repository.py`.
-- Additional domains now extracted to repositories include business partners, monthly timesheets, invoices/payments, and budgets.
-- `server.py` still owns HTTP routing and validation, and still keeps non-CRUD domain logic such as holiday loading, backup/restore, company logo handling, allocation simulations, and profitability/revenue forecasting.
+Database access is centralized in `db.py`.
+
+- `DATABASE_TYPE` controls the backend mode and defaults to `sqlite`.
+- SQLite remains the default/active backend for local use.
+
+### SQLite mode (default)
+
+- `DATABASE_TYPE=sqlite` (or unset).
+- `DATABASE_PATH` controls the SQLite file path (default: `projects.db` in project root).
+- Startup runs SQLite bootstrap/schema initialization (`init_db()`).
+- Backup/restore flows are SQLite-specific.
+
+### Azure SQL mode (connection mode only)
+
+- `DATABASE_TYPE=azure_sql` enables Azure SQL connection mode in `db.py`.
+- Required environment variables:
+  - `AZURE_SQL_SERVER`
+  - `AZURE_SQL_DATABASE`
+  - `AZURE_SQL_USERNAME`
+  - `AZURE_SQL_PASSWORD`
+  - `AZURE_SQL_DRIVER` (optional; default: `ODBC Driver 18 for SQL Server`)
+- In this mode, `server.py` skips SQLite bootstrap/schema initialization.
+- Current Azure support is connection-layer preparation only: SQL dialect/schema/runtime compatibility is not fully migrated yet.
+- Azure mode currently expects target schema/tables to already exist.
 
 ## API endpoints
 
