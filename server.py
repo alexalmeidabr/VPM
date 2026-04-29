@@ -2818,7 +2818,7 @@ class VPMHandler(SimpleHTTPRequestHandler):
           'INSERT INTO consultant_availability (consultant_id, day_off_type_id, type, start_date, end_date) VALUES (?, ?, ?, ?, ?)',
           (consultant_id, payload['dayOffTypeId'], payload['typeName'], payload['startDate'], payload['endDate'])
         )
-      self._send_json({'id': holiday_location_id}, HTTPStatus.CREATED)
+      self._send_json({'id': cursor.lastrowid}, HTTPStatus.CREATED)
       return
 
     if path == '/api/projects':
@@ -2886,7 +2886,7 @@ class VPMHandler(SimpleHTTPRequestHandler):
         except db.IntegrityError:
           self._send_json({'error': 'Role already exists'}, HTTPStatus.BAD_REQUEST)
           return
-      self._send_json({'id': holiday_location_id}, HTTPStatus.CREATED)
+      self._send_json({'id': cursor.lastrowid}, HTTPStatus.CREATED)
       return
 
     if path == '/api/areas':
@@ -2900,7 +2900,7 @@ class VPMHandler(SimpleHTTPRequestHandler):
         except db.IntegrityError:
           self._send_json({'error': 'Area already exists'}, HTTPStatus.BAD_REQUEST)
           return
-      self._send_json({'id': holiday_location_id}, HTTPStatus.CREATED)
+      self._send_json({'id': cursor.lastrowid}, HTTPStatus.CREATED)
       return
 
     if path == '/api/day-off-types':
@@ -2985,7 +2985,7 @@ class VPMHandler(SimpleHTTPRequestHandler):
         except db.IntegrityError:
           self._send_json({'error': 'Holiday location already exists for this country/region'}, HTTPStatus.BAD_REQUEST)
           return
-      self._send_json({'id': cursor.lastrowid}, HTTPStatus.CREATED)
+      self._send_json({'id': holiday_location_id}, HTTPStatus.CREATED)
       return
 
     if path == '/api/monthly-timesheets/open':
