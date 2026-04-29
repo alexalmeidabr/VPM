@@ -2064,11 +2064,12 @@ class VPMHandler(SimpleHTTPRequestHandler):
     if not revenue_payload['rows']:
       return {'summary': {'totalForecastRevenue': 0.0, 'totalForecastCost': 0.0, 'totalForecastGrossMargin': 0.0, 'forecastMarginPercent': 0.0}, 'rows': []}
     rows = []
+    salary_map = revenue_repository.get_consultant_salary_map(conn, [row['consultantId'] for row in revenue_payload['rows']])
     total_revenue = 0.0
     total_cost = 0.0
     for row in revenue_payload['rows']:
-      consultant = conn.execute('SELECT salary FROM consultants WHERE id = ?', (row['consultantId'],)).fetchone() if row['consultantId'] else None
-      daily_internal_cost = float(consultant['salary'] if consultant and consultant['salary'] is not None else 0.0)
+      salary_raw = salary_map.get(int(row['consultantId'])) if row['consultantId'] is not None else None
+      daily_internal_cost = float(salary_raw) if salary_raw is not None else 0.0
       internal_cost = daily_internal_cost * float(row['billableDays'])
       gross_margin = float(row['revenue']) - internal_cost
       margin_percent = (gross_margin / float(row['revenue']) * 100.0) if float(row['revenue']) else 0.0
@@ -2128,6 +2129,7 @@ class VPMHandler(SimpleHTTPRequestHandler):
       }
 
     consultant_rows = {}
+    salaries_by_consultant = {}
     start_iso = project_start_date.isoformat()
     end_iso = effective_end.isoformat()
     for month_start, month_end in self.iterate_months_between(start_iso, end_iso):
@@ -2145,6 +2147,7 @@ class VPMHandler(SimpleHTTPRequestHandler):
       by_consultant = {}
       for row in billable_positions:
         by_consultant.setdefault(int(row['consultant_id']), []).append(row)
+      month_salary_map = revenue_repository.get_consultant_salary_map(conn, list(by_consultant.keys()))
 
       for consultant_id, consultant_positions in by_consultant.items():
         consultant_row = consultant_rows.setdefault(consultant_id, {
@@ -2154,8 +2157,10 @@ class VPMHandler(SimpleHTTPRequestHandler):
           'revenueUntilPreviousPeriod': 0.0,
           'internalCostUntilPreviousPeriod': 0.0
         })
-        consultant = conn.execute('SELECT salary FROM consultants WHERE id = ?', (consultant_id,)).fetchone()
-        daily_internal_cost = float(consultant['salary'] if consultant and consultant['salary'] is not None else 0.0)
+        if consultant_id not in salaries_by_consultant:
+          salaries_by_consultant[consultant_id] = month_salary_map.get(consultant_id)
+        salary_raw = salaries_by_consultant.get(consultant_id)
+        daily_internal_cost = float(salary_raw) if salary_raw is not None else 0.0
 
         hours = float(hours_map.get(consultant_id, 0.0))
         if hours > 0.0:
