@@ -1,3 +1,5 @@
+import db
+
 import json
 
 
@@ -36,7 +38,7 @@ def create_allocation_simulation(conn, simulation_name, state):
     'INSERT INTO allocation_simulations (name, state_json) VALUES (?, ?)',
     (simulation_name, json.dumps(state))
   )
-  return cursor.lastrowid
+  return db.get_last_insert_id(cursor, conn)
 
 
 def update_allocation_simulation(conn, simulation_id, simulation_name, state):

@@ -36,7 +36,7 @@ def ensure_holiday_location(conn, country_code, region_code, label):
     'INSERT INTO holiday_locations (label, country_code, region_code) VALUES (?, ?, ?)',
     (label, country_code, region_code)
   )
-  return cursor.lastrowid
+  return db.get_last_insert_id(cursor, conn)
 
 
 def fetch_holidays(conn, year, country_code, region_code):
@@ -177,7 +177,7 @@ def create_holiday_location(conn, label, country_code, region_code):
     'INSERT INTO holiday_locations (label, country_code, region_code) VALUES (?, ?, ?)',
     (label, country_code, region_code)
   )
-  return cursor.lastrowid
+  return db.get_last_insert_id(cursor, conn)
 
 
 def update_holiday_location(conn, holiday_location_id, label, country_code, region_code):

@@ -1,3 +1,5 @@
+import db
+
 def list_company_branches(conn):
   rows = conn.execute(
     '''
@@ -39,7 +41,7 @@ def create_company_branch(conn, payload):
       str(payload.get('country', '')).strip()
     )
   )
-  return cursor.lastrowid
+  return db.get_last_insert_id(cursor, conn)
 
 
 def update_company_branch(conn, company_branch_id, payload):

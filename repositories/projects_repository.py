@@ -167,7 +167,7 @@ def create_project(conn, payload, manager_name):
     ''',
     (payload['projectName'], '', manager_name or 'Manager', '', payload['startDate'], payload['endDate'], payload['managerConsultantId'], payload['projectType'], payload['projectStatus'], payload['clientBusinessPartnerId'], payload['deliveryPartnerBusinessPartnerId'], payload['contractWithBranchId'])
   )
-  project_id = cursor.lastrowid
+  project_id = db.get_last_insert_id(cursor, conn)
   for item in payload['consultantAssignments']:
     conn.execute(
       'INSERT INTO project_consultants (project_id, consultant_id, project_role, start_date, end_date, billable) VALUES (?, ?, ?, ?, ?, ?)',
@@ -184,7 +184,7 @@ def create_project(conn, payload, manager_name):
       'INSERT INTO project_phases (project_id, name, start_date, end_date) VALUES (?, ?, ?, ?)',
       (project_id, phase['name'], phase['startDate'], phase['endDate'])
     )
-    phase_id_map[phase['id']] = cursor_phase.lastrowid
+    phase_id_map[phase['id']] = db.get_last_insert_id(cursor_phase, conn)
   for milestone in payload['projectMilestones']:
     conn.execute(
       'INSERT INTO project_milestones (project_id, phase_id, name, start_date, end_date) VALUES (?, ?, ?, ?, ?)',
@@ -230,7 +230,7 @@ def update_project(conn, project_id, payload, manager_name):
       'INSERT INTO project_phases (project_id, name, start_date, end_date) VALUES (?, ?, ?, ?)',
       (project_id, phase['name'], phase['startDate'], phase['endDate'])
     )
-    phase_id_map[phase['id']] = cursor_phase.lastrowid
+    phase_id_map[phase['id']] = db.get_last_insert_id(cursor_phase, conn)
   for milestone in payload['projectMilestones']:
     conn.execute(
       'INSERT INTO project_milestones (project_id, phase_id, name, start_date, end_date) VALUES (?, ?, ?, ?, ?)',

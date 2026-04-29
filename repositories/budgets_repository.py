@@ -1,3 +1,5 @@
+import db
+
 from datetime import datetime
 
 
@@ -84,7 +86,7 @@ def create_project_budget(conn, project_id, budget_name, budget_type, status, st
     ''',
     (project_id, budget_name, budget_type, status, start_date, end_date, amount, currency, notes)
   )
-  return cursor.lastrowid
+  return db.get_last_insert_id(cursor, conn)
 
 
 def get_project_budget(conn, budget_id):

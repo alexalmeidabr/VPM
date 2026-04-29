@@ -121,7 +121,7 @@ def create_consultant(conn, payload):
     'INSERT INTO consultants (name, area, position, salary, holiday_location_id, company_branch_id, start_date) VALUES (?, ?, ?, ?, ?, ?, ?)',
     (payload['name'], first_area['name'] if first_area else None, role_row['name'] if role_row else None, payload['salary'], payload['holidayLocationId'], payload['companyBranchId'], payload['startDate'])
   )
-  consultant_id = cursor.lastrowid
+  consultant_id = db.get_last_insert_id(cursor, conn)
   for area_id in sorted(set(payload['areaIds'])):
     conn.execute('INSERT INTO consultant_areas (consultant_id, area_id) VALUES (?, ?)', (consultant_id, area_id))
   conn.execute('INSERT INTO consultant_roles (consultant_id, role_id) VALUES (?, ?)', (consultant_id, payload['companyRoleId']))

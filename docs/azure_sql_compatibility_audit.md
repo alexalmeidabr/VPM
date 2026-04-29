@@ -1,65 +1,80 @@
-# Azure SQL Compatibility Audit (Phase 2A + 2B status)
+# Azure SQL Compatibility Audit (Phase 2A + 2B + current pass)
 
 ## 1) Executive summary
 
-The backend now supports **connection-mode selection** (`DATABASE_TYPE=sqlite|azure_sql`) in `db.py`, with SQLite still default.
+The backend supports connection-mode selection (`DATABASE_TYPE=sqlite|azure_sql`) and now includes incremental runtime portability improvements.
 
-Phase 2B introduced low-risk runtime portability prep for key blockers:
-- targeted runtime upserts in timesheets/holidays now have backend-aware paths,
-- holiday null-comparison patterns (`IS ?`) were replaced with portable NULL-safe predicates,
-- a small insert-id compatibility helper was added in `db.py` for future rollout.
+This pass focused on two areas:
+1. expanding insert-id portability pattern usage across key create flows,
+2. continuing targeted runtime SQL portability in holiday/timesheet runtime paths.
 
-The system is still **not fully Azure runtime-ready**. Many routes/repositories still rely on SQLite SQL semantics and `lastrowid` patterns.
+Azure SQL is still **not fully runtime-ready** yet, but major preparatory blockers have been reduced.
 
-## 2) Must change before Azure runtime testing (remaining)
+## 2) Runtime blockers improved in this pass
 
-| File | Function/Area | Issue summary | Recommended next action |
-|---|---|---|---|
-| `server.py` + multiple repositories | many POST/create flows | Widespread reliance on `cursor.lastrowid` semantics. | Migrate repository create paths to backend-safe insert-id retrieval (`OUTPUT INSERTED.id` for azure_sql). |
-| `repositories/*` (multiple) | create helpers | Many create methods still return `cursor.lastrowid` directly. | Incrementally switch to a shared insert-id helper strategy per repository. |
-| `server.py` runtime SQL | selected inline SQL | Some runtime SQL remains SQLite-biased and unreviewed for SQL Server syntax/function differences. | Continue targeted runtime query audit per endpoint group in Phase 2C runtime pass. |
+### A) Insert-id portability pattern expanded
+The following create flows were updated to use `db.get_last_insert_id(cursor, conn)` instead of direct `cursor.lastrowid` access:
 
-## 3) Must change before Azure schema creation/migration
+- `repositories/holidays_repository.py`
+  - `ensure_holiday_location`
+  - `create_holiday_location`
+- `repositories/timesheets_repository.py`
+  - `create_manual_line`
+- `repositories/project_files_repository.py`
+  - `create_project_file`
+- `repositories/invoices_repository.py`
+  - `create_invoice`
+  - `create_invoice_payment`
+- `repositories/budgets_repository.py`
+  - `create_project_budget`
+- `repositories/company_branches_repository.py`
+  - `create_company_branch`
+- `repositories/business_partners_repository.py`
+  - `create_business_partner` (+ contact insert linkage)
+- `repositories/consultants_repository.py`
+  - `create_consultant`
+- `repositories/projects_repository.py`
+  - `create_project`
+  - phase ID mappings during project create/update flows
+- `repositories/allocation_simulations_repository.py`
+  - `create_allocation_simulation`
 
-| File | Function/Area | Issue summary | Recommended next action |
-|---|---|---|---|
-| `server.py` | `init_db()` | SQLite DDL via `executescript` with SQLite types/defaults and constraints. | Create separate Azure schema scripts/migrations. |
-| `server.py` | `ensure_column()` | Uses `PRAGMA table_info(...)` + SQLite `ALTER TABLE` assumptions. | Replace with backend-aware migration mechanism for Azure. |
-| `server.py` | table definitions | Uses `INTEGER PRIMARY KEY AUTOINCREMENT` and SQLite-oriented defaults. | Map identity/PK/default semantics to SQL Server equivalents in migration scripts. |
-| `server.py` | seeded/DDL assumptions | SQLite-specific metadata and schema version practices (`PRAGMA user_version`). | Implement Azure migration/version tracking strategy. |
+Notes:
+- SQLite behavior is preserved.
+- Azure insert-id retrieval is still not universally implemented end-to-end; helper use now makes remaining work explicit and centralized.
 
-## 4) Can remain SQLite-only for now
+### B) Runtime upsert/NULL portability from previous phase remains in place
+- Timesheet upsert runtime paths have backend-aware branching.
+- Holiday upsert runtime paths have backend-aware branching.
+- Holiday runtime null comparisons use portable NULL-safe predicates.
 
-| File | Function/Area | Reason it can stay SQLite-only now | Next action |
-|---|---|---|---|
-| `server.py` | backup/restore (`connection.backup`, safety snapshots) | Local operational feature, not required for first Azure runtime endpoint validation. | Keep SQLite-only for now. |
-| `server.py` | integrity checks (`PRAGMA integrity_check`, `sqlite_master`) | SQLite maintenance utilities. | Keep SQLite-only; add Azure operational equivalents later if needed. |
-| `db.py` | `database_path` + `uri=True` override behavior | Explicit SQLite behavior used by restore/snapshot paths. | Keep guarded as sqlite-only. |
+## 3) Remaining blockers before Azure runtime testing
 
-## 5) What Phase 2B addressed
+| Area | Remaining issue | Recommended next action |
+|---|---|---|
+| insert-id semantics | helper currently fails clearly when backend/cursor cannot provide `lastrowid`; Azure-safe SQL (`OUTPUT INSERTED.id`) still needs rollout per create path | implement backend-specific insert-id SQL in high-priority create flows |
+| runtime SQL portability | selected inline/runtime queries may still rely on SQLite function/behavior assumptions | continue endpoint-group runtime SQL review and replace non-portable constructs |
+| operational feature parity | backup/restore and sqlite maintenance logic remain SQLite-only | keep SQLite-only for now; explicitly disable/branch in Azure operational mode later |
 
-1. **Timesheets runtime upserts** (`repositories/timesheets_repository.py`)
-   - `ensure_monthly_timesheet`: SQLite keeps `ON CONFLICT DO NOTHING`; non-sqlite path uses exists-then-insert.
-   - `update_entry`: SQLite keeps `ON CONFLICT DO UPDATE`; non-sqlite path uses update-then-insert.
+## 4) Must change before Azure schema creation/migration
 
-2. **Holiday runtime upserts** (`repositories/holidays_repository.py`)
-   - `upsert_holidays`, `upsert_holiday_cache`, `upsert_consultant_holiday_load` now branch:
-     - SQLite keeps existing `ON CONFLICT` behavior.
-     - Non-sqlite uses update-then-insert.
+| File/Area | Issue summary | Next action |
+|---|---|---|
+| `server.py` bootstrap/migrations | SQLite DDL (`executescript`), `PRAGMA table_info`, `AUTOINCREMENT`, SQLite metadata assumptions | create dedicated Azure schema/migration scripts and migration workflow |
 
-3. **NULL-comparison portability fix**
-   - Replaced `region_code IS ?` runtime patterns with portable NULL-safe predicates in holiday lookup/cache paths.
+## 5) Runtime query groups reviewed in this pass
 
-4. **Insert-id compatibility pattern prep**
-   - Added `db.get_last_insert_id(cursor, conn=None)` as a shared compatibility helper for future incremental adoption.
+- **Group A (holiday runtime)**: reviewed/kept Phase 2B portability fixes in place.
+- **Group B (timesheet runtime)**: reviewed/kept Phase 2B portability fixes in place.
+- **Group C (invoices/budgets/project files create-read)**: create-path insert-id portability pattern applied.
+- **Group D (consultants/projects/business partners/company branches/allocation simulations create flows)**: create-path insert-id portability pattern applied.
 
-## 6) Recommended next steps (Phase 2C)
+## 6) Recommended next phase (runtime portability continuation)
 
-1. Expand insert-id strategy across all create repositories and remaining direct creates in `server.py`.
-2. Continue endpoint-group runtime SQL portability pass for remaining non-portable SQL constructs.
-3. Implement Azure schema/migration scripts and backend-aware migration/version workflow.
-4. Add backend-targeted integration tests (sqlite baseline + azure_sql dry/runtime checks).
+1. Prioritize Azure-safe insert-id rollout (`OUTPUT INSERTED.id`) for create endpoints exercised most often.
+2. Continue targeted runtime SQL portability by endpoint family (remaining inline SQL + repository queries).
+3. Keep behavior parity checks in SQLite for every portability change.
 
 ---
 
-This document intentionally does **not** claim full Azure runtime readiness. Connection mode exists, and selected runtime blockers were reduced, but broader SQL portability and schema migration are still pending.
+This document intentionally does **not** claim full Azure runtime readiness. It records incremental runtime portability progress and the remaining blockers for the next phases.

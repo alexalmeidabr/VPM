@@ -128,7 +128,7 @@ def get_timesheet_row(conn, timesheet_id):
 
 def create_manual_line(conn, timesheet_id, activity):
   cursor = conn.execute('INSERT INTO monthly_timesheet_lines (timesheet_id, activity, is_manual) VALUES (?, ?, 1)', (timesheet_id, activity))
-  return cursor.lastrowid
+  return db.get_last_insert_id(cursor, conn)
 
 
 def get_line_with_timesheet_status(conn, line_id):

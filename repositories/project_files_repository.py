@@ -1,3 +1,5 @@
+import db
+
 def list_project_files(conn, project_id):
   rows = conn.execute(
     '''
@@ -40,4 +42,4 @@ def create_project_file(conn, project_id, original_filename, stored_filename, fi
     ''',
     (project_id, original_filename, stored_filename, file_size)
   )
-  return cursor.lastrowid
+  return db.get_last_insert_id(cursor, conn)
