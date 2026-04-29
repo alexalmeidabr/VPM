@@ -99,8 +99,8 @@ def _replace_contacts(conn, business_partner_id, contacts):
         email_values[0] if email_values else ''
       )
     )
+    contact_id = db.get_last_insert_id(c, conn)
     for email in email_values:
-      contact_id = db.get_last_insert_id(c, conn)
       conn.execute('INSERT INTO business_partner_contact_emails (contact_id, email) VALUES (?, ?)', (contact_id, email))
     for phone in (contact.get('phoneNumbers') or []):
       phone_value = str(phone).strip()
