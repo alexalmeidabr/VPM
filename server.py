@@ -27,6 +27,7 @@ from repositories import (
   holidays_repository,
   invoices_repository,
   projects_repository,
+  project_files_repository,
   revenue_repository,
   timesheets_repository
 )
@@ -1376,26 +1377,7 @@ class VPMHandler(SimpleHTTPRequestHandler):
     return projects_repository.list_projects(conn)
 
   def _fetch_project_files(self, conn, project_id):
-    rows = conn.execute(
-      '''
-      SELECT id, project_id, original_filename, stored_filename, file_size, uploaded_at
-      FROM project_files
-      WHERE project_id = ?
-      ORDER BY uploaded_at DESC, id DESC
-      ''',
-      (project_id,)
-    ).fetchall()
-    return [
-      {
-        'id': row['id'],
-        'projectId': row['project_id'],
-        'originalFilename': row['original_filename'],
-        'storedFilename': row['stored_filename'],
-        'fileSize': row['file_size'],
-        'uploadedAt': row['uploaded_at']
-      }
-      for row in rows
-    ]
+    return project_files_repository.list_project_files(conn, project_id)
 
   def _read_request_body(self):
     length_raw = self.headers.get('Content-Length', '')
@@ -1589,8 +1571,7 @@ class VPMHandler(SimpleHTTPRequestHandler):
     return invoices_repository.recalculate_invoice_status(conn, invoice_id)
 
   def get_project_revenue_summary(self, conn, project_id):
-    project = conn.execute('SELECT project_type FROM projects WHERE id = ?', (project_id,)).fetchone()
-    project_type = str(project['project_type'] or '').strip().lower() if project else ''
+    project_type = revenue_repository.get_project_type(conn, project_id)
     if project_type == 'fixed price':
       forecast_payload = self.calculate_fixed_price_revenue_forecast(conn, project_id)
     else:
@@ -1609,18 +1590,7 @@ class VPMHandler(SimpleHTTPRequestHandler):
     }
 
   def calculate_revenue_actuals_summary(self, conn, project_id):
-    invoiced_row = conn.execute('SELECT COALESCE(SUM(amount), 0) AS total FROM invoices WHERE project_id = ?', (project_id,)).fetchone()
-    invoiced = float(invoiced_row['total'] if invoiced_row and invoiced_row['total'] is not None else 0.0)
-    paid_row = conn.execute(
-      '''
-      SELECT COALESCE(SUM(p.amount), 0) AS total
-      FROM invoice_payments p
-      JOIN invoices i ON i.id = p.invoice_id
-      WHERE i.project_id = ?
-      ''',
-      (project_id,)
-    ).fetchone()
-    paid = float(paid_row['total'] if paid_row and paid_row['total'] is not None else 0.0)
+    invoiced, paid = revenue_repository.calculate_revenue_actuals_totals(conn, project_id)
     outstanding = max(invoiced - paid, 0.0)
     return {
       'totalInvoiced': invoiced,
@@ -1641,8 +1611,7 @@ class VPMHandler(SimpleHTTPRequestHandler):
     }
 
   def get_revenue_forecast_summary(self, conn, project_id):
-    project = conn.execute('SELECT project_type FROM projects WHERE id = ?', (project_id,)).fetchone()
-    project_type = str(project['project_type'] or '').strip().lower() if project else ''
+    project_type = revenue_repository.get_project_type(conn, project_id)
     if project_type == 'fixed price':
       forecast_payload = self.calculate_fixed_price_revenue_forecast(conn, project_id)
     else:
@@ -1720,19 +1689,10 @@ class VPMHandler(SimpleHTTPRequestHandler):
     return months
 
   def calculate_time_material_revenue_forecast(self, conn, project_id):
-    project = conn.execute('SELECT id, start_date, end_date, project_type FROM projects WHERE id = ?', (project_id,)).fetchone()
+    project = revenue_repository.get_project_revenue_context(conn, project_id)
     if not project or str(project['project_type'] or '').strip().lower() != 'time material':
       return {'summary': {'totalContractedRevenue': 0.0, 'revenueThisMonth': 0.0, 'revenueNext3Months': 0.0, 'totalForecastRevenueUntilProjectEnd': 0.0}, 'rows': []}
-    rows = conn.execute(
-      '''
-      SELECT pp.id, pp.project_role, pp.consultant_id, pp.start_date, pp.end_date, pp.allocation, pp.billable, pp.daily_rate, pp.daily_rate_currency, pp.status, c.name AS consultant_name
-      FROM project_positions pp
-      LEFT JOIN consultants c ON c.id = pp.consultant_id
-      WHERE pp.project_id = ?
-      ORDER BY pp.id
-      ''',
-      (project_id,)
-    ).fetchall()
+    rows = revenue_repository.list_project_positions_for_revenue_forecast(conn, project_id)
     monthly_rows = []
     total = 0.0
     current_month = datetime.utcnow().date().replace(day=1)
@@ -1795,8 +1755,7 @@ class VPMHandler(SimpleHTTPRequestHandler):
     }
 
   def get_revenue_forecast_monthly(self, conn, project_id):
-    project = conn.execute('SELECT project_type FROM projects WHERE id = ?', (project_id,)).fetchone()
-    project_type = str(project['project_type'] or '').strip().lower() if project else ''
+    project_type = revenue_repository.get_project_type(conn, project_id)
     if project_type == 'fixed price':
       revenue_payload = self.calculate_fixed_price_revenue_forecast(conn, project_id)
       rows = []
@@ -2154,7 +2113,7 @@ class VPMHandler(SimpleHTTPRequestHandler):
       'totalForecastGrossMarginUntilProjectEnd': 0.0,
       'forecastMarginPercent': 0.0
     }
-    project = conn.execute('SELECT id, start_date, end_date, project_type FROM projects WHERE id = ?', (project_id,)).fetchone()
+    project = revenue_repository.get_project_revenue_context(conn, project_id)
     if not project or str(project['project_type'] or '').strip().lower() != 'time material':
       return {
         'summary': dict(empty_summary),
@@ -2414,14 +2373,7 @@ class VPMHandler(SimpleHTTPRequestHandler):
         self._send_json({'files': self._fetch_project_files(conn, files_project_id)})
         return
       if files_project_id is not None and files_action == 'download':
-        row = conn.execute(
-          '''
-          SELECT id, original_filename, stored_filename
-          FROM project_files
-          WHERE id = ? AND project_id = ?
-          ''',
-          (file_id, files_project_id)
-        ).fetchone()
+        row = project_files_repository.get_project_file(conn, files_project_id, file_id)
         if not row:
           self._send_json({'error': 'Project file not found'}, HTTPStatus.NOT_FOUND)
           return
@@ -2710,14 +2662,8 @@ class VPMHandler(SimpleHTTPRequestHandler):
       target_path = PROJECT_FILES_DIR / stored_filename
       target_path.write_bytes(file_data)
       with get_connection() as conn:
-        cursor = conn.execute(
-          '''
-          INSERT INTO project_files (project_id, original_filename, stored_filename, file_size)
-          VALUES (?, ?, ?, ?)
-          ''',
-          (files_project_id, original_filename, stored_filename, len(file_data))
-        )
-      self._send_json({'id': cursor.lastrowid}, HTTPStatus.CREATED)
+        file_id = project_files_repository.create_project_file(conn, files_project_id, original_filename, stored_filename, len(file_data))
+      self._send_json({'id': file_id}, HTTPStatus.CREATED)
       return
 
     if path == '/api/company-logo':
@@ -2872,7 +2818,7 @@ class VPMHandler(SimpleHTTPRequestHandler):
           'INSERT INTO consultant_availability (consultant_id, day_off_type_id, type, start_date, end_date) VALUES (?, ?, ?, ?, ?)',
           (consultant_id, payload['dayOffTypeId'], payload['typeName'], payload['startDate'], payload['endDate'])
         )
-      self._send_json({'id': cursor.lastrowid}, HTTPStatus.CREATED)
+      self._send_json({'id': holiday_location_id}, HTTPStatus.CREATED)
       return
 
     if path == '/api/projects':
@@ -2940,7 +2886,7 @@ class VPMHandler(SimpleHTTPRequestHandler):
         except db.IntegrityError:
           self._send_json({'error': 'Role already exists'}, HTTPStatus.BAD_REQUEST)
           return
-      self._send_json({'id': cursor.lastrowid}, HTTPStatus.CREATED)
+      self._send_json({'id': holiday_location_id}, HTTPStatus.CREATED)
       return
 
     if path == '/api/areas':
@@ -2954,7 +2900,7 @@ class VPMHandler(SimpleHTTPRequestHandler):
         except db.IntegrityError:
           self._send_json({'error': 'Area already exists'}, HTTPStatus.BAD_REQUEST)
           return
-      self._send_json({'id': cursor.lastrowid}, HTTPStatus.CREATED)
+      self._send_json({'id': holiday_location_id}, HTTPStatus.CREATED)
       return
 
     if path == '/api/day-off-types':
@@ -3035,10 +2981,7 @@ class VPMHandler(SimpleHTTPRequestHandler):
         return
       with get_connection() as conn:
         try:
-          cursor = conn.execute(
-            'INSERT INTO holiday_locations (label, country_code, region_code) VALUES (?, ?, ?)',
-            (payload['label'], payload['countryCode'], payload['regionCode'])
-          )
+          holiday_location_id = holidays_repository.create_holiday_location(conn, payload['label'], payload['countryCode'], payload['regionCode'])
         except db.IntegrityError:
           self._send_json({'error': 'Holiday location already exists for this country/region'}, HTTPStatus.BAD_REQUEST)
           return
@@ -3403,14 +3346,11 @@ class VPMHandler(SimpleHTTPRequestHandler):
         return
       with get_connection() as conn:
         try:
-          cursor = conn.execute(
-            'UPDATE holiday_locations SET label = ?, country_code = ?, region_code = ? WHERE id = ?',
-            (payload['label'], payload['countryCode'], payload['regionCode'], holiday_location_id)
-          )
+          updated_rows = holidays_repository.update_holiday_location(conn, holiday_location_id, payload['label'], payload['countryCode'], payload['regionCode'])
         except db.IntegrityError:
           self._send_json({'error': 'Holiday location already exists for this country/region'}, HTTPStatus.BAD_REQUEST)
           return
-      if cursor.rowcount == 0:
+      if updated_rows == 0:
         self._send_json({'error': 'Holiday location not found'}, HTTPStatus.NOT_FOUND)
         return
       self._send_json({'status': 'updated'})
@@ -3495,7 +3435,7 @@ class VPMHandler(SimpleHTTPRequestHandler):
     if availability_consultant_id is not None and availability_id is not None:
       with get_connection() as conn:
         cursor = conn.execute('DELETE FROM consultant_availability WHERE id = ? AND consultant_id = ?', (availability_id, availability_consultant_id))
-      if cursor.rowcount == 0:
+      if updated_rows == 0:
         self._send_json({'error': 'Availability entry not found'}, HTTPStatus.NOT_FOUND)
         return
       self._send_json({'status': 'deleted'})
@@ -3522,7 +3462,7 @@ class VPMHandler(SimpleHTTPRequestHandler):
     if role_id is not None:
       with get_connection() as conn:
         cursor = conn.execute('DELETE FROM roles WHERE id = ?', (role_id,))
-      if cursor.rowcount == 0:
+      if updated_rows == 0:
         self._send_json({'error': 'Role not found'}, HTTPStatus.NOT_FOUND)
         return
       self._send_json({'status': 'deleted'})
@@ -3531,7 +3471,7 @@ class VPMHandler(SimpleHTTPRequestHandler):
     if area_id is not None:
       with get_connection() as conn:
         cursor = conn.execute('DELETE FROM areas WHERE id = ?', (area_id,))
-      if cursor.rowcount == 0:
+      if updated_rows == 0:
         self._send_json({'error': 'Area not found'}, HTTPStatus.NOT_FOUND)
         return
       self._send_json({'status': 'deleted'})
@@ -3540,7 +3480,7 @@ class VPMHandler(SimpleHTTPRequestHandler):
     if day_off_type_id is not None:
       with get_connection() as conn:
         cursor = conn.execute('DELETE FROM day_off_types WHERE id = ?', (day_off_type_id,))
-      if cursor.rowcount == 0:
+      if updated_rows == 0:
         self._send_json({'error': 'Day off type not found'}, HTTPStatus.NOT_FOUND)
         return
       self._send_json({'status': 'deleted'})
@@ -3549,7 +3489,7 @@ class VPMHandler(SimpleHTTPRequestHandler):
     if business_partner_type_id is not None:
       with get_connection() as conn:
         cursor = conn.execute('DELETE FROM business_partner_types WHERE id = ?', (business_partner_type_id,))
-      if cursor.rowcount == 0:
+      if updated_rows == 0:
         self._send_json({'error': 'Business partner type not found'}, HTTPStatus.NOT_FOUND)
         return
       self._send_json({'status': 'deleted'})
@@ -3558,7 +3498,7 @@ class VPMHandler(SimpleHTTPRequestHandler):
     if project_type_id is not None:
       with get_connection() as conn:
         cursor = conn.execute('DELETE FROM project_types WHERE id = ?', (project_type_id,))
-      if cursor.rowcount == 0:
+      if updated_rows == 0:
         self._send_json({'error': 'Project type not found'}, HTTPStatus.NOT_FOUND)
         return
       self._send_json({'status': 'deleted'})

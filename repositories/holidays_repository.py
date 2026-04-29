@@ -104,3 +104,24 @@ def upsert_consultant_holiday_load(conn, consultant_id, year, country_code, regi
     ''',
     (consultant_id, year, country_code, region_code)
   )
+
+
+def create_holiday_location(conn, label, country_code, region_code):
+  cursor = conn.execute(
+    'INSERT INTO holiday_locations (label, country_code, region_code) VALUES (?, ?, ?)',
+    (label, country_code, region_code)
+  )
+  return cursor.lastrowid
+
+
+def update_holiday_location(conn, holiday_location_id, label, country_code, region_code):
+  cursor = conn.execute(
+    'UPDATE holiday_locations SET label = ?, country_code = ?, region_code = ? WHERE id = ?',
+    (label, country_code, region_code, holiday_location_id)
+  )
+  return cursor.rowcount
+
+
+def delete_holiday_location(conn, holiday_location_id):
+  cursor = conn.execute('DELETE FROM holiday_locations WHERE id = ?', (holiday_location_id,))
+  return cursor.rowcount
