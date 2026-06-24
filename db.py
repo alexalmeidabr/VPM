@@ -149,6 +149,7 @@ def row_to_dict(cursor, row):
 
 
 def normalize_azure_value(value):
+  """Normalize pyodbc scalar values into JSON-safe application values."""
   if value is None or isinstance(value, (str, int, float, bool)):
     return value
   if isinstance(value, Decimal):

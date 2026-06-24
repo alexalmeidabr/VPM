@@ -260,7 +260,11 @@ CREATE TABLE dbo.project_milestones (
   start_date NVARCHAR(10) NOT NULL,
   end_date NVARCHAR(10) NOT NULL,
   CONSTRAINT FK_project_milestones_project FOREIGN KEY (project_id) REFERENCES dbo.projects(id) ON DELETE CASCADE,
-  CONSTRAINT FK_project_milestones_phase FOREIGN KEY (phase_id) REFERENCES dbo.project_phases(id) ON DELETE SET NULL
+  -- Azure SQL hardening: SQLite uses ON DELETE SET NULL here, but SQL Server can reject
+  -- project -> project_phases -> project_milestones together with project -> project_milestones
+  -- as a multiple cascade path. Keep the FK and leave phase cleanup to application logic or
+  -- later migration hardening.
+  CONSTRAINT FK_project_milestones_phase FOREIGN KEY (phase_id) REFERENCES dbo.project_phases(id) ON DELETE NO ACTION
 );
 GO
 
@@ -384,7 +388,11 @@ CREATE TABLE dbo.invoices (
   created_at DATETIME2 NOT NULL CONSTRAINT DF_invoices_created_at DEFAULT SYSUTCDATETIME(),
   updated_at DATETIME2 NOT NULL CONSTRAINT DF_invoices_updated_at DEFAULT SYSUTCDATETIME(),
   CONSTRAINT FK_invoices_project FOREIGN KEY (project_id) REFERENCES dbo.projects(id) ON DELETE CASCADE,
-  CONSTRAINT FK_invoices_position FOREIGN KEY (position_id) REFERENCES dbo.project_positions(id) ON DELETE SET NULL
+  -- Azure SQL hardening: SQLite uses ON DELETE SET NULL here, but SQL Server can reject
+  -- project -> project_positions -> invoices together with project -> invoices as a multiple
+  -- cascade path. Keep the FK and leave position cleanup to application logic or later migration
+  -- hardening.
+  CONSTRAINT FK_invoices_position FOREIGN KEY (position_id) REFERENCES dbo.project_positions(id) ON DELETE NO ACTION
 );
 GO
 

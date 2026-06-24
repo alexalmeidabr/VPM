@@ -42,10 +42,12 @@ The backend is closer to meaningful Azure runtime testing, but is **not fully Az
    - Azure SQL mode now wraps `execute().fetchall()` results as a list of `AzureSqlRow` objects.
    - Column names come from `cursor.description`, so query aliases such as `SELECT c.name AS consultant_name` are preserved as `row['consultant_name']`.
    - Positional access is retained on `AzureSqlRow` for compatibility with existing insert-id handling that reads `row[0]`.
+   - Azure row conversion also normalizes pyodbc scalar values that are not JSON-safe by default: `Decimal` values become floats, and `datetime`/`date`/`time` values become ISO-style strings.
 
 5. **Initial Azure SQL schema scripts prepared**
    - Files: `sql/azure/001_schema.sql`, `sql/azure/002_seed_reference_data.sql`, `sql/azure/README.md`
    - The scripts translate the current SQLite schema/bootstrap reference data into SQL Server / Azure SQL DDL and seed statements.
+   - Selected foreign keys use Azure-specific `ON DELETE NO ACTION` comments where SQL Server multiple cascade path errors are likely.
    - They are not executed automatically by the local app and have not been validated against a live Azure SQL database.
 
 ## 4) Remaining runtime portability risks
@@ -55,7 +57,7 @@ The backend is closer to meaningful Azure runtime testing, but is **not fully Az
 | inline server runtime SQL | key `LIMIT 1` runtime occurrences were removed in critical helper/validation paths; additional inline query portability review may still be needed in later passes | continue targeted server inline runtime SQL pass by endpoint family |
 | non-create runtime SQL breadth | selected queries may still rely on SQLite tolerance/behavior | continue incremental repository + server runtime query review during Azure test hardening |
 | pyodbc row-shape expectations | database abstraction now normalizes rows returned through `db.get_connection().execute(...).fetchone()/fetchall()` in Azure SQL mode, which covers the dominant application access pattern; Azure runtime validation is still pending | verify against a real Azure SQL/pyodbc connection and expand the wrapper only if future cursor usage patterns require it |
-| Azure SQL schema scripts | initial scripts are prepared from the current SQLite schema, but have not been executed against Azure SQL | validate DDL and seed scripts in an Azure SQL database when access is available |
+| Azure SQL schema scripts | initial scripts are prepared from the current SQLite schema and include a small multiple-cascade-path hardening pass, but have not been executed against Azure SQL | validate DDL and seed scripts in an Azure SQL database when access is available |
 
 ## 5) Still intentionally deferred (not in this phase)
 
@@ -66,7 +68,7 @@ The backend is closer to meaningful Azure runtime testing, but is **not fully Az
 ## 6) Row-shape implementation status
 
 - **SQLite behavior**: unchanged. SQLite remains the default when `DATABASE_TYPE` is unset, and SQLite connections still use `sqlite3.Row` directly.
-- **Azure SQL behavior**: prepared but not runtime-tested against Azure. In `DATABASE_TYPE=azure_sql`, `db.get_connection()` returns a lightweight wrapper around the pyodbc connection. The wrapper returns cursors whose `fetchone()` and `fetchall()` methods convert pyodbc rows into `AzureSqlRow` objects using `cursor.description`.
+- **Azure SQL behavior**: prepared but not runtime-tested against Azure. In `DATABASE_TYPE=azure_sql`, `db.get_connection()` returns a lightweight wrapper around the pyodbc connection. The wrapper returns cursors whose `fetchone()` and `fetchall()` methods convert pyodbc rows into `AzureSqlRow` objects using `cursor.description`, with `Decimal` and Python date/time values normalized for existing JSON responses.
 - **Risk status**: the previous pyodbc row-shape risk is partially reduced, not fully closed. It should make the existing `conn.execute(...).fetchone()` and `conn.execute(...).fetchall()` usage safer for dict-style access, but this has not been validated with live Azure SQL access.
 - **Remaining limitations**: no Azure runtime testing has been performed; schema/bootstrap portability remains deferred; any future code that bypasses `db.get_connection()` or relies on pyodbc-specific cursor behavior may need additional review.
 
@@ -74,6 +76,7 @@ The backend is closer to meaningful Azure runtime testing, but is **not fully Az
 
 - **Prepared files**: `sql/azure/001_schema.sql`, `sql/azure/002_seed_reference_data.sql`, and `sql/azure/README.md`.
 - **Local behavior**: unchanged. SQLite remains the default local database, and `init_db()` is still the only schema/bootstrap path used by the local app.
+- **Cascade-path hardening**: selected Azure SQL foreign keys use `ON DELETE NO ACTION` instead of SQLite's cascade/null action where SQL Server multiple cascade path rejection is likely. Cleanup may remain application-managed or be refined in a later migration hardening pass.
 - **Validation status**: static local review only. The scripts have not been run against Azure SQL, so full Azure schema readiness is not claimed.
 - **Remaining limitations**: migration of existing SQLite data is not implemented; future Azure testing may require type/constraint adjustments based on pyodbc behavior and SQL Server DDL validation.
 

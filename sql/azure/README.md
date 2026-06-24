@@ -20,3 +20,8 @@ The schema script intentionally keeps app-facing table and column names aligned 
 SQLite schema. Date-only values are stored as `NVARCHAR(10)` in `YYYY-MM-DD` format for now because
 the current application code treats them as strings in several validation, comparison, and JSON
 serialization paths. Timestamp audit fields use `DATETIME2` with `SYSUTCDATETIME()` defaults.
+
+Some Azure SQL foreign-key delete actions intentionally differ from SQLite. SQL Server can reject
+`ON DELETE CASCADE` / `ON DELETE SET NULL` chains that create multiple cascade paths, so selected
+risky relationships use `ON DELETE NO ACTION` in `001_schema.sql`. Cleanup for those cases may remain
+handled by application-level delete logic or be revisited during later Azure migration hardening.
