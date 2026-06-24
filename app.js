@@ -461,6 +461,8 @@ if (!isBrowserRuntime) {
   let selectedProjectTimelineYear = new Date().getFullYear();
   let isProjectTimelineExpanded = false;
   let activeProjectWorkspaceTab = 'overview';
+  let selectedConsultantWeekDetail = null;
+  let selectedConsultantMonthDetail = null;
   let projectFiles = [];
   let selectedProjectWeekDetail = null;
   let selectedProjectPhases = [];
@@ -2960,6 +2962,7 @@ if (!isBrowserRuntime) {
   const renderWeekDetail = (consultant, weekMondayIso) => {
     if (!ui.weekDetailCard || !ui.weekDetailTimeline || !ui.weekDetailTitle) return;
     if (!consultant || !weekMondayIso) {
+      selectedConsultantWeekDetail = null;
       ui.weekDetailCard.hidden = true;
       ui.weekDetailTimeline.innerHTML = '';
       return;
@@ -2967,11 +2970,13 @@ if (!isBrowserRuntime) {
 
     const start = parseIsoDate(weekMondayIso);
     if (!start) {
+      selectedConsultantWeekDetail = null;
       ui.weekDetailCard.hidden = true;
       ui.weekDetailTimeline.innerHTML = '';
       return;
     }
 
+    selectedConsultantWeekDetail = { consultantId: consultant.id, weekMondayIso };
     const end = new Date(start);
     end.setDate(start.getDate() + 6);
     ui.weekDetailTitle.textContent = `Week Timeline (${formatDate(start)} - ${formatDate(end)})`;
@@ -3020,12 +3025,16 @@ if (!isBrowserRuntime) {
     });
 
     ui.weekDetailCard.hidden = false;
-    if (ui.monthDetailCard) ui.monthDetailCard.hidden = true;
+    if (ui.monthDetailCard) {
+      selectedConsultantMonthDetail = null;
+      ui.monthDetailCard.hidden = true;
+    }
   };
 
   const renderMonthDetail = (consultant, year, monthIndex) => {
     if (!ui.monthDetailCard || !ui.monthDetailTimeline || !ui.monthDetailTitle) return;
     if (!consultant || Number.isNaN(Number(monthIndex)) || Number.isNaN(Number(year))) {
+      selectedConsultantMonthDetail = null;
       ui.monthDetailCard.hidden = true;
       ui.monthDetailTimeline.innerHTML = '';
       return;
@@ -3033,6 +3042,7 @@ if (!isBrowserRuntime) {
 
     const y = Number(year);
     const m = Number(monthIndex);
+    selectedConsultantMonthDetail = { consultantId: consultant.id, year: y, monthIndex: m };
     const monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
     ui.monthDetailTitle.textContent = `${monthNames[m]} ${y} – Daily Detail`;
     ui.monthDetailTimeline.innerHTML = '';
@@ -3072,7 +3082,10 @@ if (!isBrowserRuntime) {
     }
 
     ui.monthDetailCard.hidden = false;
-    if (ui.weekDetailCard) ui.weekDetailCard.hidden = true;
+    if (ui.weekDetailCard) {
+      selectedConsultantWeekDetail = null;
+      ui.weekDetailCard.hidden = true;
+    }
   };
 
   const renderProjectWeekDetail = (weekMondayIso, consultantId, rowType, phaseId = '') => {
@@ -3218,7 +3231,20 @@ if (!isBrowserRuntime) {
     dayOffEntries.forEach((entry) => {
       const li = document.createElement('li');
       li.className = 'collection-item';
-      li.textContent = `${entry.type}: ${formatDate(entry.startDate)} - ${formatDate(entry.endDate)}`;
+      const label = document.createElement('span');
+      label.textContent = `${entry.type}: ${formatDate(entry.startDate)} - ${formatDate(entry.endDate)}`;
+      li.appendChild(label);
+      if (entry.id) {
+        const deleteButton = document.createElement('button');
+        deleteButton.type = 'button';
+        deleteButton.className = 'btn-flat secondary-content red-text';
+        deleteButton.dataset.action = 'delete-consultant-availability';
+        deleteButton.dataset.id = entry.id;
+        deleteButton.title = 'Delete recorded day off';
+        deleteButton.setAttribute('aria-label', `Delete recorded day off ${label.textContent}`);
+        deleteButton.innerHTML = '<i class="material-icons tiny">delete</i>';
+        li.appendChild(deleteButton);
+      }
       ui.consultantDaysOffList.appendChild(li);
     });
   };
@@ -4623,6 +4649,14 @@ if (!isBrowserRuntime) {
     drawTimeline(ui.consultantAvailabilityChart, consultant ? [consultant] : [], { year: selectedTimelineYear, centerOnCurrentWeek, showYearNavigation: true, showAllocationStatus: true, enableMonthClick: true });
   };
 
+  const refreshConsultantAvailabilityDetails = (consultant) => {
+    if (selectedConsultantWeekDetail) {
+      renderWeekDetail(consultant, selectedConsultantWeekDetail.weekMondayIso);
+    } else if (selectedConsultantMonthDetail) {
+      renderMonthDetail(consultant, selectedConsultantMonthDetail.year, selectedConsultantMonthDetail.monthIndex);
+    }
+  };
+
   const loadAll = async () => {
     const endpoints = [
       { key: 'projects', path: '/api/projects', prop: 'projects', fallback: [] },
@@ -5218,10 +5252,35 @@ if (!isBrowserRuntime) {
       const consultant = findConsultantById(consultantId);
       await refreshTimelines();
       renderConsultantDaysOffList(consultant);
+      refreshConsultantAvailabilityDetails(consultant);
       modals.daysOff?.close();
       toast('Days off added', 'teal darken-1');
     } catch (error) {
       toast(error.message || 'Failed to add days off', 'red darken-1');
+    }
+  });
+
+  ui.consultantDaysOffList.addEventListener('click', async (event) => {
+    const button = event.target.closest('button[data-action="delete-consultant-availability"]');
+    if (!button) return;
+    const consultantId = Number(fields.consultantId.value);
+    const availabilityId = Number(button.dataset.id);
+    if (!consultantId || !availabilityId) {
+      toast('No recorded day off selected', 'red darken-1');
+      return;
+    }
+    if (!window.confirm('Delete this recorded day off?')) return;
+
+    try {
+      await request(`/api/consultants/${consultantId}/availability/${availabilityId}`, { method: 'DELETE' });
+      await loadAll();
+      const consultant = findConsultantById(consultantId);
+      await refreshTimelines();
+      renderConsultantDaysOffList(consultant);
+      refreshConsultantAvailabilityDetails(consultant);
+      toast('Recorded day off deleted', 'teal darken-1');
+    } catch (error) {
+      toast(error.message || 'Failed to delete recorded day off', 'red darken-1');
     }
   });
 
