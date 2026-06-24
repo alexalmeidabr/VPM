@@ -988,7 +988,7 @@ class VPMHandler(SimpleHTTPRequestHandler):
     return None if payload['name'] else 'name is required'
 
   def _project_payload_error(self, conn, payload):
-    for field in ['projectName', 'startDate', 'endDate', 'managerConsultantId', 'projectType']:
+    for field in ['projectName', 'startDate', 'endDate', 'projectType']:
       value = str(payload.get(field, '')).strip()
       if not value:
         return f'{field} is required'
@@ -1046,10 +1046,14 @@ class VPMHandler(SimpleHTTPRequestHandler):
     if payload['startDate'] > payload['endDate']:
       return 'startDate cannot be after endDate'
 
-    try:
-      payload['managerConsultantId'] = int(payload['managerConsultantId'])
-    except (TypeError, ValueError):
-      return 'managerConsultantId must be numeric'
+    manager_consultant_id = payload.get('managerConsultantId')
+    if manager_consultant_id in (None, '', 0):
+      payload['managerConsultantId'] = None
+    else:
+      try:
+        payload['managerConsultantId'] = int(manager_consultant_id)
+      except (TypeError, ValueError):
+        return 'managerConsultantId must be numeric'
 
     positions = payload.get('projectPositions', payload.get('consultantAssignments', []))
     if not isinstance(positions, list):
@@ -2815,15 +2819,17 @@ class VPMHandler(SimpleHTTPRequestHandler):
         if error:
           self._send_json({'error': error}, HTTPStatus.BAD_REQUEST)
           return
-        ids_to_check = [item['consultantId'] for item in payload['consultantAssignments']] + [payload['managerConsultantId']]
+        ids_to_check = [item['consultantId'] for item in payload['consultantAssignments']]
+        if payload['managerConsultantId'] is not None:
+          ids_to_check.append(payload['managerConsultantId'])
         if not self._ids_exist(conn, 'consultants', ids_to_check):
           self._send_json({'error': 'Manager or members include unknown consultant IDs'}, HTTPStatus.BAD_REQUEST)
           return
-        if not self._consultant_has_project_manager_role(conn, payload['managerConsultantId']):
+        if payload['managerConsultantId'] is not None and not self._consultant_has_project_manager_role(conn, payload['managerConsultantId']):
           self._send_json({'error': 'Selected manager must have the Project Manager role'}, HTTPStatus.BAD_REQUEST)
           return
 
-        manager_name = self._consultant_name(conn, payload['managerConsultantId'])
+        manager_name = self._consultant_name(conn, payload['managerConsultantId']) if payload['managerConsultantId'] is not None else None
         project_id = projects_repository.create_project(conn, payload, manager_name)
       self._send_json({'id': project_id}, HTTPStatus.CREATED)
       return
@@ -3276,15 +3282,17 @@ class VPMHandler(SimpleHTTPRequestHandler):
         if error:
           self._send_json({'error': error}, HTTPStatus.BAD_REQUEST)
           return
-        ids_to_check = [item['consultantId'] for item in payload['consultantAssignments']] + [payload['managerConsultantId']]
+        ids_to_check = [item['consultantId'] for item in payload['consultantAssignments']]
+        if payload['managerConsultantId'] is not None:
+          ids_to_check.append(payload['managerConsultantId'])
         if not self._ids_exist(conn, 'consultants', ids_to_check):
           self._send_json({'error': 'Manager or members include unknown consultant IDs'}, HTTPStatus.BAD_REQUEST)
           return
-        if not self._consultant_has_project_manager_role(conn, payload['managerConsultantId']):
+        if payload['managerConsultantId'] is not None and not self._consultant_has_project_manager_role(conn, payload['managerConsultantId']):
           self._send_json({'error': 'Selected manager must have the Project Manager role'}, HTTPStatus.BAD_REQUEST)
           return
 
-        manager_name = self._consultant_name(conn, payload['managerConsultantId'])
+        manager_name = self._consultant_name(conn, payload['managerConsultantId']) if payload['managerConsultantId'] is not None else None
         updated_rows = projects_repository.update_project(conn, project_id, payload, manager_name)
         if updated_rows == 0:
           self._send_json({'error': 'Project not found'}, HTTPStatus.NOT_FOUND)

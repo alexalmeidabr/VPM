@@ -5135,7 +5135,6 @@ if (!isBrowserRuntime) {
     const payload = buildProjectPayload();
 
     if (payload.startDate > payload.endDate) { toast('Start date cannot be after end date', 'red darken-1'); return; }
-    if (!payload.managerConsultantId) { toast('Assign a Project Manager from Project Members before saving', 'red darken-1'); return; }
 
     try {
       const editing = Boolean(fields.projectId.value);
