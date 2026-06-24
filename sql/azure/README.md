@@ -11,10 +11,31 @@ Current local behavior remains unchanged:
 - No Azure connection or deployment is performed by these scripts.
 - Live Azure SQL validation is still pending.
 
-Suggested execution order when an Azure SQL database is available:
+## Choose the setup path first
 
-1. `001_schema.sql`
-2. `002_seed_reference_data.sql`
+There are two intended Azure SQL setup paths. Choose one before running any seed or migration step.
+
+### Path A — Fresh empty Azure app with no SQLite import
+
+Use this path only when the Azure SQL app should start with empty transactional data and default
+reference/master data:
+
+1. Run `001_schema.sql`.
+2. Run `002_seed_reference_data.sql`.
+
+### Path B — Existing SQLite `projects.db` migration
+
+Use this path when importing an existing local SQLite database and preserving its primary keys and
+foreign-key relationships:
+
+1. Run `001_schema.sql` only.
+2. Do **not** run `002_seed_reference_data.sql` before migration.
+3. Run `tools/migrate_sqlite_to_azure_sql.py --source projects.db --dry-run` and review the output.
+4. After testing against a dev/test Azure SQL database, run the migration with `--migrate --yes`.
+
+The migration helper brings the existing reference/master data from SQLite and preserves IDs using
+`IDENTITY_INSERT`. If seed/reference data is already present in the Azure target, the helper fails
+fast rather than silently duplicating rows or changing IDs.
 
 The schema script intentionally keeps app-facing table and column names aligned with the current
 SQLite schema. Date-only values are stored as `NVARCHAR(10)` in `YYYY-MM-DD` format for now because
@@ -31,4 +52,7 @@ handled by application-level delete logic or be revisited during later Azure mig
 A one-time SQLite-to-Azure-SQL migration helper has been prepared at
 `tools/migrate_sqlite_to_azure_sql.py`. It is not run by the app and should be used only after the
 Azure SQL schema has been created. Start with dry-run mode locally, then test against a dev/test Azure
-SQL database before any production cutover. See `MIGRATION.md` for details.
+SQL database before any production cutover. The helper has **not** been live-tested against Azure SQL
+yet. Existing file storage folders such as `project-files/`, `company-logo/`, and `backups/` are
+outside the database migration scope and require separate handling later. See `MIGRATION.md` for
+details.
