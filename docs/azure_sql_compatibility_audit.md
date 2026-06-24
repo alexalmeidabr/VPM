@@ -2,9 +2,9 @@
 
 ## 1) Executive summary
 
-Connection-mode support exists (`sqlite` default, `azure_sql` optional), and insert-id portability for active create flows is substantially improved.
+Connection-mode support exists (`sqlite` default, `azure_sql` optional), insert-id portability for active create flows is substantially improved, and Azure SQL row-shape normalization has been added in the database abstraction layer.
 
-This phase reviewed runtime SQL portability by endpoint/repository families and applied only low-risk query portability fixes.
+This phase reviewed runtime SQL portability by endpoint/repository families and applied only low-risk query portability fixes. A follow-up row-shape preparation step added a small Azure-only connection/cursor wrapper so future pyodbc `fetchone()`/`fetchall()` results are converted to dict-like rows.
 
 The backend is closer to meaningful Azure runtime testing, but is **not fully Azure runtime-ready** yet.
 
@@ -35,13 +35,21 @@ The backend is closer to meaningful Azure runtime testing, but is **not fully Az
    - `_project_payload_error()` checks for company branch/project type existence
    - Removed unnecessary `LIMIT 1` in these runtime queries to reduce SQLite-specific syntax usage.
 
+4. **Azure SQL row-shape abstraction added**
+   - File: `db.py`
+   - SQLite mode still returns native `sqlite3.Row` objects through the existing `row_factory`.
+   - Azure SQL mode now wraps pyodbc connections/cursors so `execute().fetchone()` returns `None` when no row exists or an `AzureSqlRow` with dict-style column access when a row is present.
+   - Azure SQL mode now wraps `execute().fetchall()` results as a list of `AzureSqlRow` objects.
+   - Column names come from `cursor.description`, so query aliases such as `SELECT c.name AS consultant_name` are preserved as `row['consultant_name']`.
+   - Positional access is retained on `AzureSqlRow` for compatibility with existing insert-id handling that reads `row[0]`.
+
 ## 4) Remaining runtime portability risks
 
 | Area | Remaining issue | Recommended next action |
 |---|---|---|
 | inline server runtime SQL | key `LIMIT 1` runtime occurrences were removed in critical helper/validation paths; additional inline query portability review may still be needed in later passes | continue targeted server inline runtime SQL pass by endpoint family |
 | non-create runtime SQL breadth | selected queries may still rely on SQLite tolerance/behavior | continue incremental repository + server runtime query review during Azure test hardening |
-| pyodbc row-shape expectations | codebase broadly assumes dict-style row access (`row['col']`) while pyodbc row handling differs | introduce a safe row-shaping abstraction for azure mode before broad runtime testing |
+| pyodbc row-shape expectations | database abstraction now normalizes rows returned through `db.get_connection().execute(...).fetchone()/fetchall()` in Azure SQL mode, which covers the dominant application access pattern; Azure runtime validation is still pending | verify against a real Azure SQL/pyodbc connection and expand the wrapper only if future cursor usage patterns require it |
 
 ## 5) Still intentionally deferred (not in this phase)
 
@@ -49,10 +57,18 @@ The backend is closer to meaningful Azure runtime testing, but is **not fully Az
 - backup/restore and SQLite operational tooling
 - Azure schema creation/migration scripts
 
-## 6) Current readiness statement
+## 6) Row-shape implementation status
+
+- **SQLite behavior**: unchanged. SQLite remains the default when `DATABASE_TYPE` is unset, and SQLite connections still use `sqlite3.Row` directly.
+- **Azure SQL behavior**: prepared but not runtime-tested against Azure. In `DATABASE_TYPE=azure_sql`, `db.get_connection()` returns a lightweight wrapper around the pyodbc connection. The wrapper returns cursors whose `fetchone()` and `fetchall()` methods convert pyodbc rows into `AzureSqlRow` objects using `cursor.description`.
+- **Risk status**: the previous pyodbc row-shape risk is partially reduced, not fully closed. It should make the existing `conn.execute(...).fetchone()` and `conn.execute(...).fetchall()` usage safer for dict-style access, but this has not been validated with live Azure SQL access.
+- **Remaining limitations**: no Azure runtime testing has been performed; schema/bootstrap portability remains deferred; any future code that bypasses `db.get_connection()` or relies on pyodbc-specific cursor behavior may need additional review.
+
+## 7) Current readiness statement
 
 - Connection-mode: available
 - Active create inserted-id handling: substantially improved with explicit Azure paths
+- Azure SQL row-shape abstraction: added in `db.py`, pending live Azure validation
 - Runtime query portability: improved incrementally, but still incomplete
 - Schema/migration readiness: deferred to later phase
 

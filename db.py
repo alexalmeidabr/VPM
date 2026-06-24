@@ -51,6 +51,70 @@ DATABASE_TYPE = _get_database_type()
 DATABASE_PATH = Path(os.getenv('DATABASE_PATH') or DEFAULT_DATABASE_PATH)
 
 
+class AzureSqlRow(dict[str, Any]):
+  """Dict-like row for Azure SQL results that also preserves index access."""
+
+  def __init__(self, column_names: Sequence[str], values: Sequence[Any]):
+    super().__init__(zip(column_names, values))
+    self._values = tuple(values)
+
+  def __getitem__(self, key):
+    if isinstance(key, int):
+      return self._values[key]
+    return super().__getitem__(key)
+
+
+class AzureSqlCursor:
+  """Small pyodbc cursor wrapper that normalizes fetched rows to dict-like rows."""
+
+  def __init__(self, cursor):
+    self._cursor = cursor
+
+  def execute(self, query: str, params: Sequence[Any] = ()):
+    self._cursor.execute(query, params)
+    return self
+
+  def fetchone(self):
+    row = self._cursor.fetchone()
+    return row_to_dict(self._cursor, row)
+
+  def fetchall(self):
+    return rows_to_dicts(self._cursor, self._cursor.fetchall())
+
+  def __iter__(self):
+    for row in self._cursor:
+      yield row_to_dict(self._cursor, row)
+
+  def __getattr__(self, name: str):
+    return getattr(self._cursor, name)
+
+
+class AzureSqlConnection:
+  """Small pyodbc connection wrapper that returns AzureSqlCursor from execute()."""
+
+  def __init__(self, conn):
+    self._conn = conn
+
+  def execute(self, query: str, params: Sequence[Any] = ()):
+    return AzureSqlCursor(self._conn.execute(query, params))
+
+  def executemany(self, query: str, params_list: Iterable[Sequence[Any]]):
+    return self._conn.executemany(query, params_list)
+
+  def cursor(self):
+    return AzureSqlCursor(self._conn.cursor())
+
+  def __enter__(self):
+    self._conn.__enter__()
+    return self
+
+  def __exit__(self, exc_type, exc_value, traceback):
+    return self._conn.__exit__(exc_type, exc_value, traceback)
+
+  def __getattr__(self, name: str):
+    return getattr(self._conn, name)
+
+
 def is_sqlite() -> bool:
   return DATABASE_TYPE == 'sqlite'
 
@@ -61,11 +125,26 @@ def is_azure_sql() -> bool:
 if DATABASE_TYPE == 'azure_sql' and pyodbc is not None:
   Error = pyodbc.Error
   IntegrityError = pyodbc.IntegrityError
-  Row = Any
+  Row = AzureSqlRow
 else:
   Error = sqlite3.Error
   IntegrityError = sqlite3.IntegrityError
   Row = sqlite3.Row
+
+
+def row_to_dict(cursor, row):
+  if row is None:
+    return None
+  if is_sqlite():
+    return row
+  column_names = [column[0] for column in cursor.description]
+  return AzureSqlRow(column_names, row)
+
+
+def rows_to_dicts(cursor, rows):
+  if is_sqlite():
+    return rows
+  return [row_to_dict(cursor, row) for row in rows]
 
 
 def get_connection(database_path: str | Path | None = None, uri: bool = False):
@@ -88,7 +167,7 @@ def get_connection(database_path: str | Path | None = None, uri: bool = False):
   if pyodbc is None:
     raise ValueError('DATABASE_TYPE=azure_sql requires pyodbc to be installed')
   conn_str = _build_azure_sql_connection_string(settings)
-  return pyodbc.connect(conn_str)
+  return AzureSqlConnection(pyodbc.connect(conn_str))
 
 
 def fetch_all(query: str, params: Sequence[Any] = ()) -> list[Row]:
