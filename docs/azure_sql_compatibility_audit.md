@@ -50,6 +50,12 @@ The backend is closer to meaningful Azure runtime testing, but is **not fully Az
    - Selected foreign keys use Azure-specific `ON DELETE NO ACTION` comments where SQL Server multiple cascade path errors are likely.
    - They are not executed automatically by the local app and have not been validated against a live Azure SQL database.
 
+6. **Initial SQLite-to-Azure migration helper prepared**
+   - File: `tools/migrate_sqlite_to_azure_sql.py`
+   - The script supports local dry-run/source inspection without Azure credentials and can later migrate to Azure SQL with explicit `--migrate --yes`.
+   - It preserves SQLite IDs by enabling `IDENTITY_INSERT` one identity table at a time and uses a dependency-safe table order.
+   - It is not live-tested against Azure SQL, does not run automatically, and does not handle file storage folders such as `project-files/`, `company-logo/`, or `backups/`.
+
 ## 4) Remaining runtime portability risks
 
 | Area | Remaining issue | Recommended next action |
@@ -58,12 +64,14 @@ The backend is closer to meaningful Azure runtime testing, but is **not fully Az
 | non-create runtime SQL breadth | selected queries may still rely on SQLite tolerance/behavior | continue incremental repository + server runtime query review during Azure test hardening |
 | pyodbc row-shape expectations | database abstraction now normalizes rows returned through `db.get_connection().execute(...).fetchone()/fetchall()` in Azure SQL mode, which covers the dominant application access pattern; Azure runtime validation is still pending | verify against a real Azure SQL/pyodbc connection and expand the wrapper only if future cursor usage patterns require it |
 | Azure SQL schema scripts | initial scripts are prepared from the current SQLite schema and include a small multiple-cascade-path hardening pass, but have not been executed against Azure SQL | validate DDL and seed scripts in an Azure SQL database when access is available |
+| SQLite-to-Azure data migration | one-time migration helper is prepared with dry-run, target preflight, identity preservation, and row-count validation, but has not been executed against Azure SQL | test against a dev Azure SQL database after schema validation |
+| file storage migration | database migration does not move files from `project-files/`, `company-logo/`, or `backups/` | plan separate file/blob migration before production cutover |
 
 ## 5) Still intentionally deferred (not in this phase)
 
 - schema/bootstrap portability (`init_db`, `executescript`, `PRAGMA table_info`, `AUTOINCREMENT`)
 - backup/restore and SQLite operational tooling
-- SQLite-to-Azure data migration scripts
+- production file/blob migration for `project-files/`, `company-logo/`, and `backups/`
 
 ## 6) Row-shape implementation status
 
@@ -78,16 +86,26 @@ The backend is closer to meaningful Azure runtime testing, but is **not fully Az
 - **Local behavior**: unchanged. SQLite remains the default local database, and `init_db()` is still the only schema/bootstrap path used by the local app.
 - **Cascade-path hardening**: selected Azure SQL foreign keys use `ON DELETE NO ACTION` instead of SQLite's cascade/null action where SQL Server multiple cascade path rejection is likely. Cleanup may remain application-managed or be refined in a later migration hardening pass.
 - **Validation status**: static local review only. The scripts have not been run against Azure SQL, so full Azure schema readiness is not claimed.
-- **Remaining limitations**: migration of existing SQLite data is not implemented; future Azure testing may require type/constraint adjustments based on pyodbc behavior and SQL Server DDL validation.
+- **Remaining limitations**: schema and seed scripts still need live Azure validation; future Azure testing may require type/constraint adjustments based on pyodbc behavior and SQL Server DDL validation.
 
-## 8) Current readiness statement
+## 8) SQLite-to-Azure migration helper status
+
+- **Prepared file**: `tools/migrate_sqlite_to_azure_sql.py`.
+- **Dry-run behavior**: can inspect the SQLite source locally, print tables found, row counts by table, migration order, missing-table warnings, and basic source orphan warnings without Azure credentials.
+- **Migration safety**: actual migration requires `--migrate --yes`, Azure SQL environment variables, an Azure connection, an empty target preflight, parameterized inserts, and transaction rollback on failure.
+- **Identity preservation**: identity tables use `SET IDENTITY_INSERT dbo.<table> ON/OFF` around explicit ID inserts, with only one identity table enabled at a time.
+- **Validation status**: not live-tested. Data migration readiness is improved by having a prepared script, but remains pending execution against a dev/test Azure SQL database.
+- **Out of scope**: file storage folders (`project-files/`, `company-logo/`, `backups/`) are not migrated by this script.
+
+## 9) Current readiness statement
 
 - Connection-mode: available
 - Active create inserted-id handling: substantially improved with explicit Azure paths
 - Azure SQL row-shape abstraction: added in `db.py`, pending live Azure validation
 - Azure SQL schema scripts: prepared locally, pending live Azure validation
+- SQLite-to-Azure data migration helper: prepared locally, pending dev Azure validation
 - Runtime query portability: improved incrementally, but still incomplete
-- Data migration readiness: deferred to later phase
+- File storage migration readiness: deferred to later phase
 
 ---
 

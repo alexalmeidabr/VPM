@@ -25,3 +25,10 @@ Some Azure SQL foreign-key delete actions intentionally differ from SQLite. SQL 
 `ON DELETE CASCADE` / `ON DELETE SET NULL` chains that create multiple cascade paths, so selected
 risky relationships use `ON DELETE NO ACTION` in `001_schema.sql`. Cleanup for those cases may remain
 handled by application-level delete logic or be revisited during later Azure migration hardening.
+
+## Data migration helper
+
+A one-time SQLite-to-Azure-SQL migration helper has been prepared at
+`tools/migrate_sqlite_to_azure_sql.py`. It is not run by the app and should be used only after the
+Azure SQL schema has been created. Start with dry-run mode locally, then test against a dev/test Azure
+SQL database before any production cutover. See `MIGRATION.md` for details.
