@@ -96,10 +96,14 @@ class AzureSqlConnection:
     self._conn = conn
 
   def execute(self, query: str, params: Sequence[Any] = ()):
-    return AzureSqlCursor(self._conn.execute(query, params))
+    cursor = self._conn.cursor()
+    cursor.execute(query, params)
+    return AzureSqlCursor(cursor)
 
   def executemany(self, query: str, params_list: Iterable[Sequence[Any]]):
-    return self._conn.executemany(query, params_list)
+    cursor = self._conn.cursor()
+    cursor.executemany(query, params_list)
+    return AzureSqlCursor(cursor)
 
   def cursor(self):
     return AzureSqlCursor(self._conn.cursor())
