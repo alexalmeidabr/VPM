@@ -56,6 +56,13 @@ The backend is closer to meaningful Azure runtime testing, but is **not fully Az
    - It preserves SQLite IDs by enabling `IDENTITY_INSERT` one identity table at a time and uses a dependency-safe table order.
    - It is not live-tested against Azure SQL, does not run automatically, and does not handle file storage folders such as `project-files/`, `company-logo/`, or `backups/`.
 
+7. **Local validation helper and Azure SQL runbook prepared**
+   - Files: `tools/validate_azure_sql_readiness.py`, `sql/azure/RUNBOOK.md`
+   - The validation helper can run local SQLite integrity/table/column/count/orphan checks and static Azure SQL script checks without Azure credentials.
+   - It also includes a future read-only Azure count comparison mode for dev/test use when `pyodbc` and Azure SQL credentials are available.
+   - The runbook documents local pre-checks, fresh-vs-migration setup paths, a future dev/test Azure sequence, UI smoke tests, and known limitations.
+   - No Azure deployment or live Azure validation has been performed.
+
 ## 4) Remaining runtime portability risks
 
 | Area | Remaining issue | Recommended next action |
@@ -65,6 +72,7 @@ The backend is closer to meaningful Azure runtime testing, but is **not fully Az
 | pyodbc row-shape expectations | database abstraction now normalizes rows returned through `db.get_connection().execute(...).fetchone()/fetchall()` in Azure SQL mode, which covers the dominant application access pattern; Azure runtime validation is still pending | verify against a real Azure SQL/pyodbc connection and expand the wrapper only if future cursor usage patterns require it |
 | Azure SQL schema scripts | initial scripts are prepared from the current SQLite schema and include a small multiple-cascade-path hardening pass, but have not been executed against Azure SQL | validate DDL and seed scripts in an Azure SQL database when access is available |
 | SQLite-to-Azure data migration | one-time migration helper is prepared with dry-run, target preflight, identity preservation, and row-count validation, but has not been executed against Azure SQL | test against a dev Azure SQL database after schema validation |
+| Azure SQL validation/runbook | local validation helper and runbook are prepared, but Azure validation mode and app runtime testing have not been run against Azure SQL | run validation helper and smoke-test runbook against dev Azure SQL |
 | file storage migration | database migration does not move files from `project-files/`, `company-logo/`, or `backups/` | plan separate file/blob migration before production cutover |
 
 ## 5) Still intentionally deferred (not in this phase)
@@ -97,13 +105,22 @@ The backend is closer to meaningful Azure runtime testing, but is **not fully Az
 - **Validation status**: not live-tested. Data migration readiness is improved by having a prepared script, but remains pending execution against a dev/test Azure SQL database.
 - **Out of scope**: file storage folders (`project-files/`, `company-logo/`, `backups/`) are not migrated by this script.
 
-## 9) Current readiness statement
+## 9) Validation helper and runbook status
+
+- **Prepared files**: `tools/validate_azure_sql_readiness.py` and `sql/azure/RUNBOOK.md`.
+- **Local checks**: source existence, SQLite integrity check, SQLite foreign-key check, expected tables/columns, migration-table row counts, total row count, basic orphan checks, and project file row warnings.
+- **Static SQL checks**: required Azure SQL scripts/docs exist, expected `CREATE TABLE` statements and identity tables are present, and blocked SQLite-only syntax is absent.
+- **Future Azure checks**: optional read-only Azure mode can compare SQLite and Azure SQL row counts after credentials/connectivity exist.
+- **Validation status**: local tooling is prepared, but live Azure validation and deployment remain pending.
+
+## 10) Current readiness statement
 
 - Connection-mode: available
 - Active create inserted-id handling: substantially improved with explicit Azure paths
 - Azure SQL row-shape abstraction: added in `db.py`, pending live Azure validation
 - Azure SQL schema scripts: prepared locally, pending live Azure validation
 - SQLite-to-Azure data migration helper: prepared locally, pending dev Azure validation
+- Local validation helper and runbook: prepared locally, pending dev Azure validation
 - Runtime query portability: improved incrementally, but still incomplete
 - File storage migration readiness: deferred to later phase
 
