@@ -3448,7 +3448,7 @@ class VPMHandler(SimpleHTTPRequestHandler):
     if availability_consultant_id is not None and availability_id is not None:
       with get_connection() as conn:
         cursor = conn.execute('DELETE FROM consultant_availability WHERE id = ? AND consultant_id = ?', (availability_id, availability_consultant_id))
-      if updated_rows == 0:
+      if cursor.rowcount == 0:
         self._send_json({'error': 'Availability entry not found'}, HTTPStatus.NOT_FOUND)
         return
       self._send_json({'status': 'deleted'})
@@ -3475,7 +3475,7 @@ class VPMHandler(SimpleHTTPRequestHandler):
     if role_id is not None:
       with get_connection() as conn:
         cursor = conn.execute('DELETE FROM roles WHERE id = ?', (role_id,))
-      if updated_rows == 0:
+      if cursor.rowcount == 0:
         self._send_json({'error': 'Role not found'}, HTTPStatus.NOT_FOUND)
         return
       self._send_json({'status': 'deleted'})
@@ -3484,7 +3484,7 @@ class VPMHandler(SimpleHTTPRequestHandler):
     if area_id is not None:
       with get_connection() as conn:
         cursor = conn.execute('DELETE FROM areas WHERE id = ?', (area_id,))
-      if updated_rows == 0:
+      if cursor.rowcount == 0:
         self._send_json({'error': 'Area not found'}, HTTPStatus.NOT_FOUND)
         return
       self._send_json({'status': 'deleted'})
@@ -3493,7 +3493,7 @@ class VPMHandler(SimpleHTTPRequestHandler):
     if day_off_type_id is not None:
       with get_connection() as conn:
         cursor = conn.execute('DELETE FROM day_off_types WHERE id = ?', (day_off_type_id,))
-      if updated_rows == 0:
+      if cursor.rowcount == 0:
         self._send_json({'error': 'Day off type not found'}, HTTPStatus.NOT_FOUND)
         return
       self._send_json({'status': 'deleted'})
@@ -3502,7 +3502,7 @@ class VPMHandler(SimpleHTTPRequestHandler):
     if business_partner_type_id is not None:
       with get_connection() as conn:
         cursor = conn.execute('DELETE FROM business_partner_types WHERE id = ?', (business_partner_type_id,))
-      if updated_rows == 0:
+      if cursor.rowcount == 0:
         self._send_json({'error': 'Business partner type not found'}, HTTPStatus.NOT_FOUND)
         return
       self._send_json({'status': 'deleted'})
@@ -3511,7 +3511,7 @@ class VPMHandler(SimpleHTTPRequestHandler):
     if project_type_id is not None:
       with get_connection() as conn:
         cursor = conn.execute('DELETE FROM project_types WHERE id = ?', (project_type_id,))
-      if updated_rows == 0:
+      if cursor.rowcount == 0:
         self._send_json({'error': 'Project type not found'}, HTTPStatus.NOT_FOUND)
         return
       self._send_json({'status': 'deleted'})
