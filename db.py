@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import os
 import sqlite3
+from datetime import date, datetime, time
+from decimal import Decimal
 from pathlib import Path
 from typing import Any, Iterable, Sequence
 
@@ -142,7 +144,18 @@ def row_to_dict(cursor, row):
   if is_sqlite():
     return row
   column_names = [column[0] for column in cursor.description]
-  return AzureSqlRow(column_names, row)
+  values = [normalize_azure_value(value) for value in row]
+  return AzureSqlRow(column_names, values)
+
+
+def normalize_azure_value(value):
+  if value is None or isinstance(value, (str, int, float, bool)):
+    return value
+  if isinstance(value, Decimal):
+    return float(value)
+  if isinstance(value, (datetime, date, time)):
+    return value.isoformat()
+  return value
 
 
 def rows_to_dicts(cursor, rows):
