@@ -4293,6 +4293,24 @@ if (!isBrowserRuntime) {
     }
     return (sourceProject.consultantAssignments || []).map((item) => normalizeAllocationAssignmentDetail(item, item.consultantId));
   };
+  const isOpenProjectPosition = (position) => String(position?.status || '').trim().toLowerCase() === 'open';
+  const allocationSourceVacanciesForProject = (project) => {
+    const sourceProject = projects.find((item) => Number(item.id) === Number(project?.sourceProjectId || 0));
+    if (!sourceProject || !Array.isArray(sourceProject.projectPositions)) return [];
+    return sourceProject.projectPositions
+      .filter((position) => position && !position.consultantId && isOpenProjectPosition(position))
+      .map((position) => normalizeAllocationVacancy({
+        id: `position-${position.id || `${sourceProject.id}-${position.projectRole || 'open'}`}`,
+        sourceProjectPositionId: position.id || null,
+        sapArea: position.sapArea || position.area || '',
+        areaId: position.areaId || null,
+        projectRole: position.projectRole || 'Project Position',
+        allocation: position.allocation,
+        status: position.status || 'Open',
+        startDate: position.startDate || '',
+        endDate: position.endDate || ''
+      }));
+  };
   const ensureProjectAllocationAssignmentDetails = (project) => {
     project.consultantIds = Array.isArray(project.consultantIds) ? project.consultantIds.map((id) => Number(id)).filter((id) => id > 0) : [];
     project.assignmentDetails = Array.isArray(project.assignmentDetails) ? project.assignmentDetails : [];
@@ -4330,9 +4348,14 @@ if (!isBrowserRuntime) {
     const allocation = Number(vacancy.allocation);
     return {
       id: vacancy.id || `${Date.now()}-${Math.random()}`,
+      sourceProjectPositionId: vacancy.sourceProjectPositionId || null,
       sapArea: String(matchedArea?.name || vacancy.sapArea || (areaId ? `Area ${areaId}` : 'Unknown Area')).trim(),
       areaId: areaId || (matchedArea ? Number(matchedArea.id) : null),
-      allocation: Number.isFinite(allocation) ? allocation : 100
+      projectRole: String(vacancy.projectRole || 'Project Position').trim() || 'Project Position',
+      allocation: Number.isFinite(allocation) ? allocation : 100,
+      status: String(vacancy.status || 'Open').trim() || 'Open',
+      startDate: String(vacancy.startDate || '').trim(),
+      endDate: String(vacancy.endDate || '').trim()
     };
   };
   const openAllocationVacancyModal = (projectId) => {
@@ -4390,7 +4413,14 @@ if (!isBrowserRuntime) {
       projectId: project.id,
       consultantId: Number(consultantId),
       vacancyId: vacancy?.id || null,
-      assignmentDetail: normalizeAllocationAssignmentDetail(assignmentDetail || { consultantId }, consultantId)
+      assignmentDetail: normalizeAllocationAssignmentDetail({
+        ...(assignmentDetail || { consultantId }),
+        projectRole: vacancy?.projectRole || assignmentDetail?.projectRole,
+        allocation: vacancy?.allocation ?? assignmentDetail?.allocation,
+        startDate: vacancy?.startDate || assignmentDetail?.startDate,
+        endDate: vacancy?.endDate || assignmentDetail?.endDate,
+        positionStatus: vacancy ? 'Assigned' : assignmentDetail?.positionStatus
+      }, consultantId)
     };
     if (ui.allocationAssignmentModalTitle) ui.allocationAssignmentModalTitle.textContent = vacancy ? 'Assign Consultant to Vacancy' : 'Assign Consultant to Project';
     if (ui.allocationAssignmentConsultantName) ui.allocationAssignmentConsultantName.textContent = consultant?.name || `Consultant ${consultantId}`;
@@ -4528,10 +4558,15 @@ if (!isBrowserRuntime) {
         const v = document.createElement('div');
         v.className = 'allocation-vacancy-item';
         v.draggable = true;
+        v.dataset.vacancyId = String(normalizedVacancy.id);
         const areaLabel = normalizedVacancy.sapArea || `Area ${normalizedVacancy.areaId || '—'}`;
         const allocationNumber = Number(normalizedVacancy.allocation || 0);
         const allocationLabel = `${Number.isInteger(allocationNumber) ? allocationNumber : allocationNumber.toFixed(2).replace(/\.?0+$/, '')}%`;
-        v.innerHTML = `<div class="allocation-vacancy-area">${areaLabel}</div><div class="allocation-vacancy-meta">${allocationLabel}</div>`;
+        const roleLabel = String(normalizedVacancy.projectRole || 'Project Position').trim() || 'Project Position';
+        const statusLabel = String(normalizedVacancy.status || 'Open').trim() || 'Open';
+        const statusClassName = positionStatusClassByValue(statusLabel);
+        const hasDateRange = Boolean(normalizedVacancy.startDate || normalizedVacancy.endDate);
+        v.innerHTML = `<div class="allocation-vacancy-area">${areaLabel}</div><div class="allocation-vacancy-meta"><span class="member-role-chip">${roleLabel}</span><span>${allocationLabel}</span><span class="position-status-badge ${statusClassName}">${statusLabel}</span></div>${hasDateRange ? `<div class="allocation-vacancy-meta">Dates: ${formatDate(normalizedVacancy.startDate)} - ${formatDate(normalizedVacancy.endDate)}</div>` : ''}`;
         v.addEventListener('dragstart', (event) => {
           event.dataTransfer.setData('application/json', JSON.stringify({ type: 'vacancy', vacancyId: normalizedVacancy.id, projectId: project.id }));
         });
@@ -4574,7 +4609,11 @@ if (!isBrowserRuntime) {
           if (moved) project.vacancies = [...(project.vacancies || []), moved];
         }
         if (data.type === 'consultant') {
-          const targetVacancy = (project.vacancies || [])[0];
+          const droppedVacancy = event.target.closest('.allocation-vacancy-item');
+          const droppedVacancyId = droppedVacancy?.dataset?.vacancyId;
+          const targetVacancy = droppedVacancyId
+            ? (project.vacancies || []).find((item) => String(item.id) === String(droppedVacancyId))
+            : (project.vacancies || [])[0];
           if (!targetVacancy) {
             toast('No vacancy available in this project panel.', 'orange darken-2');
             return;
@@ -6549,15 +6588,17 @@ if (!isBrowserRuntime) {
     const existingById = new Set(allocationState.projects.filter((p) => p.sourceProjectId).map((p) => Number(p.sourceProjectId)));
     projects.forEach((project, index) => {
       if (existingById.has(Number(project.id))) return;
+      const assignmentDetails = allocationSourceAssignmentsForProject({ sourceProjectId: project.id });
+      const vacancies = allocationSourceVacanciesForProject({ sourceProjectId: project.id });
       allocationState.projects.push({
         id: `p-${project.id}`,
         sourceProjectId: Number(project.id),
         name: project.projectName,
         x: 20 + (index % 4) * 320,
         y: 20 + Math.floor(index / 4) * 240,
-        consultantIds: allocationSourceAssignmentsForProject({ sourceProjectId: project.id }).map((item) => Number(item.consultantId)),
-        assignmentDetails: allocationSourceAssignmentsForProject({ sourceProjectId: project.id }),
-        vacancies: []
+        consultantIds: assignmentDetails.map((item) => Number(item.consultantId)),
+        assignmentDetails,
+        vacancies
       });
     });
     const assigned = new Set(allocationState.projects.flatMap((p) => p.consultantIds || []).map(Number));
