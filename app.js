@@ -4342,6 +4342,14 @@ if (!isBrowserRuntime) {
     ensureProjectAllocationAssignmentDetails(project);
     project.assignmentDetails = project.assignmentDetails.filter((item) => Number(item.consultantId) !== Number(consultantId));
   };
+  const removeAllocationAssignmentFromProject = (projectId, consultantId) => {
+    const sourceProject = allocationState?.projects?.find((project) => String(project.id) === String(projectId));
+    if (!sourceProject) return false;
+    const beforeCount = (sourceProject.consultantIds || []).length;
+    sourceProject.consultantIds = (sourceProject.consultantIds || []).filter((id) => Number(id) !== Number(consultantId));
+    removeAllocationAssignmentDetail(sourceProject, consultantId);
+    return beforeCount !== sourceProject.consultantIds.length;
+  };
   const normalizeAllocationVacancy = (vacancy = {}) => {
     const areaId = Number(vacancy.areaId || 0);
     const matchedArea = areaId ? areas.find((item) => Number(item.id) === areaId) : null;
@@ -4540,6 +4548,9 @@ if (!isBrowserRuntime) {
         const c = document.createElement('div');
         c.className = 'allocation-consultant-item';
         c.draggable = true;
+        c.dataset.consultantId = String(consultantId);
+        c.dataset.projectId = String(project.id);
+        c.title = 'Drag back to Available Consultants to remove this simulation assignment.';
         c.innerHTML = `<div class="member-title-row"><span class="allocation-consultant-name">${consultantNameLabel}</span><span class="member-role-chip">${projectRoleLabel}</span><span class="position-status-badge ${statusClassName}">${statusLabel}</span></div><div class="allocation-consultant-meta">Allocation: ${allocationLabel}</div>${hasDateRange ? `<div class="allocation-consultant-meta">Dates: ${formatDate(assignmentDetail.startDate)} - ${formatDate(assignmentDetail.endDate)}</div>` : ''}`;
         c.addEventListener('dragstart', (event) => {
           event.dataTransfer.setData('application/json', JSON.stringify({
@@ -4666,18 +4677,21 @@ if (!isBrowserRuntime) {
       ui.allocationCanvas.appendChild(panel);
     });
 
-    ui.allocationConsultantsList.addEventListener('dragover', (event) => { event.preventDefault(); ui.allocationConsultantsList.classList.add('drag-over'); });
-    ui.allocationConsultantsList.addEventListener('dragleave', () => ui.allocationConsultantsList.classList.remove('drag-over'));
-    ui.allocationConsultantsList.addEventListener('drop', (event) => {
+    ui.allocationConsultantsList.ondragover = (event) => { event.preventDefault(); ui.allocationConsultantsList.classList.add('drag-over'); };
+    ui.allocationConsultantsList.ondragleave = () => ui.allocationConsultantsList.classList.remove('drag-over');
+    ui.allocationConsultantsList.ondrop = (event) => {
       event.preventDefault(); ui.allocationConsultantsList.classList.remove('drag-over');
-      const data = allocationDraggedPayload(event); if (!data || data.type !== 'consultant') return;
-      allocationState.projects.forEach((p) => {
-        p.consultantIds = (p.consultantIds || []).filter((id) => Number(id) !== Number(data.consultantId));
-        removeAllocationAssignmentDetail(p, data.consultantId);
-      });
+      const data = allocationDraggedPayload(event);
+      if (!data || data.type !== 'consultant') return;
+      if (data.source !== 'project' || !data.projectId) return;
+      const removed = removeAllocationAssignmentFromProject(data.projectId, data.consultantId);
+      if (!removed) {
+        toast('Unable to remove that project assignment from the simulation.', 'orange darken-2');
+        return;
+      }
       allocationState.unassignedConsultantIds = [...new Set([...(allocationState.unassignedConsultantIds || []), Number(data.consultantId)])];
       renderAllocationWorkspace();
-    });
+    };
   };
 
   const resetProjectForm = () => {
