@@ -402,6 +402,8 @@ if (!isBrowserRuntime) {
     loadAllocationSimulationBtn: document.getElementById('load-allocation-simulation-btn'),
     allocationForecastEmptyActions: document.getElementById('allocation-forecast-empty-actions'),
     allocationSimulationList: document.getElementById('allocation-simulation-list'),
+    allocationSimulationSearch: document.getElementById('allocation-simulation-search'),
+    allocationSimulationListBody: document.getElementById('allocation-simulation-list-body'),
     allocationForecastWorkspace: document.getElementById('allocation-forecast-workspace'),
     allocationSimulationTitle: document.getElementById('allocation-simulation-title'),
     allocationLoadProjectsBtn: document.getElementById('allocation-load-projects-btn'),
@@ -4160,27 +4162,99 @@ if (!isBrowserRuntime) {
   };
 
   const renderAllocationSimulationList = () => {
-    if (!ui.allocationSimulationList) return;
-    ui.allocationSimulationList.innerHTML = '';
+    const container = ui.allocationSimulationListBody || ui.allocationSimulationList;
+    if (!container) return;
+    container.innerHTML = '';
+    const searchTerm = String(ui.allocationSimulationSearch?.value || '').trim().toLowerCase();
+    const sortedSimulations = [...allocationSimulations].sort((a, b) => {
+      const aDate = Date.parse(a.updatedAt || a.createdAt || '') || 0;
+      const bDate = Date.parse(b.updatedAt || b.createdAt || '') || 0;
+      return bDate - aDate || Number(b.id) - Number(a.id);
+    });
+    const filteredSimulations = searchTerm
+      ? sortedSimulations.filter((simulation) => String(simulation.name || '').toLowerCase().includes(searchTerm))
+      : sortedSimulations;
     if (!allocationSimulations.length) {
-      ui.allocationSimulationList.innerHTML = '<p class="grey-text">No saved simulations yet.</p>';
+      container.innerHTML = '<p class="grey-text allocation-simulation-empty">No saved simulations yet. Create one to start planning allocation scenarios.</p>';
       return;
     }
-    allocationSimulations.forEach((simulation) => {
-      const item = document.createElement('div');
-      item.className = 'allocation-simulation-item';
-      item.innerHTML = `<div><strong>${simulation.name}</strong><div class="grey-text">Created: ${formatDate(simulation.createdAt)}</div></div><button class="btn" type="button">Load</button>`;
-      item.querySelector('button').addEventListener('click', async () => {
-        const loaded = await request(`/api/allocation-simulations/${simulation.id}`);
-        allocationState = { ...(loaded.state || {}), id: loaded.id, name: loaded.name };
-        ui.allocationSimulationTitle.textContent = loaded.name;
-        ui.allocationForecastWorkspace.hidden = false;
-        ui.allocationSimulationList.hidden = true;
-        ui.allocationForecastEmptyActions.hidden = true;
-        renderAllocationWorkspace();
+    if (!filteredSimulations.length) {
+      container.innerHTML = '<p class="grey-text allocation-simulation-empty">No simulations match your search.</p>';
+      return;
+    }
+    const table = document.createElement('table');
+    table.className = 'striped responsive-table allocation-simulation-table';
+    table.innerHTML = `
+      <thead>
+        <tr>
+          <th>Simulation Name</th>
+          <th>Created</th>
+          <th>Last Updated</th>
+          <th>Projects</th>
+          <th class="right-align">Actions</th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+    `;
+    const tbody = table.querySelector('tbody');
+    filteredSimulations.forEach((simulation) => {
+      const tr = document.createElement('tr');
+      const isCurrent = allocationState?.id && Number(allocationState.id) === Number(simulation.id);
+      tr.className = isCurrent ? 'allocation-simulation-current' : '';
+
+      const nameCell = document.createElement('td');
+      const name = document.createElement('div');
+      name.className = 'allocation-simulation-name';
+      name.textContent = simulation.name || 'Untitled simulation';
+      nameCell.appendChild(name);
+      if (isCurrent) {
+        const current = document.createElement('span');
+        current.className = 'new badge teal allocation-simulation-current-badge';
+        current.dataset.badgeCaption = 'current';
+        nameCell.appendChild(current);
+      }
+
+      const createdCell = document.createElement('td');
+      createdCell.textContent = simulation.createdAt ? formatDate(simulation.createdAt) : '—';
+
+      const updatedCell = document.createElement('td');
+      updatedCell.textContent = simulation.updatedAt ? formatDate(simulation.updatedAt) : '—';
+
+      const projectCountCell = document.createElement('td');
+      projectCountCell.textContent = String(simulation.projectCount ?? 0);
+
+      const actionsCell = document.createElement('td');
+      actionsCell.className = 'right-align allocation-simulation-actions';
+      [
+        ['load-allocation-simulation', 'Load', 'btn-small'],
+        ['rename-allocation-simulation', 'Rename', 'btn-flat blue-text'],
+        ['duplicate-allocation-simulation', 'Duplicate', 'btn-flat teal-text'],
+        ['delete-allocation-simulation', 'Delete', 'btn-flat red-text']
+      ].forEach(([action, label, className]) => {
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = className;
+        button.dataset.action = action;
+        button.dataset.id = simulation.id;
+        button.dataset.name = simulation.name || '';
+        button.textContent = label;
+        actionsCell.appendChild(button);
       });
-      ui.allocationSimulationList.appendChild(item);
+
+      tr.append(nameCell, createdCell, updatedCell, projectCountCell, actionsCell);
+      tbody.appendChild(tr);
     });
+    container.appendChild(table);
+  };
+
+  const loadAllocationSimulation = async (simulationId) => {
+    const loaded = await request(`/api/allocation-simulations/${simulationId}`);
+    allocationState = { ...(loaded.state || {}), id: loaded.id, name: loaded.name };
+    ui.allocationSimulationTitle.textContent = loaded.name;
+    ui.allocationForecastWorkspace.hidden = false;
+    ui.allocationSimulationList.hidden = true;
+    ui.allocationForecastEmptyActions.hidden = true;
+    renderAllocationWorkspace();
   };
 
   const ensureAllocationStateShape = () => {
@@ -6406,6 +6480,68 @@ if (!isBrowserRuntime) {
     await loadAll();
     ui.allocationSimulationList.hidden = false;
     ui.allocationForecastWorkspace.hidden = true;
+  });
+
+  ui.allocationSimulationSearch?.addEventListener('input', renderAllocationSimulationList);
+
+  ui.allocationSimulationList?.addEventListener('click', async (event) => {
+    const button = event.target.closest('button[data-action]');
+    if (!button) return;
+    const simulationId = Number(button.dataset.id);
+    if (!simulationId) return;
+    const simulationName = button.dataset.name || 'this simulation';
+
+    try {
+      if (button.dataset.action === 'load-allocation-simulation') {
+        await loadAllocationSimulation(simulationId);
+        return;
+      }
+      if (button.dataset.action === 'rename-allocation-simulation') {
+        const nextName = window.prompt('Rename allocation simulation', simulationName)?.trim();
+        if (!nextName || nextName === simulationName) return;
+        await request(`/api/allocation-simulations/${simulationId}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name: nextName })
+        });
+        if (allocationState?.id && Number(allocationState.id) === simulationId) {
+          allocationState.name = nextName;
+          ui.allocationSimulationTitle.textContent = nextName;
+        }
+        await loadAll();
+        ui.allocationSimulationList.hidden = false;
+        toast('Simulation renamed', 'teal darken-1');
+        return;
+      }
+      if (button.dataset.action === 'duplicate-allocation-simulation') {
+        const copyName = `${simulationName} (Copy)`;
+        await request(`/api/allocation-simulations/${simulationId}/duplicate`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name: copyName })
+        });
+        await loadAll();
+        ui.allocationSimulationList.hidden = false;
+        toast('Simulation duplicated', 'teal darken-1');
+        return;
+      }
+      if (button.dataset.action === 'delete-allocation-simulation') {
+        const confirmed = window.confirm('Are you sure you want to delete this allocation simulation?');
+        if (!confirmed) return;
+        await request(`/api/allocation-simulations/${simulationId}`, { method: 'DELETE' });
+        if (allocationState?.id && Number(allocationState.id) === simulationId) {
+          allocationState = null;
+          ui.allocationForecastWorkspace.hidden = true;
+          ui.allocationForecastEmptyActions.hidden = false;
+          ui.allocationSimulationTitle.textContent = '';
+        }
+        await loadAll();
+        ui.allocationSimulationList.hidden = false;
+        toast('Simulation deleted', 'orange darken-2');
+      }
+    } catch (error) {
+      toast(error.message || 'Unable to update allocation simulation', 'red darken-1');
+    }
   });
 
   ui.allocationLoadProjectsBtn?.addEventListener('click', () => {

@@ -918,6 +918,12 @@ class VPMHandler(SimpleHTTPRequestHandler):
       return int(parts[2])
     return None
 
+  def _allocation_simulation_duplicate_id(self):
+    parts = self._parts()
+    if len(parts) == 4 and parts[0:2] == ['api', 'allocation-simulations'] and parts[2].isdigit() and parts[3] == 'duplicate':
+      return int(parts[2])
+    return None
+
   def _project_files_route(self):
     parts = self._parts()
     if len(parts) == 4 and parts[0:2] == ['api', 'projects'] and parts[2].isdigit() and parts[3] == 'files':
@@ -2869,6 +2875,22 @@ class VPMHandler(SimpleHTTPRequestHandler):
       self._send_json({'id': simulation_id, 'name': simulation_name}, HTTPStatus.CREATED)
       return
 
+    duplicate_simulation_id = self._allocation_simulation_duplicate_id()
+    if duplicate_simulation_id is not None:
+      error = self._allocation_simulation_payload_error(payload, require_state=False)
+      if error:
+        self._send_json({'error': error}, HTTPStatus.BAD_REQUEST)
+        return
+      with get_connection() as conn:
+        original = allocation_simulations_repository.get_allocation_simulation(conn, duplicate_simulation_id)
+        if not original:
+          self._send_json({'error': 'Allocation simulation not found'}, HTTPStatus.NOT_FOUND)
+          return
+        simulation_name = payload.get('name') or f"{original['name']} (Copy)"
+        duplicated = allocation_simulations_repository.duplicate_allocation_simulation(conn, duplicate_simulation_id, simulation_name)
+      self._send_json(duplicated, HTTPStatus.CREATED)
+      return
+
     if path == '/api/roles':
       error = self._name_payload_error(payload)
       if error:
@@ -3378,13 +3400,16 @@ class VPMHandler(SimpleHTTPRequestHandler):
       return
 
     if allocation_simulation_id is not None:
-      error = self._allocation_simulation_payload_error(payload, require_state=True)
+      error = self._allocation_simulation_payload_error(payload, require_state=False)
       if error:
         self._send_json({'error': error}, HTTPStatus.BAD_REQUEST)
         return
       simulation_name = payload.get('name', '').strip() or f"Simulation {datetime.utcnow().strftime('%Y-%m-%d %H:%M')}"
       with get_connection() as conn:
-        updated_rows = allocation_simulations_repository.update_allocation_simulation(conn, allocation_simulation_id, simulation_name, payload['state'])
+        if 'state' in payload:
+          updated_rows = allocation_simulations_repository.update_allocation_simulation(conn, allocation_simulation_id, simulation_name, payload['state'])
+        else:
+          updated_rows = allocation_simulations_repository.rename_allocation_simulation(conn, allocation_simulation_id, simulation_name)
       if updated_rows == 0:
         self._send_json({'error': 'Allocation simulation not found'}, HTTPStatus.NOT_FOUND)
         return

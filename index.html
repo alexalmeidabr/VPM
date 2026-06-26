@@ -589,7 +589,19 @@
               <button class="btn" id="create-allocation-simulation-btn" type="button">Create allocation simulation</button>
               <button class="btn blue-grey" id="load-allocation-simulation-btn" type="button">Load allocation simulation</button>
             </div>
-            <div id="allocation-simulation-list" hidden></div>
+            <div id="allocation-simulation-list" class="allocation-simulation-manager" hidden>
+              <div class="allocation-simulation-manager-header">
+                <div>
+                  <h6>Saved simulations</h6>
+                  <p class="grey-text">Load, rename, duplicate, or delete allocation scenarios.</p>
+                </div>
+                <div class="input-field allocation-simulation-search">
+                  <input id="allocation-simulation-search" type="search" />
+                  <label for="allocation-simulation-search">Search simulations</label>
+                </div>
+              </div>
+              <div id="allocation-simulation-list-body"></div>
+            </div>
 
             <div id="allocation-forecast-workspace" hidden>
               <div class="allocation-toolbar">
