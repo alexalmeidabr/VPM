@@ -411,6 +411,7 @@ if (!isBrowserRuntime) {
     allocationAddProjectBtn: document.getElementById('allocation-add-project-btn'),
     allocationSaveBtn: document.getElementById('allocation-save-btn'),
     allocationCanvas: document.getElementById('allocation-canvas'),
+    allocationConsultantsPanel: document.querySelector('.allocation-consultants-panel'),
     allocationConsultantsList: document.getElementById('allocation-consultants-list'),
     allocationVacancyModal: document.getElementById('allocation-vacancy-modal'),
     allocationVacancyAreaSelect: document.getElementById('allocation-vacancy-area-select'),
@@ -4266,8 +4267,11 @@ if (!isBrowserRuntime) {
     });
   };
   const normalizeAllocationAssignmentDetail = (detail = {}, consultantId = null) => ({
+    sourceProjectPositionId: detail.sourceProjectPositionId || detail.projectPositionId || null,
     consultantId: Number(detail.consultantId ?? consultantId ?? 0),
     consultantName: String(detail.consultantName || '').trim(),
+    sapArea: String(detail.sapArea || detail.area || '').trim(),
+    areaId: detail.areaId ? Number(detail.areaId) : null,
     projectRole: String(detail.projectRole || 'Project Position').trim() || 'Project Position',
     allocation: Number.isFinite(Number(detail.allocation)) ? Number(detail.allocation) : 100,
     startDate: String(detail.startDate || '').trim(),
@@ -4282,8 +4286,11 @@ if (!isBrowserRuntime) {
     const positions = Array.isArray(sourceProject.projectPositions) ? sourceProject.projectPositions.filter((item) => item && item.consultantId) : [];
     if (positions.length) {
       return positions.map((item) => normalizeAllocationAssignmentDetail({
+        sourceProjectPositionId: item.id,
         consultantId: item.consultantId,
         consultantName: item.consultantName,
+        sapArea: item.sapArea || item.area || '',
+        areaId: item.areaId || null,
         projectRole: item.projectRole,
         allocation: item.allocation,
         startDate: item.startDate,
@@ -4344,11 +4351,29 @@ if (!isBrowserRuntime) {
   };
   const removeAllocationAssignmentFromProject = (projectId, consultantId) => {
     const sourceProject = allocationState?.projects?.find((project) => String(project.id) === String(projectId));
-    if (!sourceProject) return false;
+    if (!sourceProject) return null;
+    const removedDetail = allocationAssignmentDetailByConsultant(sourceProject, consultantId);
     const beforeCount = (sourceProject.consultantIds || []).length;
     sourceProject.consultantIds = (sourceProject.consultantIds || []).filter((id) => Number(id) !== Number(consultantId));
     removeAllocationAssignmentDetail(sourceProject, consultantId);
-    return beforeCount !== sourceProject.consultantIds.length;
+    return beforeCount !== sourceProject.consultantIds.length ? removedDetail : null;
+  };
+  const restoreAllocationVacancyFromAssignment = (project, assignmentDetail = {}) => {
+    if (!project) return null;
+    const normalizedDetail = normalizeAllocationAssignmentDetail(assignmentDetail, assignmentDetail.consultantId);
+    const vacancy = normalizeAllocationVacancy({
+      id: `released-${project.id}-${normalizedDetail.sourceProjectPositionId || normalizedDetail.consultantId || Date.now()}-${Date.now()}`,
+      sourceProjectPositionId: normalizedDetail.sourceProjectPositionId || null,
+      sapArea: normalizedDetail.sapArea || '',
+      areaId: normalizedDetail.areaId || null,
+      projectRole: normalizedDetail.projectRole,
+      allocation: normalizedDetail.allocation,
+      status: 'Open',
+      startDate: normalizedDetail.startDate,
+      endDate: normalizedDetail.endDate
+    });
+    project.vacancies = [...(project.vacancies || []), vacancy];
+    return vacancy;
   };
   const normalizeAllocationVacancy = (vacancy = {}) => {
     const areaId = Number(vacancy.areaId || 0);
@@ -4553,12 +4578,23 @@ if (!isBrowserRuntime) {
         c.title = 'Drag back to Available Consultants to remove this simulation assignment.';
         c.innerHTML = `<div class="member-title-row"><span class="allocation-consultant-name">${consultantNameLabel}</span><span class="member-role-chip">${projectRoleLabel}</span><span class="position-status-badge ${statusClassName}">${statusLabel}</span></div><div class="allocation-consultant-meta">Allocation: ${allocationLabel}</div>${hasDateRange ? `<div class="allocation-consultant-meta">Dates: ${formatDate(assignmentDetail.startDate)} - ${formatDate(assignmentDetail.endDate)}</div>` : ''}`;
         c.addEventListener('dragstart', (event) => {
+          const normalizedAssignmentDetail = normalizeAllocationAssignmentDetail(assignmentDetail, consultantId);
           event.dataTransfer.setData('application/json', JSON.stringify({
             type: 'consultant',
             consultantId: Number(consultantId),
+            consultantName: consultantNameLabel,
             source: 'project',
             projectId: project.id,
-            assignmentDetail: normalizeAllocationAssignmentDetail(assignmentDetail, consultantId)
+            sourceProjectPositionId: normalizedAssignmentDetail.sourceProjectPositionId,
+            assignmentKey: `${project.id}:${consultantId}:${normalizedAssignmentDetail.sourceProjectPositionId || normalizedAssignmentDetail.projectRole}`,
+            projectRole: normalizedAssignmentDetail.projectRole,
+            allocation: normalizedAssignmentDetail.allocation,
+            sapArea: normalizedAssignmentDetail.sapArea,
+            areaId: normalizedAssignmentDetail.areaId,
+            startDate: normalizedAssignmentDetail.startDate,
+            endDate: normalizedAssignmentDetail.endDate,
+            status: normalizedAssignmentDetail.positionStatus,
+            assignmentDetail: normalizedAssignmentDetail
           }));
         });
         consultantsZone.appendChild(c);
@@ -4677,18 +4713,44 @@ if (!isBrowserRuntime) {
       ui.allocationCanvas.appendChild(panel);
     });
 
-    ui.allocationConsultantsList.ondragover = (event) => { event.preventDefault(); ui.allocationConsultantsList.classList.add('drag-over'); };
-    ui.allocationConsultantsList.ondragleave = () => ui.allocationConsultantsList.classList.remove('drag-over');
-    ui.allocationConsultantsList.ondrop = (event) => {
-      event.preventDefault(); ui.allocationConsultantsList.classList.remove('drag-over');
+    const availableDropTarget = ui.allocationConsultantsPanel || ui.allocationConsultantsList;
+    const setAvailableDragState = (active) => {
+      ui.allocationConsultantsList.classList.toggle('drag-over', active);
+      ui.allocationConsultantsPanel?.classList.toggle('drag-over', active);
+    };
+    availableDropTarget.ondragover = (event) => {
+      event.preventDefault();
+      setAvailableDragState(true);
+    };
+    availableDropTarget.ondragleave = (event) => {
+      if (availableDropTarget.contains(event.relatedTarget)) return;
+      setAvailableDragState(false);
+    };
+    availableDropTarget.ondrop = (event) => {
+      event.preventDefault(); setAvailableDragState(false);
       const data = allocationDraggedPayload(event);
       if (!data || data.type !== 'consultant') return;
       if (data.source !== 'project' || !data.projectId) return;
-      const removed = removeAllocationAssignmentFromProject(data.projectId, data.consultantId);
-      if (!removed) {
+      const sourceProject = allocationState?.projects?.find((project) => String(project.id) === String(data.projectId));
+      const removedDetail = removeAllocationAssignmentFromProject(data.projectId, data.consultantId);
+      if (!sourceProject || !removedDetail) {
         toast('Unable to remove that project assignment from the simulation.', 'orange darken-2');
         return;
       }
+      restoreAllocationVacancyFromAssignment(sourceProject, {
+        ...(data.assignmentDetail || {}),
+        sourceProjectPositionId: data.sourceProjectPositionId || data.assignmentDetail?.sourceProjectPositionId,
+        consultantId: data.consultantId,
+        consultantName: data.consultantName,
+        sapArea: data.sapArea || data.assignmentDetail?.sapArea,
+        areaId: data.areaId || data.assignmentDetail?.areaId,
+        projectRole: data.projectRole || data.assignmentDetail?.projectRole,
+        allocation: data.allocation ?? data.assignmentDetail?.allocation,
+        startDate: data.startDate || data.assignmentDetail?.startDate,
+        endDate: data.endDate || data.assignmentDetail?.endDate,
+        status: 'Open',
+        ...removedDetail
+      });
       allocationState.unassignedConsultantIds = [...new Set([...(allocationState.unassignedConsultantIds || []), Number(data.consultantId)])];
       renderAllocationWorkspace();
     };
