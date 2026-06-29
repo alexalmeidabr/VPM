@@ -411,7 +411,7 @@ if (!isBrowserRuntime) {
     allocationAddProjectBtn: document.getElementById('allocation-add-project-btn'),
     allocationSaveBtn: document.getElementById('allocation-save-btn'),
     allocationCanvas: document.getElementById('allocation-canvas'),
-    allocationConsultantsPanel: document.querySelector('.allocation-consultants-panel'),
+    allocationConsultantsPanel: document.getElementById('allocation-consultants-panel'),
     allocationConsultantsList: document.getElementById('allocation-consultants-list'),
     allocationVacancyModal: document.getElementById('allocation-vacancy-modal'),
     allocationVacancyAreaSelect: document.getElementById('allocation-vacancy-area-select'),
@@ -4713,13 +4713,21 @@ if (!isBrowserRuntime) {
       ui.allocationCanvas.appendChild(panel);
     });
 
-    const availableDropTarget = ui.allocationConsultantsPanel || ui.allocationConsultantsList;
+    const availableDropTarget = ui.allocationConsultantsPanel
+      || ui.allocationConsultantsList.closest('.allocation-consultants-panel')
+      || ui.allocationConsultantsList;
     const setAvailableDragState = (active) => {
       ui.allocationConsultantsList.classList.toggle('drag-over', active);
-      ui.allocationConsultantsPanel?.classList.toggle('drag-over', active);
+      availableDropTarget.classList.toggle('drag-over', active);
+    };
+    availableDropTarget.ondragenter = (event) => {
+      event.preventDefault();
+      event.dataTransfer.dropEffect = 'move';
+      setAvailableDragState(true);
     };
     availableDropTarget.ondragover = (event) => {
       event.preventDefault();
+      event.dataTransfer.dropEffect = 'move';
       setAvailableDragState(true);
     };
     availableDropTarget.ondragleave = (event) => {
@@ -4727,7 +4735,7 @@ if (!isBrowserRuntime) {
       setAvailableDragState(false);
     };
     availableDropTarget.ondrop = (event) => {
-      event.preventDefault(); setAvailableDragState(false);
+      event.preventDefault(); event.stopPropagation(); setAvailableDragState(false);
       const data = allocationDraggedPayload(event);
       if (!data || data.type !== 'consultant') return;
       if (data.source !== 'project' || !data.projectId) return;
