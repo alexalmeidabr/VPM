@@ -46,6 +46,8 @@ Some Azure SQL foreign-key delete actions intentionally differ from SQLite. SQL 
 `ON DELETE CASCADE` / `ON DELETE SET NULL` chains that create multiple cascade paths, so selected
 risky relationships use `ON DELETE NO ACTION` in `001_schema.sql`. Cleanup for those cases may remain
 handled by application-level delete logic or be revisited during later Azure migration hardening.
+For example, both `projects -> business_partners` relationships use `NO ACTION` in Azure SQL because
+SQL Server rejects multiple `SET NULL` paths from `business_partners` to `projects`.
 
 ## Rerunning after a partially failed DEV schema attempt
 

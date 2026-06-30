@@ -48,7 +48,7 @@ The backend is closer to meaningful Azure runtime testing, but is **not fully Az
    - Files: `sql/azure/001_schema.sql`, `sql/azure/002_seed_reference_data.sql`, `sql/azure/README.md`
    - The scripts translate the current SQLite schema/bootstrap reference data into SQL Server / Azure SQL DDL and seed statements.
    - Selected foreign keys use Azure-specific `ON DELETE NO ACTION` comments where SQL Server multiple cascade path errors are likely.
-   - They are not executed automatically by the local app; live Azure SQL validation is in progress and has already identified a multiple-cascade-path adjustment that was applied to `FK_projects_delivery_partner_business_partner`.
+   - They are not executed automatically by the local app; live Azure SQL validation is in progress and has already identified multiple-cascade-path adjustments for the `projects -> business_partners` foreign keys.
 
 6. **Initial SQLite-to-Azure migration helper prepared**
    - File: `tools/migrate_sqlite_to_azure_sql.py`
@@ -92,7 +92,7 @@ The backend is closer to meaningful Azure runtime testing, but is **not fully Az
 
 - **Prepared files**: `sql/azure/001_schema.sql`, `sql/azure/002_seed_reference_data.sql`, and `sql/azure/README.md`.
 - **Local behavior**: unchanged. SQLite remains the default local database, and `init_db()` is still the only schema/bootstrap path used by the local app.
-- **Cascade-path hardening**: selected Azure SQL foreign keys use `ON DELETE NO ACTION` instead of SQLite's cascade/null action where SQL Server multiple cascade path rejection is likely, including `FK_projects_delivery_partner_business_partner` after DEV Azure SQL rejected the previous dual `projects -> business_partners` SET NULL path. Cleanup may remain application-managed or be refined in a later migration hardening pass.
+- **Cascade-path hardening**: selected Azure SQL foreign keys use `ON DELETE NO ACTION` instead of SQLite's cascade/null action where SQL Server multiple cascade path rejection is likely, including both `FK_projects_client_business_partner` and `FK_projects_delivery_partner_business_partner` for the dual `projects -> business_partners` relationship. Cleanup may remain application-managed or be refined in a later migration hardening pass.
 - **Validation status**: in progress. A DEV Azure SQL run exposed a multiple cascade path issue, but the corrected scripts still need a clean rerun; full Azure schema readiness is not claimed.
 - **Remaining limitations**: schema and seed scripts still need live Azure validation; future Azure testing may require type/constraint adjustments based on pyodbc behavior and SQL Server DDL validation.
 
