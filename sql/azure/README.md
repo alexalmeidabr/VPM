@@ -55,6 +55,10 @@ SQL Server also treats normal `UNIQUE` constraints with `NULL` differently from 
 SQLite database with multiple `NULL` `region_code` rows can be migrated without deleting or
 deduplicating source data.
 
+Live migration testing also found existing SQLite `project_positions.daily_rate_currency` values that
+are longer than 3 characters. The Azure schema intentionally uses `NVARCHAR(50)` for that column
+because historical data may contain non-ISO placeholders, not only 3-letter ISO currency codes.
+
 ## Rerunning after a partially failed DEV schema attempt
 
 If `001_schema.sql` partially failed while testing against an empty DEV Azure SQL database, drop the
@@ -78,4 +82,6 @@ database migration scope and require separate handling later. See `MIGRATION.md`
 
 When `python-dotenv` is installed, both migration and validation helpers load `.env` from the project
 root automatically before reading `AZURE_SQL_*` settings. This avoids manually exporting the same
-settings in PowerShell for each run.
+settings in PowerShell for each run. The migration helper also uses chunked `executemany()` inserts
+with `fast_executemany` when pyodbc supports it, prints progress for large tables, and rolls back the
+Azure SQL transaction if interrupted.

@@ -49,6 +49,7 @@ The backend is closer to meaningful Azure runtime testing, but is **not fully Az
    - The scripts translate the current SQLite schema/bootstrap reference data into SQL Server / Azure SQL DDL and seed statements.
    - Selected foreign keys use Azure-specific `ON DELETE NO ACTION` comments where SQL Server multiple cascade path errors are likely.
    - Holiday tables with nullable `region_code` use filtered unique indexes instead of table-level UNIQUE constraints to better match SQLite NULL/UNIQUE migration behavior.
+   - `project_positions.daily_rate_currency` uses a wider Azure SQL text column because live migration found existing non-ISO placeholder values longer than three characters.
    - They are not executed automatically by the local app; live Azure SQL validation is in progress and has already identified multiple-cascade-path adjustments for the `projects -> business_partners` foreign keys.
 
 6. **Initial SQLite-to-Azure migration helper prepared**
@@ -57,6 +58,7 @@ The backend is closer to meaningful Azure runtime testing, but is **not fully Az
    - It preserves SQLite IDs by enabling `IDENTITY_INSERT` one identity table at a time and uses a dependency-safe table order.
    - It is not end-to-end validated against Azure SQL, does not run automatically, and does not handle file storage folders such as `project-files/`, `company-logo/`, or `backups/`.
    - Live dev migration testing found SQL Server NULL/UNIQUE differences for holiday `region_code` data; the Azure schema was adjusted with filtered unique indexes.
+   - The helper now uses chunked pyodbc `executemany()` inserts with progress output for large tables and explicit rollback handling for interruptions.
 
 7. **Local validation helper and Azure SQL runbook prepared**
    - Files: `tools/validate_azure_sql_readiness.py`, `sql/azure/RUNBOOK.md`
@@ -72,8 +74,8 @@ The backend is closer to meaningful Azure runtime testing, but is **not fully Az
 | inline server runtime SQL | key `LIMIT 1` runtime occurrences were removed in critical helper/validation paths; additional inline query portability review may still be needed in later passes | continue targeted server inline runtime SQL pass by endpoint family |
 | non-create runtime SQL breadth | selected queries may still rely on SQLite tolerance/behavior | continue incremental repository + server runtime query review during Azure test hardening |
 | pyodbc row-shape expectations | database abstraction now normalizes rows returned through `db.get_connection().execute(...).fetchone()/fetchall()` in Azure SQL mode, which covers the dominant application access pattern; Azure runtime validation is still pending | verify against a real Azure SQL/pyodbc connection and expand the wrapper only if future cursor usage patterns require it |
-| Azure SQL schema scripts | initial scripts are prepared from the current SQLite schema and include multiple-cascade-path hardening plus filtered unique indexes for nullable holiday `region_code`; DEV Azure validation is in progress and not complete | rerun corrected DDL in a clean dev Azure SQL database and continue adjusting only SQL Server-incompatible constraints |
-| SQLite-to-Azure data migration | one-time migration helper is prepared with dry-run, target preflight, identity preservation, and row-count validation; dev execution has started but failed on schema compatibility before completion | rerun against a clean dev Azure SQL database after schema validation |
+| Azure SQL schema scripts | initial scripts are prepared from the current SQLite schema and include multiple-cascade-path hardening, filtered unique indexes for nullable holiday `region_code`, and a widened `project_positions.daily_rate_currency`; DEV Azure validation is in progress and not complete | rerun corrected DDL in a clean dev Azure SQL database and continue adjusting only SQL Server-incompatible constraints |
+| SQLite-to-Azure data migration | one-time migration helper is prepared with dry-run, target preflight, identity preservation, chunked inserts, rollback handling, and row-count validation; dev execution has started but failed on schema compatibility before completion | rerun against a clean dev Azure SQL database after schema validation |
 | Azure SQL validation/runbook | local validation helper and runbook are prepared, but Azure validation mode and app runtime testing have not been run against Azure SQL | run validation helper and smoke-test runbook against dev Azure SQL |
 | file storage migration | database migration does not move files from `project-files/`, `company-logo/`, or `backups/` | plan separate file/blob migration before production cutover |
 
@@ -96,7 +98,8 @@ The backend is closer to meaningful Azure runtime testing, but is **not fully Az
 - **Local behavior**: unchanged. SQLite remains the default local database, and `init_db()` is still the only schema/bootstrap path used by the local app.
 - **Cascade-path hardening**: selected Azure SQL foreign keys use `ON DELETE NO ACTION` instead of SQLite's cascade/null action where SQL Server multiple cascade path rejection is likely, including both `FK_projects_client_business_partner` and `FK_projects_delivery_partner_business_partner` for the dual `projects -> business_partners` relationship. Cleanup may remain application-managed or be refined in a later migration hardening pass.
 - **Nullable region uniqueness hardening**: holiday location/cache/load tables now use filtered unique indexes with `WHERE region_code IS NOT NULL` instead of normal table-level UNIQUE constraints involving nullable `region_code`, because SQL Server rejected migrated SQLite holiday rows with `NULL` `region_code`.
-- **Validation status**: in progress. DEV Azure SQL runs exposed multiple cascade path and nullable UNIQUE differences, but the corrected scripts still need a clean rerun; full Azure schema readiness is not claimed.
+- **Text width hardening**: `project_positions.daily_rate_currency` is widened for Azure SQL because live migration found existing SQLite values longer than a strict 3-character ISO currency code.
+- **Validation status**: in progress. DEV Azure SQL runs exposed multiple cascade path, nullable UNIQUE, and text-width differences, but the corrected scripts still need a clean rerun; full Azure schema readiness is not claimed.
 - **Remaining limitations**: schema and seed scripts still need live Azure validation; future Azure testing may require type/constraint adjustments based on pyodbc behavior and SQL Server DDL validation.
 
 ## 8) SQLite-to-Azure migration helper status
@@ -105,6 +108,7 @@ The backend is closer to meaningful Azure runtime testing, but is **not fully Az
 - **Dry-run behavior**: can inspect the SQLite source locally, print tables found, row counts by table, migration order, missing-table warnings, and basic source orphan warnings without Azure credentials.
 - **Migration safety**: actual migration requires `--migrate --yes`, Azure SQL environment variables, an Azure connection, an empty target preflight, parameterized inserts, and transaction rollback on failure.
 - **Identity preservation**: identity tables use `SET IDENTITY_INSERT dbo.<table> ON/OFF` around explicit ID inserts, with only one identity table enabled at a time.
+- **Insert execution**: inserts are chunked, use pyodbc `fast_executemany` when available, print progress for large tables, and roll back explicitly if interrupted.
 - **Validation status**: live dev testing has started but has not completed successfully. Data migration readiness is improved by having a prepared script, but remains pending a clean end-to-end execution against a dev/test Azure SQL database.
 - **Out of scope**: file storage folders (`project-files/`, `company-logo/`, `backups/`) are not migrated by this script.
 

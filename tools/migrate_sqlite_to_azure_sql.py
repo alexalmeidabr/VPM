@@ -24,6 +24,8 @@ except ImportError:  # pragma: no cover - pyodbc is optional for local dry-runs.
 
 ROOT_DIR = Path(__file__).resolve().parents[1]
 DEFAULT_SOURCE = ROOT_DIR / 'projects.db'
+INSERT_CHUNK_SIZE = 1000
+PROGRESS_TABLES = {'holidays', 'holiday_cache', 'monthly_timesheet_entries'}
 
 
 def load_project_dotenv() -> None:
@@ -366,7 +368,15 @@ def insert_rows(cursor, table: str, rows: list[sqlite3.Row]) -> None:
     if table in IDENTITY_TABLES:
       cursor.execute(f'SET IDENTITY_INSERT {table_name(table)} ON')
       identity_enabled = True
-    cursor.executemany(insert_sql, values)
+    if hasattr(cursor, 'fast_executemany'):
+      cursor.fast_executemany = True
+    total = len(values)
+    for start in range(0, total, INSERT_CHUNK_SIZE):
+      chunk = values[start:start + INSERT_CHUNK_SIZE]
+      cursor.executemany(insert_sql, chunk)
+      inserted = min(start + len(chunk), total)
+      if table in PROGRESS_TABLES or total > INSERT_CHUNK_SIZE:
+        print(f'  {table}: inserted {inserted}/{total} row(s)')
   except Exception as error:
     raise RuntimeError(f'Failed while inserting table {table}: {error}') from error
   finally:
@@ -385,7 +395,12 @@ def migrate(sqlite_conn: sqlite3.Connection, azure_conn) -> None:
       insert_rows(cursor, table, fetch_rows(sqlite_conn, table))
     validate_counts(sqlite_conn, cursor)
     azure_conn.commit()
+  except KeyboardInterrupt:
+    print('\nMigration interrupted by user. Rolling back Azure SQL transaction...')
+    azure_conn.rollback()
+    raise
   except Exception:
+    print('\nMigration failed. Rolling back Azure SQL transaction...')
     azure_conn.rollback()
     raise
 

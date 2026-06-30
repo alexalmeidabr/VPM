@@ -122,6 +122,10 @@ FOREIGN_KEY_CHECKS = [
 
 SQLITE_ONLY_PATTERNS = ['PRAGMA', 'AUTOINCREMENT', 'sqlite_master', 'ON CONFLICT']
 
+TEXT_COLUMN_LIMITS = {
+  ('project_positions', 'daily_rate_currency'): 50,
+}
+
 
 def parse_args() -> argparse.Namespace:
   parser = argparse.ArgumentParser(description='Validate local and future Azure SQL migration readiness.')
@@ -176,6 +180,24 @@ def sqlite_columns(conn: sqlite3.Connection, table: str) -> set[str]:
 
 def sqlite_count(conn: sqlite3.Connection, table: str) -> int:
   return int(conn.execute(f'SELECT COUNT(*) AS total FROM {quote_name(table)}').fetchone()['total'])
+
+
+def sqlite_text_length_violations(conn: sqlite3.Connection, found_tables: set[str]) -> list[str]:
+  problems = []
+  for (table, column), max_length in TEXT_COLUMN_LIMITS.items():
+    if table not in found_tables:
+      continue
+    query = (
+      f'SELECT COUNT(*) AS total, MAX(LENGTH({quote_column(table, column)})) AS max_length '
+      f'FROM {quote_name(table)} '
+      f'WHERE {quote_column(table, column)} IS NOT NULL '
+      f'AND LENGTH({quote_column(table, column)}) > ?'
+    )
+    row = conn.execute(query, (max_length,)).fetchone()
+    count = int(row['total'] or 0)
+    if count:
+      problems.append(f'{table}.{column}: {count} value(s) exceed Azure SQL NVARCHAR({max_length}); max length={row["max_length"]}')
+  return problems
 
 
 def validate_sqlite_orphans(conn: sqlite3.Connection, found_tables: set[str]) -> list[str]:
@@ -251,6 +273,14 @@ def validate_local(source: Path) -> bool:
     else:
       pass_line('Basic orphan checks passed')
 
+    length_problems = sqlite_text_length_violations(conn, found)
+    if length_problems:
+      for problem in length_problems:
+        fail_line(problem)
+      ok = False
+    else:
+      pass_line('Text length checks passed for tracked Azure SQL column widths')
+
     if 'project_files' in found:
       file_count = sqlite_count(conn, 'project_files')
       if file_count:
@@ -324,6 +354,11 @@ def validate_sql_scripts() -> bool:
       else:
         fail_line(f'Schema missing filtered unique index {index_name}')
         ok = False
+    if 'daily_rate_currency NVARCHAR(3)' in schema:
+      fail_line('Schema still defines project_positions.daily_rate_currency as NVARCHAR(3)')
+      ok = False
+    elif 'daily_rate_currency NVARCHAR(50)' in schema:
+      pass_line('Schema defines project_positions.daily_rate_currency as NVARCHAR(50)')
 
   if SEED_SCRIPT.exists():
     seed_patterns = contains_sqlite_only_syntax(SEED_SCRIPT)

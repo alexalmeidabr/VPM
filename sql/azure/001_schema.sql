@@ -322,7 +322,8 @@ CREATE TABLE dbo.project_positions (
   allocation DECIMAL(5,2) NOT NULL CONSTRAINT DF_project_positions_allocation DEFAULT 100,
   billable BIT NOT NULL CONSTRAINT DF_project_positions_billable DEFAULT 1,
   daily_rate DECIMAL(18,2) NULL,
-  daily_rate_currency NVARCHAR(3) NULL,
+  -- Existing SQLite data may contain non-ISO placeholders, not only 3-letter ISO currency codes.
+  daily_rate_currency NVARCHAR(50) NULL,
   comments NVARCHAR(MAX) NULL,
   status NVARCHAR(50) NOT NULL CONSTRAINT DF_project_positions_status DEFAULT 'Open',
   CONSTRAINT FK_project_positions_project FOREIGN KEY (project_id) REFERENCES dbo.projects(id) ON DELETE CASCADE,
