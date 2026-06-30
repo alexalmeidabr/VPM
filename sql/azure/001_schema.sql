@@ -70,9 +70,15 @@ CREATE TABLE dbo.holiday_locations (
   label NVARCHAR(255) NOT NULL,
   country_code NVARCHAR(2) NOT NULL,
   region_code NVARCHAR(50) NULL,
-  created_at DATETIME2 NOT NULL CONSTRAINT DF_holiday_locations_created_at DEFAULT SYSUTCDATETIME(),
-  CONSTRAINT UQ_holiday_locations_country_region UNIQUE (country_code, region_code)
+  created_at DATETIME2 NOT NULL CONSTRAINT DF_holiday_locations_created_at DEFAULT SYSUTCDATETIME()
 );
+GO
+
+-- Azure SQL hardening: use filtered unique indexes for nullable region_code so SQL Server
+-- accepts the same existing SQLite data shape where UNIQUE constraints allow multiple NULLs.
+CREATE UNIQUE INDEX UQ_holiday_locations_country_region
+ON dbo.holiday_locations(country_code, region_code)
+WHERE region_code IS NOT NULL;
 GO
 
 CREATE TABLE dbo.business_partners (
@@ -144,9 +150,15 @@ CREATE TABLE dbo.holidays (
   scope NVARCHAR(50) NOT NULL,
   year INT NOT NULL,
   source NVARCHAR(255) NOT NULL,
-  CONSTRAINT CK_holidays_scope CHECK (scope IN ('national', 'regional', 'company_override')),
-  CONSTRAINT UQ_holidays_date_country_region_scope UNIQUE (date, country_code, region_code, scope)
+  CONSTRAINT CK_holidays_scope CHECK (scope IN ('national', 'regional', 'company_override'))
 );
+GO
+
+-- Azure SQL hardening: use filtered unique indexes for nullable region_code so SQL Server
+-- accepts the same existing SQLite data shape where UNIQUE constraints allow multiple NULLs.
+CREATE UNIQUE INDEX UQ_holidays_date_country_region_scope
+ON dbo.holidays(date, country_code, region_code, scope)
+WHERE region_code IS NOT NULL;
 GO
 
 CREATE TABLE dbo.holiday_cache (
@@ -154,9 +166,15 @@ CREATE TABLE dbo.holiday_cache (
   country_code NVARCHAR(2) NOT NULL,
   region_code NVARCHAR(50) NULL,
   year INT NOT NULL,
-  fetched_at DATETIME2 NOT NULL CONSTRAINT DF_holiday_cache_fetched_at DEFAULT SYSUTCDATETIME(),
-  CONSTRAINT UQ_holiday_cache_country_region_year UNIQUE (country_code, region_code, year)
+  fetched_at DATETIME2 NOT NULL CONSTRAINT DF_holiday_cache_fetched_at DEFAULT SYSUTCDATETIME()
 );
+GO
+
+-- Azure SQL hardening: use filtered unique indexes for nullable region_code so SQL Server
+-- accepts the same existing SQLite data shape where UNIQUE constraints allow multiple NULLs.
+CREATE UNIQUE INDEX UQ_holiday_cache_country_region_year
+ON dbo.holiday_cache(country_code, region_code, year)
+WHERE region_code IS NOT NULL;
 GO
 
 CREATE TABLE dbo.consultant_holiday_loads (
@@ -166,9 +184,15 @@ CREATE TABLE dbo.consultant_holiday_loads (
   country_code NVARCHAR(2) NOT NULL,
   region_code NVARCHAR(50) NULL,
   loaded_at DATETIME2 NOT NULL CONSTRAINT DF_consultant_holiday_loads_loaded_at DEFAULT SYSUTCDATETIME(),
-  CONSTRAINT UQ_consultant_holiday_loads_consultant_year_country_region UNIQUE (consultant_id, year, country_code, region_code),
   CONSTRAINT FK_consultant_holiday_loads_consultant FOREIGN KEY (consultant_id) REFERENCES dbo.consultants(id) ON DELETE CASCADE
 );
+GO
+
+-- Azure SQL hardening: use filtered unique indexes for nullable region_code so SQL Server
+-- accepts the same existing SQLite data shape where UNIQUE constraints allow multiple NULLs.
+CREATE UNIQUE INDEX UQ_consultant_holiday_loads_consultant_year_country_region
+ON dbo.consultant_holiday_loads(consultant_id, year, country_code, region_code)
+WHERE region_code IS NOT NULL;
 GO
 
 CREATE TABLE dbo.consultant_roles (

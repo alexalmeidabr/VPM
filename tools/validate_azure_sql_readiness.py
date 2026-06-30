@@ -8,6 +8,8 @@ The optional --azure mode is read-only and intended for a future dev/test Azure 
 from __future__ import annotations
 
 import argparse
+import importlib
+import importlib.util
 import os
 import sqlite3
 import sys
@@ -26,6 +28,14 @@ SCHEMA_SCRIPT = SQL_DIR / '001_schema.sql'
 SEED_SCRIPT = SQL_DIR / '002_seed_reference_data.sql'
 README = SQL_DIR / 'README.md'
 MIGRATION_DOC = SQL_DIR / 'MIGRATION.md'
+
+
+def load_project_dotenv() -> None:
+  """Load project-root .env settings when python-dotenv is installed."""
+  if importlib.util.find_spec('dotenv') is None:
+    return
+  dotenv = importlib.import_module('dotenv')
+  dotenv.load_dotenv(ROOT_DIR / '.env')
 
 # Keep this validation helper independent from runtime server imports. The table metadata mirrors
 # tools/migrate_sqlite_to_azure_sql.py so it can validate the source before a migration dry-run.
@@ -291,6 +301,29 @@ def validate_sql_scripts() -> bool:
       ok = False
     else:
       pass_line('Schema contains no blocked SQLite-only syntax')
+    region_unique_constraints = [
+      'CONSTRAINT UQ_holiday_locations_country_region UNIQUE',
+      'CONSTRAINT UQ_holidays_date_country_region_scope UNIQUE',
+      'CONSTRAINT UQ_holiday_cache_country_region_year UNIQUE',
+      'CONSTRAINT UQ_consultant_holiday_loads_consultant_year_country_region UNIQUE',
+    ]
+    remaining_region_constraints = [constraint for constraint in region_unique_constraints if constraint in schema]
+    if remaining_region_constraints:
+      fail_line(f'Schema still has table-level nullable region_code UNIQUE constraints: {", ".join(remaining_region_constraints)}')
+      ok = False
+    else:
+      pass_line('Schema uses no table-level UNIQUE constraints for nullable region_code rules')
+    for index_name in [
+      'UQ_holiday_locations_country_region',
+      'UQ_holidays_date_country_region_scope',
+      'UQ_holiday_cache_country_region_year',
+      'UQ_consultant_holiday_loads_consultant_year_country_region',
+    ]:
+      if f'CREATE UNIQUE INDEX {index_name}' in schema and 'WHERE region_code IS NOT NULL' in schema[schema.index(index_name):schema.index(index_name) + 300]:
+        pass_line(f'Schema contains filtered unique index {index_name}')
+      else:
+        fail_line(f'Schema missing filtered unique index {index_name}')
+        ok = False
 
   if SEED_SCRIPT.exists():
     seed_patterns = contains_sqlite_only_syntax(SEED_SCRIPT)
@@ -365,6 +398,7 @@ def validate_azure(source: Path) -> bool:
 
 
 def main() -> int:
+  load_project_dotenv()
   args = parse_args()
   if not (args.local or args.check_sql_scripts or args.azure):
     args.local = True

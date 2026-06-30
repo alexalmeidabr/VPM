@@ -49,6 +49,12 @@ handled by application-level delete logic or be revisited during later Azure mig
 For example, both `projects -> business_partners` relationships use `NO ACTION` in Azure SQL because
 SQL Server rejects multiple `SET NULL` paths from `business_partners` to `projects`.
 
+SQL Server also treats normal `UNIQUE` constraints with `NULL` differently from SQLite for the holiday
+`region_code` columns. The Azure schema therefore uses filtered unique indexes with
+`WHERE region_code IS NOT NULL` for the holiday location/cache/load uniqueness rules so an existing
+SQLite database with multiple `NULL` `region_code` rows can be migrated without deleting or
+deduplicating source data.
+
 ## Rerunning after a partially failed DEV schema attempt
 
 If `001_schema.sql` partially failed while testing against an empty DEV Azure SQL database, drop the
@@ -65,7 +71,11 @@ reference/master rows from SQLite and preserves their IDs.
 A one-time SQLite-to-Azure-SQL migration helper has been prepared at
 `tools/migrate_sqlite_to_azure_sql.py`. It is not run by the app and should be used only after the
 Azure SQL schema has been created. Start with dry-run mode locally, then test against a dev/test Azure
-SQL database before any production cutover. The helper has **not** been live-tested against Azure SQL
-yet. Existing file storage folders such as `project-files/`, `company-logo/`, and `backups/` are
-outside the database migration scope and require separate handling later. See `MIGRATION.md` for
-details.
+SQL database before any production cutover. The helper is still **not end-to-end validated** against
+Azure SQL; live dev testing has already driven schema hardening for SQL Server differences. Existing
+file storage folders such as `project-files/`, `company-logo/`, and `backups/` are outside the
+database migration scope and require separate handling later. See `MIGRATION.md` for details.
+
+When `python-dotenv` is installed, both migration and validation helpers load `.env` from the project
+root automatically before reading `AZURE_SQL_*` settings. This avoids manually exporting the same
+settings in PowerShell for each run.

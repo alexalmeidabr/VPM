@@ -9,6 +9,8 @@ environment variables, --migrate, and --yes.
 from __future__ import annotations
 
 import argparse
+import importlib
+import importlib.util
 import os
 import sqlite3
 import sys
@@ -22,6 +24,14 @@ except ImportError:  # pragma: no cover - pyodbc is optional for local dry-runs.
 
 ROOT_DIR = Path(__file__).resolve().parents[1]
 DEFAULT_SOURCE = ROOT_DIR / 'projects.db'
+
+
+def load_project_dotenv() -> None:
+  """Load project-root .env settings when python-dotenv is installed."""
+  if importlib.util.find_spec('dotenv') is None:
+    return
+  dotenv = importlib.import_module('dotenv')
+  dotenv.load_dotenv(ROOT_DIR / '.env')
 
 TABLE_ORDER = [
   'roles',
@@ -413,6 +423,7 @@ def validate_orphans_sqlite(conn: sqlite3.Connection) -> list[str]:
 
 
 def main() -> int:
+  load_project_dotenv()
   args = parse_args()
   if not (args.dry_run or args.migrate or args.validate_only):
     args.dry_run = True
