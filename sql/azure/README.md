@@ -9,7 +9,7 @@ Current local behavior remains unchanged:
 - SQLite is still the default database when `DATABASE_TYPE` is unset.
 - `init_db()` remains the local SQLite schema/bootstrap path.
 - No Azure connection or deployment is performed by these scripts.
-- Live Azure SQL validation is still pending.
+- Live Azure SQL validation is in progress and may still require additional script hardening.
 
 ## Choose the setup path first
 
@@ -46,6 +46,17 @@ Some Azure SQL foreign-key delete actions intentionally differ from SQLite. SQL 
 `ON DELETE CASCADE` / `ON DELETE SET NULL` chains that create multiple cascade paths, so selected
 risky relationships use `ON DELETE NO ACTION` in `001_schema.sql`. Cleanup for those cases may remain
 handled by application-level delete logic or be revisited during later Azure migration hardening.
+
+## Rerunning after a partially failed DEV schema attempt
+
+If `001_schema.sql` partially failed while testing against an empty DEV Azure SQL database, drop the
+partially created tables before rerunning the corrected schema script. SQL Server may have created the
+earlier independent tables before stopping at a later foreign-key error, and rerunning the script over
+that partial state can cause confusing "object already exists" failures.
+
+For an existing SQLite `projects.db` migration, rerun only `001_schema.sql` after cleanup. Do **not**
+run `002_seed_reference_data.sql` before the migration helper, because the migration brings the
+reference/master rows from SQLite and preserves their IDs.
 
 ## Data migration helper
 

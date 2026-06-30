@@ -48,7 +48,7 @@ The backend is closer to meaningful Azure runtime testing, but is **not fully Az
    - Files: `sql/azure/001_schema.sql`, `sql/azure/002_seed_reference_data.sql`, `sql/azure/README.md`
    - The scripts translate the current SQLite schema/bootstrap reference data into SQL Server / Azure SQL DDL and seed statements.
    - Selected foreign keys use Azure-specific `ON DELETE NO ACTION` comments where SQL Server multiple cascade path errors are likely.
-   - They are not executed automatically by the local app and have not been validated against a live Azure SQL database.
+   - They are not executed automatically by the local app; live Azure SQL validation is in progress and has already identified a multiple-cascade-path adjustment that was applied to `FK_projects_delivery_partner_business_partner`.
 
 6. **Initial SQLite-to-Azure migration helper prepared**
    - File: `tools/migrate_sqlite_to_azure_sql.py`
@@ -70,7 +70,7 @@ The backend is closer to meaningful Azure runtime testing, but is **not fully Az
 | inline server runtime SQL | key `LIMIT 1` runtime occurrences were removed in critical helper/validation paths; additional inline query portability review may still be needed in later passes | continue targeted server inline runtime SQL pass by endpoint family |
 | non-create runtime SQL breadth | selected queries may still rely on SQLite tolerance/behavior | continue incremental repository + server runtime query review during Azure test hardening |
 | pyodbc row-shape expectations | database abstraction now normalizes rows returned through `db.get_connection().execute(...).fetchone()/fetchall()` in Azure SQL mode, which covers the dominant application access pattern; Azure runtime validation is still pending | verify against a real Azure SQL/pyodbc connection and expand the wrapper only if future cursor usage patterns require it |
-| Azure SQL schema scripts | initial scripts are prepared from the current SQLite schema and include a small multiple-cascade-path hardening pass, but have not been executed against Azure SQL | validate DDL and seed scripts in an Azure SQL database when access is available |
+| Azure SQL schema scripts | initial scripts are prepared from the current SQLite schema and include multiple-cascade-path hardening; a DEV Azure SQL validation attempt found an additional projects/business-partners cascade path, so validation is in progress and not complete | rerun corrected DDL in a clean dev Azure SQL database and continue adjusting only SQL Server-incompatible constraints |
 | SQLite-to-Azure data migration | one-time migration helper is prepared with dry-run, target preflight, identity preservation, and row-count validation, but has not been executed against Azure SQL | test against a dev Azure SQL database after schema validation |
 | Azure SQL validation/runbook | local validation helper and runbook are prepared, but Azure validation mode and app runtime testing have not been run against Azure SQL | run validation helper and smoke-test runbook against dev Azure SQL |
 | file storage migration | database migration does not move files from `project-files/`, `company-logo/`, or `backups/` | plan separate file/blob migration before production cutover |
@@ -92,8 +92,8 @@ The backend is closer to meaningful Azure runtime testing, but is **not fully Az
 
 - **Prepared files**: `sql/azure/001_schema.sql`, `sql/azure/002_seed_reference_data.sql`, and `sql/azure/README.md`.
 - **Local behavior**: unchanged. SQLite remains the default local database, and `init_db()` is still the only schema/bootstrap path used by the local app.
-- **Cascade-path hardening**: selected Azure SQL foreign keys use `ON DELETE NO ACTION` instead of SQLite's cascade/null action where SQL Server multiple cascade path rejection is likely. Cleanup may remain application-managed or be refined in a later migration hardening pass.
-- **Validation status**: static local review only. The scripts have not been run against Azure SQL, so full Azure schema readiness is not claimed.
+- **Cascade-path hardening**: selected Azure SQL foreign keys use `ON DELETE NO ACTION` instead of SQLite's cascade/null action where SQL Server multiple cascade path rejection is likely, including `FK_projects_delivery_partner_business_partner` after DEV Azure SQL rejected the previous dual `projects -> business_partners` SET NULL path. Cleanup may remain application-managed or be refined in a later migration hardening pass.
+- **Validation status**: in progress. A DEV Azure SQL run exposed a multiple cascade path issue, but the corrected scripts still need a clean rerun; full Azure schema readiness is not claimed.
 - **Remaining limitations**: schema and seed scripts still need live Azure validation; future Azure testing may require type/constraint adjustments based on pyodbc behavior and SQL Server DDL validation.
 
 ## 8) SQLite-to-Azure migration helper status
@@ -118,7 +118,7 @@ The backend is closer to meaningful Azure runtime testing, but is **not fully Az
 - Connection-mode: available
 - Active create inserted-id handling: substantially improved with explicit Azure paths
 - Azure SQL row-shape abstraction: added in `db.py`, pending live Azure validation
-- Azure SQL schema scripts: prepared locally, pending live Azure validation
+- Azure SQL schema scripts: prepared locally, live dev validation in progress and not complete
 - SQLite-to-Azure data migration helper: prepared locally, pending dev Azure validation
 - Local validation helper and runbook: prepared locally, pending dev Azure validation
 - Runtime query portability: improved incrementally, but still incomplete

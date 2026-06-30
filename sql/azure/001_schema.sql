@@ -219,7 +219,10 @@ CREATE TABLE dbo.projects (
   created_at DATETIME2 NOT NULL CONSTRAINT DF_projects_created_at DEFAULT SYSUTCDATETIME(),
   CONSTRAINT FK_projects_manager_consultant FOREIGN KEY (manager_consultant_id) REFERENCES dbo.consultants(id) ON DELETE SET NULL,
   CONSTRAINT FK_projects_client_business_partner FOREIGN KEY (client_business_partner_id) REFERENCES dbo.business_partners(id) ON DELETE SET NULL,
-  CONSTRAINT FK_projects_delivery_partner_business_partner FOREIGN KEY (delivery_partner_business_partner_id) REFERENCES dbo.business_partners(id) ON DELETE SET NULL,
+  -- Azure SQL hardening: this second projects -> business_partners relationship intentionally uses
+  -- NO ACTION instead of SQLite-style SET NULL because SQL Server rejects the two SET NULL paths
+  -- from business_partners to projects as a multiple cascade path.
+  CONSTRAINT FK_projects_delivery_partner_business_partner FOREIGN KEY (delivery_partner_business_partner_id) REFERENCES dbo.business_partners(id) ON DELETE NO ACTION,
   CONSTRAINT FK_projects_contract_with_branch FOREIGN KEY (contract_with_branch_id) REFERENCES dbo.company_branches(id) ON DELETE SET NULL
 );
 GO
