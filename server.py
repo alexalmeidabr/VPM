@@ -9,7 +9,7 @@ import tempfile
 import threading
 import uuid
 import zipfile
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from http import HTTPStatus
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path, PurePosixPath
@@ -43,6 +43,22 @@ PROJECT_FILES_DIR = BASE_DIR / 'project-files'
 COMPANY_LOGO_DIR = BASE_DIR / 'company-logo'
 BACKUPS_DIR = BASE_DIR / 'backups'
 BACKUP_RESTORE_LOCK = threading.Lock()
+
+
+def utc_now():
+  return datetime.now(timezone.utc)
+
+
+def utc_now_iso_z(timespec='seconds'):
+  return utc_now().isoformat(timespec=timespec).replace('+00:00', 'Z')
+
+
+def parse_utc_datetime(value):
+  parsed = datetime.fromisoformat(str(value).replace('Z', '+00:00'))
+  if parsed.tzinfo is None:
+    return parsed.replace(tzinfo=timezone.utc)
+  return parsed.astimezone(timezone.utc)
+
 
 DEFAULT_ROLES = [
   'TM Junior Consultant', 'TM Regular Consultant', 'TM Senior Consultant',
@@ -621,7 +637,7 @@ class VPMHandler(SimpleHTTPRequestHandler):
       schema_version = None
     return {
       'app_name': 'Inhouse PSA',
-      'created_at': datetime.utcnow().isoformat(timespec='seconds') + 'Z',
+      'created_at': utc_now_iso_z(timespec='seconds'),
       'database_name': DB_PATH.name,
       'backup_format_version': 1,
       'schema_version': schema_version,
@@ -673,7 +689,7 @@ class VPMHandler(SimpleHTTPRequestHandler):
 
   def _create_safety_backup(self):
     BACKUPS_DIR.mkdir(parents=True, exist_ok=True)
-    timestamp = datetime.utcnow().strftime('%Y%m%d_%H%M%S')
+    timestamp = utc_now().strftime('%Y%m%d_%H%M%S')
     safety_path = BACKUPS_DIR / f'projects_backup_{timestamp}.db'
     source_uri = f'file:{DB_PATH.as_posix()}?mode=ro'
     source_conn = None
@@ -918,10 +934,18 @@ class VPMHandler(SimpleHTTPRequestHandler):
       return int(parts[2])
     return None
 
+  def _allocation_simulation_duplicate_id(self):
+    parts = self._parts()
+    if len(parts) == 4 and parts[0:2] == ['api', 'allocation-simulations'] and parts[2].isdigit() and parts[3] == 'duplicate':
+      return int(parts[2])
+    return None
+
   def _project_files_route(self):
     parts = self._parts()
     if len(parts) == 4 and parts[0:2] == ['api', 'projects'] and parts[2].isdigit() and parts[3] == 'files':
       return int(parts[2]), None, None
+    if len(parts) == 5 and parts[0:2] == ['api', 'projects'] and parts[2].isdigit() and parts[3] == 'files' and parts[4].isdigit():
+      return int(parts[2]), int(parts[4]), 'file'
     if len(parts) == 6 and parts[0:2] == ['api', 'projects'] and parts[2].isdigit() and parts[3] == 'files' and parts[4].isdigit() and parts[5] == 'download':
       return int(parts[2]), int(parts[4]), 'download'
     return None, None, None
@@ -988,7 +1012,7 @@ class VPMHandler(SimpleHTTPRequestHandler):
     return None if payload['name'] else 'name is required'
 
   def _project_payload_error(self, conn, payload):
-    for field in ['projectName', 'startDate', 'endDate', 'managerConsultantId', 'projectType']:
+    for field in ['projectName', 'startDate', 'endDate', 'projectType']:
       value = str(payload.get(field, '')).strip()
       if not value:
         return f'{field} is required'
@@ -1046,10 +1070,14 @@ class VPMHandler(SimpleHTTPRequestHandler):
     if payload['startDate'] > payload['endDate']:
       return 'startDate cannot be after endDate'
 
-    try:
-      payload['managerConsultantId'] = int(payload['managerConsultantId'])
-    except (TypeError, ValueError):
-      return 'managerConsultantId must be numeric'
+    manager_consultant_id = payload.get('managerConsultantId')
+    if manager_consultant_id in (None, '', 0):
+      payload['managerConsultantId'] = None
+    else:
+      try:
+        payload['managerConsultantId'] = int(manager_consultant_id)
+      except (TypeError, ValueError):
+        return 'managerConsultantId must be numeric'
 
     positions = payload.get('projectPositions', payload.get('consultantAssignments', []))
     if not isinstance(positions, list):
@@ -1267,10 +1295,10 @@ class VPMHandler(SimpleHTTPRequestHandler):
     if not fetched_at:
       return False
     try:
-      fetched = datetime.fromisoformat(str(fetched_at).replace('Z', '+00:00'))
+      fetched = parse_utc_datetime(fetched_at)
     except ValueError:
       return False
-    return fetched >= datetime.utcnow() - timedelta(days=30)
+    return fetched >= utc_now() - timedelta(days=30)
 
   def _generate_holidays_for_location(self, year, country_code, region_code):
     if pyholidays is not None:
@@ -1642,10 +1670,10 @@ class VPMHandler(SimpleHTTPRequestHandler):
         entry['revenue'] += float(revenue)
         entry['budgetCount'] += 1
     rows = [monthly[month] for month in sorted(monthly.keys())]
-    current_month = datetime.utcnow().date().replace(day=1).strftime('%Y-%m')
+    current_month = utc_now().date().replace(day=1).strftime('%Y-%m')
     this_month_total = sum(float(row['revenue'] or 0.0) for row in rows if row['month'] == current_month)
     next_three_total = 0.0
-    current_date = datetime.utcnow().date().replace(day=1)
+    current_date = utc_now().date().replace(day=1)
     for row in rows:
       month_date = datetime.strptime(f"{row['month']}-01", '%Y-%m-%d').date()
       month_diff = (month_date.year - current_date.year) * 12 + (month_date.month - current_date.month)
@@ -1686,13 +1714,13 @@ class VPMHandler(SimpleHTTPRequestHandler):
     rows = revenue_repository.list_project_positions_for_revenue_forecast(conn, project_id)
     monthly_rows = []
     total = 0.0
-    current_month = datetime.utcnow().date().replace(day=1)
+    current_month = utc_now().date().replace(day=1)
     next_three_total = 0.0
     this_month_total = 0.0
     for position in rows:
       if not bool(position['billable']) or position['daily_rate'] is None:
         continue
-      display_status = 'Closed' if (position['end_date'] and position['end_date'] < datetime.utcnow().date().isoformat()) else str(position['status'] or '')
+      display_status = 'Closed' if (position['end_date'] and position['end_date'] < utc_now().date().isoformat()) else str(position['status'] or '')
       if display_status == 'Closed':
         continue
       position_start = position['start_date'] or project['start_date']
@@ -1942,7 +1970,7 @@ class VPMHandler(SimpleHTTPRequestHandler):
     if not project or not project['start_date']:
       return {'periods': []}
     start = datetime.strptime(project['start_date'], '%Y-%m-%d').date().replace(day=1)
-    today = datetime.utcnow().date().replace(day=1)
+    today = utc_now().date().replace(day=1)
     if project['end_date']:
       project_end = datetime.strptime(project['end_date'], '%Y-%m-%d').date().replace(day=1)
       end = min(today, project_end)
@@ -2032,7 +2060,7 @@ class VPMHandler(SimpleHTTPRequestHandler):
     for position in positions:
       if position['consultant_id'] is None:
         continue
-      display_status = 'Closed' if (position['end_date'] and position['end_date'] < datetime.utcnow().date().isoformat()) else str(position['status'] or '')
+      display_status = 'Closed' if (position['end_date'] and position['end_date'] < utc_now().date().isoformat()) else str(position['status'] or '')
       if display_status == 'Closed':
         continue
       position_start = position['start_date'] or start_date
@@ -2081,7 +2109,7 @@ class VPMHandler(SimpleHTTPRequestHandler):
     return {'summary': {'totalForecastRevenue': total_revenue, 'totalForecastCost': total_cost, 'totalForecastGrossMargin': total_margin, 'forecastMarginPercent': margin_percent_total}, 'rows': rows}
 
   def _previous_period_cutoff_end_date(self):
-    current_month_start = datetime.utcnow().date().replace(day=1)
+    current_month_start = utc_now().date().replace(day=1)
     return current_month_start - timedelta(days=1)
 
   def calculate_time_material_profitability_until_previous_period(self, conn, project_id):
@@ -2318,7 +2346,7 @@ class VPMHandler(SimpleHTTPRequestHandler):
       except Exception as error:
         self._send_json({'error': f'Unable to create backup: {error}'}, HTTPStatus.INTERNAL_SERVER_ERROR)
         return
-      filename = f'InhousePSA_backup_{datetime.utcnow().strftime("%Y%m%d_%H%M%S")}.zip'
+      filename = f'InhousePSA_backup_{utc_now().strftime("%Y%m%d_%H%M%S")}.zip'
       self.send_response(HTTPStatus.OK)
       self.send_header('Content-Type', 'application/zip')
       self.send_header('Content-Length', str(len(payload)))
@@ -2644,7 +2672,7 @@ class VPMHandler(SimpleHTTPRequestHandler):
         self._send_json({'error': str(error)}, HTTPStatus.BAD_REQUEST)
         return
       suffix = Path(original_filename).suffix[:20]
-      stored_filename = f'{files_project_id}-{datetime.utcnow().strftime("%Y%m%d%H%M%S")}-{uuid.uuid4().hex}{suffix}'
+      stored_filename = f'{files_project_id}-{utc_now().strftime("%Y%m%d%H%M%S")}-{uuid.uuid4().hex}{suffix}'
       target_path = PROJECT_FILES_DIR / stored_filename
       target_path.write_bytes(file_data)
       with get_connection() as conn:
@@ -2815,15 +2843,17 @@ class VPMHandler(SimpleHTTPRequestHandler):
         if error:
           self._send_json({'error': error}, HTTPStatus.BAD_REQUEST)
           return
-        ids_to_check = [item['consultantId'] for item in payload['consultantAssignments']] + [payload['managerConsultantId']]
+        ids_to_check = [item['consultantId'] for item in payload['consultantAssignments']]
+        if payload['managerConsultantId'] is not None:
+          ids_to_check.append(payload['managerConsultantId'])
         if not self._ids_exist(conn, 'consultants', ids_to_check):
           self._send_json({'error': 'Manager or members include unknown consultant IDs'}, HTTPStatus.BAD_REQUEST)
           return
-        if not self._consultant_has_project_manager_role(conn, payload['managerConsultantId']):
+        if payload['managerConsultantId'] is not None and not self._consultant_has_project_manager_role(conn, payload['managerConsultantId']):
           self._send_json({'error': 'Selected manager must have the Project Manager role'}, HTTPStatus.BAD_REQUEST)
           return
 
-        manager_name = self._consultant_name(conn, payload['managerConsultantId'])
+        manager_name = self._consultant_name(conn, payload['managerConsultantId']) if payload['managerConsultantId'] is not None else None
         project_id = projects_repository.create_project(conn, payload, manager_name)
       self._send_json({'id': project_id}, HTTPStatus.CREATED)
       return
@@ -2855,12 +2885,28 @@ class VPMHandler(SimpleHTTPRequestHandler):
       if error:
         self._send_json({'error': error}, HTTPStatus.BAD_REQUEST)
         return
-      now = datetime.utcnow().strftime('%Y-%m-%d %H:%M')
+      now = utc_now().strftime('%Y-%m-%d %H:%M')
       simulation_name = payload.get('name') or f'Simulation {now}'
       state = payload.get('state') or {'projects': [], 'unassignedConsultantIds': []}
       with get_connection() as conn:
         simulation_id = allocation_simulations_repository.create_allocation_simulation(conn, simulation_name, state)
       self._send_json({'id': simulation_id, 'name': simulation_name}, HTTPStatus.CREATED)
+      return
+
+    duplicate_simulation_id = self._allocation_simulation_duplicate_id()
+    if duplicate_simulation_id is not None:
+      error = self._allocation_simulation_payload_error(payload, require_state=False)
+      if error:
+        self._send_json({'error': error}, HTTPStatus.BAD_REQUEST)
+        return
+      with get_connection() as conn:
+        original = allocation_simulations_repository.get_allocation_simulation(conn, duplicate_simulation_id)
+        if not original:
+          self._send_json({'error': 'Allocation simulation not found'}, HTTPStatus.NOT_FOUND)
+          return
+        simulation_name = payload.get('name') or f"{original['name']} (Copy)"
+        duplicated = allocation_simulations_repository.duplicate_allocation_simulation(conn, duplicate_simulation_id, simulation_name)
+      self._send_json(duplicated, HTTPStatus.CREATED)
       return
 
     if path == '/api/roles':
@@ -3111,7 +3157,7 @@ class VPMHandler(SimpleHTTPRequestHandler):
             'year': payload['year'],
             'countryCode': payload['countryCode'],
             'regionCode': payload['regionCode'],
-            'loadedAt': datetime.utcnow().isoformat(timespec='seconds')
+            'loadedAt': utc_now().replace(tzinfo=None).isoformat(timespec='seconds')
           }
 
       self._send_json(response_payload)
@@ -3276,15 +3322,17 @@ class VPMHandler(SimpleHTTPRequestHandler):
         if error:
           self._send_json({'error': error}, HTTPStatus.BAD_REQUEST)
           return
-        ids_to_check = [item['consultantId'] for item in payload['consultantAssignments']] + [payload['managerConsultantId']]
+        ids_to_check = [item['consultantId'] for item in payload['consultantAssignments']]
+        if payload['managerConsultantId'] is not None:
+          ids_to_check.append(payload['managerConsultantId'])
         if not self._ids_exist(conn, 'consultants', ids_to_check):
           self._send_json({'error': 'Manager or members include unknown consultant IDs'}, HTTPStatus.BAD_REQUEST)
           return
-        if not self._consultant_has_project_manager_role(conn, payload['managerConsultantId']):
+        if payload['managerConsultantId'] is not None and not self._consultant_has_project_manager_role(conn, payload['managerConsultantId']):
           self._send_json({'error': 'Selected manager must have the Project Manager role'}, HTTPStatus.BAD_REQUEST)
           return
 
-        manager_name = self._consultant_name(conn, payload['managerConsultantId'])
+        manager_name = self._consultant_name(conn, payload['managerConsultantId']) if payload['managerConsultantId'] is not None else None
         updated_rows = projects_repository.update_project(conn, project_id, payload, manager_name)
         if updated_rows == 0:
           self._send_json({'error': 'Project not found'}, HTTPStatus.NOT_FOUND)
@@ -3370,13 +3418,16 @@ class VPMHandler(SimpleHTTPRequestHandler):
       return
 
     if allocation_simulation_id is not None:
-      error = self._allocation_simulation_payload_error(payload, require_state=True)
+      error = self._allocation_simulation_payload_error(payload, require_state=False)
       if error:
         self._send_json({'error': error}, HTTPStatus.BAD_REQUEST)
         return
-      simulation_name = payload.get('name', '').strip() or f"Simulation {datetime.utcnow().strftime('%Y-%m-%d %H:%M')}"
+      simulation_name = payload.get('name', '').strip() or f"Simulation {utc_now().strftime('%Y-%m-%d %H:%M')}"
       with get_connection() as conn:
-        updated_rows = allocation_simulations_repository.update_allocation_simulation(conn, allocation_simulation_id, simulation_name, payload['state'])
+        if 'state' in payload:
+          updated_rows = allocation_simulations_repository.update_allocation_simulation(conn, allocation_simulation_id, simulation_name, payload['state'])
+        else:
+          updated_rows = allocation_simulations_repository.rename_allocation_simulation(conn, allocation_simulation_id, simulation_name)
       if updated_rows == 0:
         self._send_json({'error': 'Allocation simulation not found'}, HTTPStatus.NOT_FOUND)
         return
@@ -3402,6 +3453,25 @@ class VPMHandler(SimpleHTTPRequestHandler):
     business_partner_id = self._resource_id('business-partners')
     availability_consultant_id, availability_id = self._availability_route()
     allocation_simulation_id = self._allocation_simulation_id()
+    files_project_id, file_id, files_action = self._project_files_route()
+
+    if files_project_id is not None and files_action == 'file':
+      with get_connection() as conn:
+        row = project_files_repository.get_project_file(conn, files_project_id, file_id)
+        if not row:
+          self._send_json({'error': 'Project file not found'}, HTTPStatus.NOT_FOUND)
+          return
+        file_path = PROJECT_FILES_DIR / row['stored_filename']
+        if file_path.exists() and file_path.is_file():
+          file_path.unlink()
+        else:
+          print(f'[ProjectFiles] Stored file missing during delete; deleting database row only: {file_path}')
+        deleted_rows = project_files_repository.delete_project_file(conn, files_project_id, file_id)
+      if deleted_rows == 0:
+        self._send_json({'error': 'Project file not found'}, HTTPStatus.NOT_FOUND)
+        return
+      self._send_json({'status': 'deleted'})
+      return
 
     if path == '/api/company-logo':
       removed = False
@@ -3448,7 +3518,7 @@ class VPMHandler(SimpleHTTPRequestHandler):
     if availability_consultant_id is not None and availability_id is not None:
       with get_connection() as conn:
         cursor = conn.execute('DELETE FROM consultant_availability WHERE id = ? AND consultant_id = ?', (availability_id, availability_consultant_id))
-      if updated_rows == 0:
+      if cursor.rowcount == 0:
         self._send_json({'error': 'Availability entry not found'}, HTTPStatus.NOT_FOUND)
         return
       self._send_json({'status': 'deleted'})
@@ -3475,7 +3545,7 @@ class VPMHandler(SimpleHTTPRequestHandler):
     if role_id is not None:
       with get_connection() as conn:
         cursor = conn.execute('DELETE FROM roles WHERE id = ?', (role_id,))
-      if updated_rows == 0:
+      if cursor.rowcount == 0:
         self._send_json({'error': 'Role not found'}, HTTPStatus.NOT_FOUND)
         return
       self._send_json({'status': 'deleted'})
@@ -3484,7 +3554,7 @@ class VPMHandler(SimpleHTTPRequestHandler):
     if area_id is not None:
       with get_connection() as conn:
         cursor = conn.execute('DELETE FROM areas WHERE id = ?', (area_id,))
-      if updated_rows == 0:
+      if cursor.rowcount == 0:
         self._send_json({'error': 'Area not found'}, HTTPStatus.NOT_FOUND)
         return
       self._send_json({'status': 'deleted'})
@@ -3493,7 +3563,7 @@ class VPMHandler(SimpleHTTPRequestHandler):
     if day_off_type_id is not None:
       with get_connection() as conn:
         cursor = conn.execute('DELETE FROM day_off_types WHERE id = ?', (day_off_type_id,))
-      if updated_rows == 0:
+      if cursor.rowcount == 0:
         self._send_json({'error': 'Day off type not found'}, HTTPStatus.NOT_FOUND)
         return
       self._send_json({'status': 'deleted'})
@@ -3502,7 +3572,7 @@ class VPMHandler(SimpleHTTPRequestHandler):
     if business_partner_type_id is not None:
       with get_connection() as conn:
         cursor = conn.execute('DELETE FROM business_partner_types WHERE id = ?', (business_partner_type_id,))
-      if updated_rows == 0:
+      if cursor.rowcount == 0:
         self._send_json({'error': 'Business partner type not found'}, HTTPStatus.NOT_FOUND)
         return
       self._send_json({'status': 'deleted'})
@@ -3511,7 +3581,7 @@ class VPMHandler(SimpleHTTPRequestHandler):
     if project_type_id is not None:
       with get_connection() as conn:
         cursor = conn.execute('DELETE FROM project_types WHERE id = ?', (project_type_id,))
-      if updated_rows == 0:
+      if cursor.rowcount == 0:
         self._send_json({'error': 'Project type not found'}, HTTPStatus.NOT_FOUND)
         return
       self._send_json({'status': 'deleted'})

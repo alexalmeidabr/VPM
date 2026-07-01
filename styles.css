@@ -603,12 +603,25 @@ body.project-timeline-expanded #project-timeline-chart { flex: 0 0 auto; max-hei
 .week-day-phase-color-5 { background: #e8eaf6; border-color: #3949ab; }
 
 .allocation-empty-actions { display: flex; gap: 0.75rem; margin-top: 0.75rem; }
+.allocation-simulation-manager { margin-top: 1rem; border: 1px solid #d7e1e6; border-radius: 10px; padding: 0.85rem; background: #fff; }
+.allocation-simulation-manager-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; flex-wrap: wrap; }
+.allocation-simulation-manager-header h6 { margin: 0; }
+.allocation-simulation-manager-header p { margin: 0.2rem 0 0; }
+.allocation-simulation-search { min-width: 240px; margin: 0; }
+.allocation-simulation-table { margin-top: 0.75rem; }
+.allocation-simulation-name { font-weight: 600; color: #37474f; display: inline-block; margin-right: 0.4rem; }
+.allocation-simulation-current { background: #eef8f6; }
+.allocation-simulation-current-badge { float: none; }
+.allocation-simulation-actions { white-space: nowrap; }
+.allocation-simulation-actions button { margin-left: 0.25rem; }
+.allocation-simulation-empty { margin: 0.85rem 0 0; }
 .allocation-toolbar { display: flex; align-items: center; flex-wrap: wrap; gap: 0.6rem; margin-top: 1rem; margin-bottom: 0.75rem; }
 .allocation-simulation-title { font-weight: 600; margin-right: auto; }
 .allocation-layout { display: flex; gap: 1rem; min-height: 65vh; }
 .allocation-canvas { position: relative; flex: 1; border: 1px dashed #b0bec5; border-radius: 10px; background: #f5f8fa; min-height: 65vh; overflow: auto; }
-.allocation-consultants-panel { width: 280px; border: 1px solid #d7e1e6; border-radius: 10px; background: #fff; padding: 0.75rem; }
-.allocation-consultants-list { min-height: 200px; display: flex; flex-direction: column; gap: 0.5rem; }
+.allocation-consultants-panel { width: 280px; border: 1px solid #d7e1e6; border-radius: 10px; background: #fff; padding: 0.75rem; display: flex; flex-direction: column; align-self: stretch; }
+.allocation-consultants-panel.drag-over { border-color: #26a69a; background: #eef8f6; }
+.allocation-consultants-list { flex: 1; min-height: 200px; display: flex; flex-direction: column; gap: 0.5rem; }
 .allocation-consultants-list.drag-over { background: #eceff1; border-radius: 8px; }
 .allocation-consultant-item { border: 1px solid #cfd8dc; border-radius: 8px; padding: 0.45rem 0.6rem; background: #fff; cursor: grab; display: flex; flex-direction: column; align-items: flex-start; gap: 0.08rem; }
 .allocation-consultant-name { font-weight: 600; color: #37474f; line-height: 1.2; }
@@ -622,8 +635,6 @@ body.project-timeline-expanded #project-timeline-chart { flex: 0 0 auto; max-hei
 .allocation-vacancy-area { font-weight: 600; color: #37474f; line-height: 1.2; }
 .allocation-vacancy-meta { font-size: 0.78rem; color: #607d8b; line-height: 1.2; }
 .allocation-assignment-preview { border: 1px solid #d7e1e6; border-radius: 8px; padding: 0.55rem 0.65rem; background: #fafcfe; margin-bottom: 0.5rem; display: grid; gap: 0.25rem; }
-.allocation-simulation-item { display: flex; justify-content: space-between; align-items: center; border: 1px solid #cfd8dc; border-radius: 8px; padding: 0.6rem; margin-top: 0.5rem; }
-
 .timesheet-month-panel { width: 100%; max-width: 780px; margin-top: 0.8rem; }
 #timesheet-month-count { margin-top: 0.6rem; margin-bottom: 0; }
 .timesheet-toggle-link { padding-left: 0; margin-top: 0.35rem; margin-bottom: 0.25rem; text-transform: none; color: #1565c0; }

@@ -1,0 +1,7 @@
+.env
+__pycache__/
+repositories/__pycache__/
+backups/
+company-logo/
+project-files/
+*.db

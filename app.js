@@ -153,6 +153,7 @@ if (!isBrowserRuntime) {
     projectPhaseStartDate: document.getElementById('project-phase-start-date'),
     projectPhaseEndDate: document.getElementById('project-phase-end-date'),
     addProjectPhaseBtn: document.getElementById('add-project-phase-btn'),
+    deleteProjectPhaseBtn: document.getElementById('delete-project-phase-btn'),
     projectMilestonePhaseId: document.getElementById('project-milestone-phase-id'),
     projectMilestoneName: document.getElementById('project-milestone-name'),
     projectMilestoneStartDate: document.getElementById('project-milestone-start-date'),
@@ -402,6 +403,8 @@ if (!isBrowserRuntime) {
     loadAllocationSimulationBtn: document.getElementById('load-allocation-simulation-btn'),
     allocationForecastEmptyActions: document.getElementById('allocation-forecast-empty-actions'),
     allocationSimulationList: document.getElementById('allocation-simulation-list'),
+    allocationSimulationSearch: document.getElementById('allocation-simulation-search'),
+    allocationSimulationListBody: document.getElementById('allocation-simulation-list-body'),
     allocationForecastWorkspace: document.getElementById('allocation-forecast-workspace'),
     allocationSimulationTitle: document.getElementById('allocation-simulation-title'),
     allocationLoadProjectsBtn: document.getElementById('allocation-load-projects-btn'),
@@ -409,6 +412,7 @@ if (!isBrowserRuntime) {
     allocationAddProjectBtn: document.getElementById('allocation-add-project-btn'),
     allocationSaveBtn: document.getElementById('allocation-save-btn'),
     allocationCanvas: document.getElementById('allocation-canvas'),
+    allocationConsultantsPanel: document.getElementById('allocation-consultants-panel'),
     allocationConsultantsList: document.getElementById('allocation-consultants-list'),
     allocationVacancyModal: document.getElementById('allocation-vacancy-modal'),
     allocationVacancyAreaSelect: document.getElementById('allocation-vacancy-area-select'),
@@ -461,6 +465,8 @@ if (!isBrowserRuntime) {
   let selectedProjectTimelineYear = new Date().getFullYear();
   let isProjectTimelineExpanded = false;
   let activeProjectWorkspaceTab = 'overview';
+  let selectedConsultantWeekDetail = null;
+  let selectedConsultantMonthDetail = null;
   let projectFiles = [];
   let selectedProjectWeekDetail = null;
   let selectedProjectPhases = [];
@@ -872,6 +878,13 @@ if (!isBrowserRuntime) {
     selectedProjectPhases.forEach((phase) => ui.projectMilestonePhaseId.add(new Option(phase.name, phase.id)));
     resetSelect('projectMilestonePhase', ui.projectMilestonePhaseId);
   };
+  const clearProjectPhaseForm = () => {
+    editingProjectPhaseId = null;
+    if (ui.projectPhaseName) ui.projectPhaseName.value = '';
+    if (ui.projectPhaseStartDate) ui.projectPhaseStartDate.value = '';
+    if (ui.projectPhaseEndDate) ui.projectPhaseEndDate.value = '';
+    if (ui.addProjectPhaseBtn) ui.addProjectPhaseBtn.textContent = 'Save Phase';
+  };
 
   const buildProjectPayload = () => ({
     projectName: fields.projectName.value.trim(),
@@ -941,7 +954,10 @@ if (!isBrowserRuntime) {
         <td>${item.originalFilename}</td>
         <td>${formatFileSize(item.fileSize)}</td>
         <td>${formatDate(item.uploadedAt)}</td>
-        <td><button class="btn-flat blue-text" type="button" data-action="download-project-file" data-id="${item.id}"><i class="material-icons tiny">download</i></button></td>
+        <td>
+          <button class="btn-flat blue-text" type="button" data-action="download-project-file" data-id="${item.id}" title="Download file"><i class="material-icons tiny">download</i></button>
+          <button class="btn-flat red-text" type="button" data-action="delete-project-file" data-id="${item.id}" title="Delete file"><i class="material-icons tiny">delete</i></button>
+        </td>
       `;
       ui.projectFilesBody.appendChild(row);
     });
@@ -1695,6 +1711,10 @@ if (!isBrowserRuntime) {
     if (ui.showProjectPhaseFormBtn) ui.showProjectPhaseFormBtn.hidden = !showPlanning;
     if (ui.showProjectMilestoneFormBtn) ui.showProjectMilestoneFormBtn.hidden = !showPlanning;
     if (ui.projectPhaseFormRow) ui.projectPhaseFormRow.hidden = !showPlanning || !showProjectPhaseForm;
+    if (ui.deleteProjectPhaseBtn) {
+      ui.deleteProjectPhaseBtn.hidden = !showPlanning || !showProjectPhaseForm || !editingProjectPhaseId;
+      ui.deleteProjectPhaseBtn.disabled = !showPlanning || !editingProjectPhaseId;
+    }
     if (ui.projectMilestoneFormRow) ui.projectMilestoneFormRow.hidden = !showPlanning || !showProjectMilestoneForm;
     updateProjectStatusUi();
   };
@@ -2960,6 +2980,7 @@ if (!isBrowserRuntime) {
   const renderWeekDetail = (consultant, weekMondayIso) => {
     if (!ui.weekDetailCard || !ui.weekDetailTimeline || !ui.weekDetailTitle) return;
     if (!consultant || !weekMondayIso) {
+      selectedConsultantWeekDetail = null;
       ui.weekDetailCard.hidden = true;
       ui.weekDetailTimeline.innerHTML = '';
       return;
@@ -2967,11 +2988,13 @@ if (!isBrowserRuntime) {
 
     const start = parseIsoDate(weekMondayIso);
     if (!start) {
+      selectedConsultantWeekDetail = null;
       ui.weekDetailCard.hidden = true;
       ui.weekDetailTimeline.innerHTML = '';
       return;
     }
 
+    selectedConsultantWeekDetail = { consultantId: consultant.id, weekMondayIso };
     const end = new Date(start);
     end.setDate(start.getDate() + 6);
     ui.weekDetailTitle.textContent = `Week Timeline (${formatDate(start)} - ${formatDate(end)})`;
@@ -3020,12 +3043,16 @@ if (!isBrowserRuntime) {
     });
 
     ui.weekDetailCard.hidden = false;
-    if (ui.monthDetailCard) ui.monthDetailCard.hidden = true;
+    if (ui.monthDetailCard) {
+      selectedConsultantMonthDetail = null;
+      ui.monthDetailCard.hidden = true;
+    }
   };
 
   const renderMonthDetail = (consultant, year, monthIndex) => {
     if (!ui.monthDetailCard || !ui.monthDetailTimeline || !ui.monthDetailTitle) return;
     if (!consultant || Number.isNaN(Number(monthIndex)) || Number.isNaN(Number(year))) {
+      selectedConsultantMonthDetail = null;
       ui.monthDetailCard.hidden = true;
       ui.monthDetailTimeline.innerHTML = '';
       return;
@@ -3033,6 +3060,7 @@ if (!isBrowserRuntime) {
 
     const y = Number(year);
     const m = Number(monthIndex);
+    selectedConsultantMonthDetail = { consultantId: consultant.id, year: y, monthIndex: m };
     const monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
     ui.monthDetailTitle.textContent = `${monthNames[m]} ${y} – Daily Detail`;
     ui.monthDetailTimeline.innerHTML = '';
@@ -3072,7 +3100,10 @@ if (!isBrowserRuntime) {
     }
 
     ui.monthDetailCard.hidden = false;
-    if (ui.weekDetailCard) ui.weekDetailCard.hidden = true;
+    if (ui.weekDetailCard) {
+      selectedConsultantWeekDetail = null;
+      ui.weekDetailCard.hidden = true;
+    }
   };
 
   const renderProjectWeekDetail = (weekMondayIso, consultantId, rowType, phaseId = '') => {
@@ -3218,7 +3249,20 @@ if (!isBrowserRuntime) {
     dayOffEntries.forEach((entry) => {
       const li = document.createElement('li');
       li.className = 'collection-item';
-      li.textContent = `${entry.type}: ${formatDate(entry.startDate)} - ${formatDate(entry.endDate)}`;
+      const label = document.createElement('span');
+      label.textContent = `${entry.type}: ${formatDate(entry.startDate)} - ${formatDate(entry.endDate)}`;
+      li.appendChild(label);
+      if (entry.id) {
+        const deleteButton = document.createElement('button');
+        deleteButton.type = 'button';
+        deleteButton.className = 'btn-flat secondary-content red-text';
+        deleteButton.dataset.action = 'delete-consultant-availability';
+        deleteButton.dataset.id = entry.id;
+        deleteButton.title = 'Delete recorded day off';
+        deleteButton.setAttribute('aria-label', `Delete recorded day off ${label.textContent}`);
+        deleteButton.innerHTML = '<i class="material-icons tiny">delete</i>';
+        li.appendChild(deleteButton);
+      }
       ui.consultantDaysOffList.appendChild(li);
     });
   };
@@ -4073,6 +4117,7 @@ if (!isBrowserRuntime) {
     ui.openConsultantModalBtn.disabled = readOnly;
     ui.openConsultantModalBtn.hidden = readOnly;
     if (ui.addProjectPhaseBtn) ui.addProjectPhaseBtn.disabled = readOnly;
+    if (ui.deleteProjectPhaseBtn) ui.deleteProjectPhaseBtn.disabled = readOnly || !editingProjectPhaseId;
     if (ui.addProjectMilestoneBtn) ui.addProjectMilestoneBtn.disabled = readOnly;
     if (ui.showProjectPhaseFormBtn) ui.showProjectPhaseFormBtn.disabled = readOnly;
     if (ui.showProjectMilestoneFormBtn) ui.showProjectMilestoneFormBtn.disabled = readOnly;
@@ -4134,27 +4179,99 @@ if (!isBrowserRuntime) {
   };
 
   const renderAllocationSimulationList = () => {
-    if (!ui.allocationSimulationList) return;
-    ui.allocationSimulationList.innerHTML = '';
+    const container = ui.allocationSimulationListBody || ui.allocationSimulationList;
+    if (!container) return;
+    container.innerHTML = '';
+    const searchTerm = String(ui.allocationSimulationSearch?.value || '').trim().toLowerCase();
+    const sortedSimulations = [...allocationSimulations].sort((a, b) => {
+      const aDate = Date.parse(a.updatedAt || a.createdAt || '') || 0;
+      const bDate = Date.parse(b.updatedAt || b.createdAt || '') || 0;
+      return bDate - aDate || Number(b.id) - Number(a.id);
+    });
+    const filteredSimulations = searchTerm
+      ? sortedSimulations.filter((simulation) => String(simulation.name || '').toLowerCase().includes(searchTerm))
+      : sortedSimulations;
     if (!allocationSimulations.length) {
-      ui.allocationSimulationList.innerHTML = '<p class="grey-text">No saved simulations yet.</p>';
+      container.innerHTML = '<p class="grey-text allocation-simulation-empty">No saved simulations yet. Create one to start planning allocation scenarios.</p>';
       return;
     }
-    allocationSimulations.forEach((simulation) => {
-      const item = document.createElement('div');
-      item.className = 'allocation-simulation-item';
-      item.innerHTML = `<div><strong>${simulation.name}</strong><div class="grey-text">Created: ${formatDate(simulation.createdAt)}</div></div><button class="btn" type="button">Load</button>`;
-      item.querySelector('button').addEventListener('click', async () => {
-        const loaded = await request(`/api/allocation-simulations/${simulation.id}`);
-        allocationState = { ...(loaded.state || {}), id: loaded.id, name: loaded.name };
-        ui.allocationSimulationTitle.textContent = loaded.name;
-        ui.allocationForecastWorkspace.hidden = false;
-        ui.allocationSimulationList.hidden = true;
-        ui.allocationForecastEmptyActions.hidden = true;
-        renderAllocationWorkspace();
+    if (!filteredSimulations.length) {
+      container.innerHTML = '<p class="grey-text allocation-simulation-empty">No simulations match your search.</p>';
+      return;
+    }
+    const table = document.createElement('table');
+    table.className = 'striped responsive-table allocation-simulation-table';
+    table.innerHTML = `
+      <thead>
+        <tr>
+          <th>Simulation Name</th>
+          <th>Created</th>
+          <th>Last Updated</th>
+          <th>Projects</th>
+          <th class="right-align">Actions</th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+    `;
+    const tbody = table.querySelector('tbody');
+    filteredSimulations.forEach((simulation) => {
+      const tr = document.createElement('tr');
+      const isCurrent = allocationState?.id && Number(allocationState.id) === Number(simulation.id);
+      tr.className = isCurrent ? 'allocation-simulation-current' : '';
+
+      const nameCell = document.createElement('td');
+      const name = document.createElement('div');
+      name.className = 'allocation-simulation-name';
+      name.textContent = simulation.name || 'Untitled simulation';
+      nameCell.appendChild(name);
+      if (isCurrent) {
+        const current = document.createElement('span');
+        current.className = 'new badge teal allocation-simulation-current-badge';
+        current.dataset.badgeCaption = 'current';
+        nameCell.appendChild(current);
+      }
+
+      const createdCell = document.createElement('td');
+      createdCell.textContent = simulation.createdAt ? formatDate(simulation.createdAt) : '—';
+
+      const updatedCell = document.createElement('td');
+      updatedCell.textContent = simulation.updatedAt ? formatDate(simulation.updatedAt) : '—';
+
+      const projectCountCell = document.createElement('td');
+      projectCountCell.textContent = String(simulation.projectCount ?? 0);
+
+      const actionsCell = document.createElement('td');
+      actionsCell.className = 'right-align allocation-simulation-actions';
+      [
+        ['load-allocation-simulation', 'Load', 'btn-small'],
+        ['rename-allocation-simulation', 'Rename', 'btn-flat blue-text'],
+        ['duplicate-allocation-simulation', 'Duplicate', 'btn-flat teal-text'],
+        ['delete-allocation-simulation', 'Delete', 'btn-flat red-text']
+      ].forEach(([action, label, className]) => {
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = className;
+        button.dataset.action = action;
+        button.dataset.id = simulation.id;
+        button.dataset.name = simulation.name || '';
+        button.textContent = label;
+        actionsCell.appendChild(button);
       });
-      ui.allocationSimulationList.appendChild(item);
+
+      tr.append(nameCell, createdCell, updatedCell, projectCountCell, actionsCell);
+      tbody.appendChild(tr);
     });
+    container.appendChild(table);
+  };
+
+  const loadAllocationSimulation = async (simulationId) => {
+    const loaded = await request(`/api/allocation-simulations/${simulationId}`);
+    allocationState = { ...(loaded.state || {}), id: loaded.id, name: loaded.name };
+    ui.allocationSimulationTitle.textContent = loaded.name;
+    ui.allocationForecastWorkspace.hidden = false;
+    ui.allocationSimulationList.hidden = true;
+    ui.allocationForecastEmptyActions.hidden = true;
+    renderAllocationWorkspace();
   };
 
   const ensureAllocationStateShape = () => {
@@ -4166,8 +4283,11 @@ if (!isBrowserRuntime) {
     });
   };
   const normalizeAllocationAssignmentDetail = (detail = {}, consultantId = null) => ({
+    sourceProjectPositionId: detail.sourceProjectPositionId || detail.projectPositionId || null,
     consultantId: Number(detail.consultantId ?? consultantId ?? 0),
     consultantName: String(detail.consultantName || '').trim(),
+    sapArea: String(detail.sapArea || detail.area || '').trim(),
+    areaId: detail.areaId ? Number(detail.areaId) : null,
     projectRole: String(detail.projectRole || 'Project Position').trim() || 'Project Position',
     allocation: Number.isFinite(Number(detail.allocation)) ? Number(detail.allocation) : 100,
     startDate: String(detail.startDate || '').trim(),
@@ -4182,8 +4302,11 @@ if (!isBrowserRuntime) {
     const positions = Array.isArray(sourceProject.projectPositions) ? sourceProject.projectPositions.filter((item) => item && item.consultantId) : [];
     if (positions.length) {
       return positions.map((item) => normalizeAllocationAssignmentDetail({
+        sourceProjectPositionId: item.id,
         consultantId: item.consultantId,
         consultantName: item.consultantName,
+        sapArea: item.sapArea || item.area || '',
+        areaId: item.areaId || null,
         projectRole: item.projectRole,
         allocation: item.allocation,
         startDate: item.startDate,
@@ -4192,6 +4315,24 @@ if (!isBrowserRuntime) {
       }, item.consultantId));
     }
     return (sourceProject.consultantAssignments || []).map((item) => normalizeAllocationAssignmentDetail(item, item.consultantId));
+  };
+  const isOpenProjectPosition = (position) => String(position?.status || '').trim().toLowerCase() === 'open';
+  const allocationSourceVacanciesForProject = (project) => {
+    const sourceProject = projects.find((item) => Number(item.id) === Number(project?.sourceProjectId || 0));
+    if (!sourceProject || !Array.isArray(sourceProject.projectPositions)) return [];
+    return sourceProject.projectPositions
+      .filter((position) => position && !position.consultantId && isOpenProjectPosition(position))
+      .map((position) => normalizeAllocationVacancy({
+        id: `position-${position.id || `${sourceProject.id}-${position.projectRole || 'open'}`}`,
+        sourceProjectPositionId: position.id || null,
+        sapArea: position.sapArea || position.area || '',
+        areaId: position.areaId || null,
+        projectRole: position.projectRole || 'Project Position',
+        allocation: position.allocation,
+        status: position.status || 'Open',
+        startDate: position.startDate || '',
+        endDate: position.endDate || ''
+      }));
   };
   const ensureProjectAllocationAssignmentDetails = (project) => {
     project.consultantIds = Array.isArray(project.consultantIds) ? project.consultantIds.map((id) => Number(id)).filter((id) => id > 0) : [];
@@ -4224,15 +4365,46 @@ if (!isBrowserRuntime) {
     ensureProjectAllocationAssignmentDetails(project);
     project.assignmentDetails = project.assignmentDetails.filter((item) => Number(item.consultantId) !== Number(consultantId));
   };
+  const removeAllocationAssignmentFromProject = (projectId, consultantId) => {
+    const sourceProject = allocationState?.projects?.find((project) => String(project.id) === String(projectId));
+    if (!sourceProject) return null;
+    const removedDetail = allocationAssignmentDetailByConsultant(sourceProject, consultantId);
+    const beforeCount = (sourceProject.consultantIds || []).length;
+    sourceProject.consultantIds = (sourceProject.consultantIds || []).filter((id) => Number(id) !== Number(consultantId));
+    removeAllocationAssignmentDetail(sourceProject, consultantId);
+    return beforeCount !== sourceProject.consultantIds.length ? removedDetail : null;
+  };
+  const restoreAllocationVacancyFromAssignment = (project, assignmentDetail = {}) => {
+    if (!project) return null;
+    const normalizedDetail = normalizeAllocationAssignmentDetail(assignmentDetail, assignmentDetail.consultantId);
+    const vacancy = normalizeAllocationVacancy({
+      id: `released-${project.id}-${normalizedDetail.sourceProjectPositionId || normalizedDetail.consultantId || Date.now()}-${Date.now()}`,
+      sourceProjectPositionId: normalizedDetail.sourceProjectPositionId || null,
+      sapArea: normalizedDetail.sapArea || '',
+      areaId: normalizedDetail.areaId || null,
+      projectRole: normalizedDetail.projectRole,
+      allocation: normalizedDetail.allocation,
+      status: 'Open',
+      startDate: normalizedDetail.startDate,
+      endDate: normalizedDetail.endDate
+    });
+    project.vacancies = [...(project.vacancies || []), vacancy];
+    return vacancy;
+  };
   const normalizeAllocationVacancy = (vacancy = {}) => {
     const areaId = Number(vacancy.areaId || 0);
     const matchedArea = areaId ? areas.find((item) => Number(item.id) === areaId) : null;
     const allocation = Number(vacancy.allocation);
     return {
       id: vacancy.id || `${Date.now()}-${Math.random()}`,
+      sourceProjectPositionId: vacancy.sourceProjectPositionId || null,
       sapArea: String(matchedArea?.name || vacancy.sapArea || (areaId ? `Area ${areaId}` : 'Unknown Area')).trim(),
       areaId: areaId || (matchedArea ? Number(matchedArea.id) : null),
-      allocation: Number.isFinite(allocation) ? allocation : 100
+      projectRole: String(vacancy.projectRole || 'Project Position').trim() || 'Project Position',
+      allocation: Number.isFinite(allocation) ? allocation : 100,
+      status: String(vacancy.status || 'Open').trim() || 'Open',
+      startDate: String(vacancy.startDate || '').trim(),
+      endDate: String(vacancy.endDate || '').trim()
     };
   };
   const openAllocationVacancyModal = (projectId) => {
@@ -4290,7 +4462,14 @@ if (!isBrowserRuntime) {
       projectId: project.id,
       consultantId: Number(consultantId),
       vacancyId: vacancy?.id || null,
-      assignmentDetail: normalizeAllocationAssignmentDetail(assignmentDetail || { consultantId }, consultantId)
+      assignmentDetail: normalizeAllocationAssignmentDetail({
+        ...(assignmentDetail || { consultantId }),
+        projectRole: vacancy?.projectRole || assignmentDetail?.projectRole,
+        allocation: vacancy?.allocation ?? assignmentDetail?.allocation,
+        startDate: vacancy?.startDate || assignmentDetail?.startDate,
+        endDate: vacancy?.endDate || assignmentDetail?.endDate,
+        positionStatus: vacancy ? 'Assigned' : assignmentDetail?.positionStatus
+      }, consultantId)
     };
     if (ui.allocationAssignmentModalTitle) ui.allocationAssignmentModalTitle.textContent = vacancy ? 'Assign Consultant to Vacancy' : 'Assign Consultant to Project';
     if (ui.allocationAssignmentConsultantName) ui.allocationAssignmentConsultantName.textContent = consultant?.name || `Consultant ${consultantId}`;
@@ -4410,14 +4589,28 @@ if (!isBrowserRuntime) {
         const c = document.createElement('div');
         c.className = 'allocation-consultant-item';
         c.draggable = true;
+        c.dataset.consultantId = String(consultantId);
+        c.dataset.projectId = String(project.id);
+        c.title = 'Drag back to Available Consultants to remove this simulation assignment.';
         c.innerHTML = `<div class="member-title-row"><span class="allocation-consultant-name">${consultantNameLabel}</span><span class="member-role-chip">${projectRoleLabel}</span><span class="position-status-badge ${statusClassName}">${statusLabel}</span></div><div class="allocation-consultant-meta">Allocation: ${allocationLabel}</div>${hasDateRange ? `<div class="allocation-consultant-meta">Dates: ${formatDate(assignmentDetail.startDate)} - ${formatDate(assignmentDetail.endDate)}</div>` : ''}`;
         c.addEventListener('dragstart', (event) => {
+          const normalizedAssignmentDetail = normalizeAllocationAssignmentDetail(assignmentDetail, consultantId);
           event.dataTransfer.setData('application/json', JSON.stringify({
             type: 'consultant',
             consultantId: Number(consultantId),
+            consultantName: consultantNameLabel,
             source: 'project',
             projectId: project.id,
-            assignmentDetail: normalizeAllocationAssignmentDetail(assignmentDetail, consultantId)
+            sourceProjectPositionId: normalizedAssignmentDetail.sourceProjectPositionId,
+            assignmentKey: `${project.id}:${consultantId}:${normalizedAssignmentDetail.sourceProjectPositionId || normalizedAssignmentDetail.projectRole}`,
+            projectRole: normalizedAssignmentDetail.projectRole,
+            allocation: normalizedAssignmentDetail.allocation,
+            sapArea: normalizedAssignmentDetail.sapArea,
+            areaId: normalizedAssignmentDetail.areaId,
+            startDate: normalizedAssignmentDetail.startDate,
+            endDate: normalizedAssignmentDetail.endDate,
+            status: normalizedAssignmentDetail.positionStatus,
+            assignmentDetail: normalizedAssignmentDetail
           }));
         });
         consultantsZone.appendChild(c);
@@ -4428,10 +4621,15 @@ if (!isBrowserRuntime) {
         const v = document.createElement('div');
         v.className = 'allocation-vacancy-item';
         v.draggable = true;
+        v.dataset.vacancyId = String(normalizedVacancy.id);
         const areaLabel = normalizedVacancy.sapArea || `Area ${normalizedVacancy.areaId || '—'}`;
         const allocationNumber = Number(normalizedVacancy.allocation || 0);
         const allocationLabel = `${Number.isInteger(allocationNumber) ? allocationNumber : allocationNumber.toFixed(2).replace(/\.?0+$/, '')}%`;
-        v.innerHTML = `<div class="allocation-vacancy-area">${areaLabel}</div><div class="allocation-vacancy-meta">${allocationLabel}</div>`;
+        const roleLabel = String(normalizedVacancy.projectRole || 'Project Position').trim() || 'Project Position';
+        const statusLabel = String(normalizedVacancy.status || 'Open').trim() || 'Open';
+        const statusClassName = positionStatusClassByValue(statusLabel);
+        const hasDateRange = Boolean(normalizedVacancy.startDate || normalizedVacancy.endDate);
+        v.innerHTML = `<div class="allocation-vacancy-area">${areaLabel}</div><div class="allocation-vacancy-meta"><span class="member-role-chip">${roleLabel}</span><span>${allocationLabel}</span><span class="position-status-badge ${statusClassName}">${statusLabel}</span></div>${hasDateRange ? `<div class="allocation-vacancy-meta">Dates: ${formatDate(normalizedVacancy.startDate)} - ${formatDate(normalizedVacancy.endDate)}</div>` : ''}`;
         v.addEventListener('dragstart', (event) => {
           event.dataTransfer.setData('application/json', JSON.stringify({ type: 'vacancy', vacancyId: normalizedVacancy.id, projectId: project.id }));
         });
@@ -4474,7 +4672,11 @@ if (!isBrowserRuntime) {
           if (moved) project.vacancies = [...(project.vacancies || []), moved];
         }
         if (data.type === 'consultant') {
-          const targetVacancy = (project.vacancies || [])[0];
+          const droppedVacancy = event.target.closest('.allocation-vacancy-item');
+          const droppedVacancyId = droppedVacancy?.dataset?.vacancyId;
+          const targetVacancy = droppedVacancyId
+            ? (project.vacancies || []).find((item) => String(item.id) === String(droppedVacancyId))
+            : (project.vacancies || [])[0];
           if (!targetVacancy) {
             toast('No vacancy available in this project panel.', 'orange darken-2');
             return;
@@ -4527,18 +4729,55 @@ if (!isBrowserRuntime) {
       ui.allocationCanvas.appendChild(panel);
     });
 
-    ui.allocationConsultantsList.addEventListener('dragover', (event) => { event.preventDefault(); ui.allocationConsultantsList.classList.add('drag-over'); });
-    ui.allocationConsultantsList.addEventListener('dragleave', () => ui.allocationConsultantsList.classList.remove('drag-over'));
-    ui.allocationConsultantsList.addEventListener('drop', (event) => {
-      event.preventDefault(); ui.allocationConsultantsList.classList.remove('drag-over');
-      const data = allocationDraggedPayload(event); if (!data || data.type !== 'consultant') return;
-      allocationState.projects.forEach((p) => {
-        p.consultantIds = (p.consultantIds || []).filter((id) => Number(id) !== Number(data.consultantId));
-        removeAllocationAssignmentDetail(p, data.consultantId);
+    const availableDropTarget = ui.allocationConsultantsPanel
+      || ui.allocationConsultantsList.closest('.allocation-consultants-panel')
+      || ui.allocationConsultantsList;
+    const setAvailableDragState = (active) => {
+      ui.allocationConsultantsList.classList.toggle('drag-over', active);
+      availableDropTarget.classList.toggle('drag-over', active);
+    };
+    availableDropTarget.ondragenter = (event) => {
+      event.preventDefault();
+      event.dataTransfer.dropEffect = 'move';
+      setAvailableDragState(true);
+    };
+    availableDropTarget.ondragover = (event) => {
+      event.preventDefault();
+      event.dataTransfer.dropEffect = 'move';
+      setAvailableDragState(true);
+    };
+    availableDropTarget.ondragleave = (event) => {
+      if (availableDropTarget.contains(event.relatedTarget)) return;
+      setAvailableDragState(false);
+    };
+    availableDropTarget.ondrop = (event) => {
+      event.preventDefault(); event.stopPropagation(); setAvailableDragState(false);
+      const data = allocationDraggedPayload(event);
+      if (!data || data.type !== 'consultant') return;
+      if (data.source !== 'project' || !data.projectId) return;
+      const sourceProject = allocationState?.projects?.find((project) => String(project.id) === String(data.projectId));
+      const removedDetail = removeAllocationAssignmentFromProject(data.projectId, data.consultantId);
+      if (!sourceProject || !removedDetail) {
+        toast('Unable to remove that project assignment from the simulation.', 'orange darken-2');
+        return;
+      }
+      restoreAllocationVacancyFromAssignment(sourceProject, {
+        ...(data.assignmentDetail || {}),
+        sourceProjectPositionId: data.sourceProjectPositionId || data.assignmentDetail?.sourceProjectPositionId,
+        consultantId: data.consultantId,
+        consultantName: data.consultantName,
+        sapArea: data.sapArea || data.assignmentDetail?.sapArea,
+        areaId: data.areaId || data.assignmentDetail?.areaId,
+        projectRole: data.projectRole || data.assignmentDetail?.projectRole,
+        allocation: data.allocation ?? data.assignmentDetail?.allocation,
+        startDate: data.startDate || data.assignmentDetail?.startDate,
+        endDate: data.endDate || data.assignmentDetail?.endDate,
+        status: 'Open',
+        ...removedDetail
       });
       allocationState.unassignedConsultantIds = [...new Set([...(allocationState.unassignedConsultantIds || []), Number(data.consultantId)])];
       renderAllocationWorkspace();
-    });
+    };
   };
 
   const resetProjectForm = () => {
@@ -4621,6 +4860,14 @@ if (!isBrowserRuntime) {
     const consultantId = Number(fields.consultantId.value);
     const consultant = consultantId ? findConsultantById(consultantId) : null;
     drawTimeline(ui.consultantAvailabilityChart, consultant ? [consultant] : [], { year: selectedTimelineYear, centerOnCurrentWeek, showYearNavigation: true, showAllocationStatus: true, enableMonthClick: true });
+  };
+
+  const refreshConsultantAvailabilityDetails = (consultant) => {
+    if (selectedConsultantWeekDetail) {
+      renderWeekDetail(consultant, selectedConsultantWeekDetail.weekMondayIso);
+    } else if (selectedConsultantMonthDetail) {
+      renderMonthDetail(consultant, selectedConsultantMonthDetail.year, selectedConsultantMonthDetail.monthIndex);
+    }
   };
 
   const loadAll = async () => {
@@ -4764,11 +5011,21 @@ if (!isBrowserRuntime) {
     }
   });
   ui.projectFilesBody?.addEventListener('click', (event) => {
-    const button = event.target.closest('button[data-action="download-project-file"]');
+    const button = event.target.closest('button[data-action]');
     if (!button || !fields.projectId.value) return;
     const fileId = Number(button.dataset.id);
     if (!fileId) return;
-    window.location.href = `${primaryApiBase}/api/projects/${fields.projectId.value}/files/${fileId}/download`;
+    if (button.dataset.action === 'download-project-file') {
+      window.location.href = `${primaryApiBase}/api/projects/${fields.projectId.value}/files/${fileId}/download`;
+      return;
+    }
+    if (button.dataset.action === 'delete-project-file') {
+      if (!window.confirm('Are you sure you want to delete this file? This action cannot be undone.')) return;
+      request(`/api/projects/${fields.projectId.value}/files/${fileId}`, { method: 'DELETE' })
+        .then(() => loadProjectFiles(fields.projectId.value))
+        .then(() => toast('Project file deleted', 'teal darken-1'))
+        .catch((error) => toast(error.message || 'Failed to delete project file', 'red darken-1'));
+    }
   });
   ui.projectSaveBtnHeader?.addEventListener('click', () => ui.projectForm.requestSubmit());
   ui.projectSwitchEditBtnHeader?.addEventListener('click', () => {
@@ -4822,11 +5079,7 @@ if (!isBrowserRuntime) {
 
 
   ui.showProjectPhaseFormBtn?.addEventListener('click', () => {
-    editingProjectPhaseId = null;
-    ui.projectPhaseName.value = '';
-    ui.projectPhaseStartDate.value = '';
-    ui.projectPhaseEndDate.value = '';
-    if (ui.addProjectPhaseBtn) ui.addProjectPhaseBtn.textContent = 'Save Phase';
+    clearProjectPhaseForm();
     showProjectPhaseForm = !showProjectPhaseForm;
     updateProjectPlanningUi();
   });
@@ -4854,12 +5107,8 @@ if (!isBrowserRuntime) {
 
     try {
       await persistProjectPlanningIfEditing();
-      ui.projectPhaseName.value = '';
-      ui.projectPhaseStartDate.value = '';
-      ui.projectPhaseEndDate.value = '';
+      clearProjectPhaseForm();
       rebuildProjectPlanningSelects();
-      editingProjectPhaseId = null;
-      if (ui.addProjectPhaseBtn) ui.addProjectPhaseBtn.textContent = 'Save Phase';
       showProjectPhaseForm = false;
       updateProjectPlanningUi();
       refreshProjectTimeline();
@@ -4868,6 +5117,40 @@ if (!isBrowserRuntime) {
       selectedProjectPhases = previousPhases;
       rebuildProjectPlanningSelects();
       toast(error.message || 'Failed to save project phase', 'red darken-1');
+    }
+  });
+
+  ui.deleteProjectPhaseBtn?.addEventListener('click', async () => {
+    if (!editingProjectPhaseId) return;
+    const phase = selectedProjectPhases.find((item) => String(item.id) === String(editingProjectPhaseId));
+    if (!phase) {
+      clearProjectPhaseForm();
+      updateProjectPlanningUi();
+      return;
+    }
+    const hasLinkedMilestones = selectedProjectMilestones.some((item) => String(item.phaseId || '') === String(editingProjectPhaseId));
+    if (hasLinkedMilestones) {
+      toast('This phase has linked milestones. Delete or move the milestones before deleting the phase.', 'orange darken-2');
+      return;
+    }
+    if (!window.confirm('Are you sure you want to delete this project phase? This action cannot be undone.')) return;
+    const previousPhases = [...selectedProjectPhases];
+    const deletedPhaseId = editingProjectPhaseId;
+    selectedProjectPhases = selectedProjectPhases.filter((item) => String(item.id) !== String(deletedPhaseId));
+    try {
+      await persistProjectPlanningIfEditing();
+      clearProjectPhaseForm();
+      rebuildProjectPlanningSelects();
+      showProjectPhaseForm = false;
+      updateProjectPlanningUi();
+      refreshProjectTimeline();
+      toast('Project phase deleted', 'teal darken-1');
+    } catch (error) {
+      selectedProjectPhases = previousPhases;
+      editingProjectPhaseId = deletedPhaseId;
+      rebuildProjectPlanningSelects();
+      updateProjectPlanningUi();
+      toast(error.message || 'Failed to delete project phase', 'red darken-1');
     }
   });
 
@@ -5135,7 +5418,6 @@ if (!isBrowserRuntime) {
     const payload = buildProjectPayload();
 
     if (payload.startDate > payload.endDate) { toast('Start date cannot be after end date', 'red darken-1'); return; }
-    if (!payload.managerConsultantId) { toast('Assign a Project Manager from Project Members before saving', 'red darken-1'); return; }
 
     try {
       const editing = Boolean(fields.projectId.value);
@@ -5219,10 +5501,35 @@ if (!isBrowserRuntime) {
       const consultant = findConsultantById(consultantId);
       await refreshTimelines();
       renderConsultantDaysOffList(consultant);
+      refreshConsultantAvailabilityDetails(consultant);
       modals.daysOff?.close();
       toast('Days off added', 'teal darken-1');
     } catch (error) {
       toast(error.message || 'Failed to add days off', 'red darken-1');
+    }
+  });
+
+  ui.consultantDaysOffList.addEventListener('click', async (event) => {
+    const button = event.target.closest('button[data-action="delete-consultant-availability"]');
+    if (!button) return;
+    const consultantId = Number(fields.consultantId.value);
+    const availabilityId = Number(button.dataset.id);
+    if (!consultantId || !availabilityId) {
+      toast('No recorded day off selected', 'red darken-1');
+      return;
+    }
+    if (!window.confirm('Delete this recorded day off?')) return;
+
+    try {
+      await request(`/api/consultants/${consultantId}/availability/${availabilityId}`, { method: 'DELETE' });
+      await loadAll();
+      const consultant = findConsultantById(consultantId);
+      await refreshTimelines();
+      renderConsultantDaysOffList(consultant);
+      refreshConsultantAvailabilityDetails(consultant);
+      toast('Recorded day off deleted', 'teal darken-1');
+    } catch (error) {
+      toast(error.message || 'Failed to delete recorded day off', 'red darken-1');
     }
   });
 
@@ -6350,20 +6657,84 @@ if (!isBrowserRuntime) {
     ui.allocationForecastWorkspace.hidden = true;
   });
 
+  ui.allocationSimulationSearch?.addEventListener('input', renderAllocationSimulationList);
+
+  ui.allocationSimulationList?.addEventListener('click', async (event) => {
+    const button = event.target.closest('button[data-action]');
+    if (!button) return;
+    const simulationId = Number(button.dataset.id);
+    if (!simulationId) return;
+    const simulationName = button.dataset.name || 'this simulation';
+
+    try {
+      if (button.dataset.action === 'load-allocation-simulation') {
+        await loadAllocationSimulation(simulationId);
+        return;
+      }
+      if (button.dataset.action === 'rename-allocation-simulation') {
+        const nextName = window.prompt('Rename allocation simulation', simulationName)?.trim();
+        if (!nextName || nextName === simulationName) return;
+        await request(`/api/allocation-simulations/${simulationId}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name: nextName })
+        });
+        if (allocationState?.id && Number(allocationState.id) === simulationId) {
+          allocationState.name = nextName;
+          ui.allocationSimulationTitle.textContent = nextName;
+        }
+        await loadAll();
+        ui.allocationSimulationList.hidden = false;
+        toast('Simulation renamed', 'teal darken-1');
+        return;
+      }
+      if (button.dataset.action === 'duplicate-allocation-simulation') {
+        const copyName = `${simulationName} (Copy)`;
+        await request(`/api/allocation-simulations/${simulationId}/duplicate`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name: copyName })
+        });
+        await loadAll();
+        ui.allocationSimulationList.hidden = false;
+        toast('Simulation duplicated', 'teal darken-1');
+        return;
+      }
+      if (button.dataset.action === 'delete-allocation-simulation') {
+        const confirmed = window.confirm('Are you sure you want to delete this allocation simulation?');
+        if (!confirmed) return;
+        await request(`/api/allocation-simulations/${simulationId}`, { method: 'DELETE' });
+        if (allocationState?.id && Number(allocationState.id) === simulationId) {
+          allocationState = null;
+          ui.allocationForecastWorkspace.hidden = true;
+          ui.allocationForecastEmptyActions.hidden = false;
+          ui.allocationSimulationTitle.textContent = '';
+        }
+        await loadAll();
+        ui.allocationSimulationList.hidden = false;
+        toast('Simulation deleted', 'orange darken-2');
+      }
+    } catch (error) {
+      toast(error.message || 'Unable to update allocation simulation', 'red darken-1');
+    }
+  });
+
   ui.allocationLoadProjectsBtn?.addEventListener('click', () => {
     if (!allocationState) return;
     const existingById = new Set(allocationState.projects.filter((p) => p.sourceProjectId).map((p) => Number(p.sourceProjectId)));
     projects.forEach((project, index) => {
       if (existingById.has(Number(project.id))) return;
+      const assignmentDetails = allocationSourceAssignmentsForProject({ sourceProjectId: project.id });
+      const vacancies = allocationSourceVacanciesForProject({ sourceProjectId: project.id });
       allocationState.projects.push({
         id: `p-${project.id}`,
         sourceProjectId: Number(project.id),
         name: project.projectName,
         x: 20 + (index % 4) * 320,
         y: 20 + Math.floor(index / 4) * 240,
-        consultantIds: allocationSourceAssignmentsForProject({ sourceProjectId: project.id }).map((item) => Number(item.consultantId)),
-        assignmentDetails: allocationSourceAssignmentsForProject({ sourceProjectId: project.id }),
-        vacancies: []
+        consultantIds: assignmentDetails.map((item) => Number(item.consultantId)),
+        assignmentDetails,
+        vacancies
       });
     });
     const assigned = new Set(allocationState.projects.flatMap((p) => p.consultantIds || []).map(Number));
