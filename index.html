@@ -34,15 +34,17 @@
           <div class="col s12 l8" id="project-main-column">
             <div class="card" id="projects-panel-card">
               <div class="card-content">
-                <div class="section-header">
-                  <span class="card-title">Projects</span>
-                  <button class="btn waves-effect waves-light" id="show-project-form-btn" type="button">Add a New Project<i class="material-icons right">add</i></button>
-                </div>
-                <div class="projects-view-toolbar">
-                  <p class="grey-text" id="project-count"></p>
-                  <div class="projects-view-toggle" role="group" aria-label="Project view mode">
-                    <button class="btn-small" id="project-list-view-btn" type="button">List View</button>
-                    <button class="btn-small blue-grey" id="project-board-view-btn" type="button">Board View</button>
+                <div class="section-header projects-header">
+                  <div class="projects-heading">
+                    <span class="card-title">Projects</span>
+                    <p class="grey-text" id="project-count"></p>
+                  </div>
+                  <div class="projects-header-actions">
+                    <div class="project-view-toggle" role="group" aria-label="Project view mode">
+                      <button class="project-view-toggle-btn" id="project-list-view-btn" type="button">List</button>
+                      <button class="project-view-toggle-btn" id="project-board-view-btn" type="button">Board</button>
+                    </div>
+                    <button class="btn waves-effect waves-light" id="show-project-form-btn" type="button">Add a New Project<i class="material-icons right">add</i></button>
                   </div>
                 </div>
                 <div class="table-container projects-table-container" id="projects-table-container">

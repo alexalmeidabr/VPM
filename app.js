@@ -3684,25 +3684,47 @@ if (!isBrowserRuntime) {
       ...types.filter((type) => !configuredTypes.includes(type)).sort((a, b) => a.localeCompare(b))
     ];
   };
+  const projectTypeAccentClass = (type) => {
+    const normalized = String(type || '').trim().toLowerCase();
+    if (normalized.includes('fixed')) return 'project-type-accent-fixed';
+    if (normalized.includes('time') || normalized.includes('material')) return 'project-type-accent-time';
+    if (normalized.includes('milestone')) return 'project-type-accent-milestone';
+    if (normalized.includes('non')) return 'project-type-accent-nonbillable';
+    return 'project-type-accent-default';
+  };
   const renderProjectsBoard = () => {
     if (!ui.projectsBoardContainer) return;
     ui.projectsBoardContainer.innerHTML = '';
     const statuses = orderedProjectStatuses();
     const types = orderedProjectTypes();
     if (!projects.length) return;
+    const board = document.createElement('div');
+    board.className = 'projects-board';
+    board.style.setProperty('--project-board-columns', String(Math.max(statuses.length, 1)));
+    const header = document.createElement('div');
+    header.className = 'projects-board-grid projects-board-status-header';
+    statuses.forEach((status) => {
+      const statusProjects = projects.filter((project) => projectStatusForBoard(project) === status);
+      const cell = document.createElement('div');
+      cell.className = 'projects-board-status-cell';
+      cell.innerHTML = `
+        <span>${status}</span>
+        <strong>${statusProjects.length}</strong>
+      `;
+      header.appendChild(cell);
+    });
+    board.appendChild(header);
     types.forEach((type) => {
       const lane = document.createElement('section');
       lane.className = 'projects-board-swimlane';
       const typeProjects = projects.filter((project) => projectTypeForBoard(project) === type);
-      lane.innerHTML = `<div class="projects-board-swimlane-title">${type} <span class="grey-text">(${typeProjects.length})</span></div>`;
+      lane.innerHTML = `<div class="projects-board-swimlane-title ${projectTypeAccentClass(type)}">${type} <span class="grey-text">(${typeProjects.length})</span></div>`;
       const grid = document.createElement('div');
-      grid.className = 'projects-board-grid';
-      grid.style.setProperty('--project-board-columns', String(Math.max(statuses.length, 1)));
+      grid.className = 'projects-board-grid projects-board-swimlane-grid';
       statuses.forEach((status) => {
         const columnProjects = typeProjects.filter((project) => projectStatusForBoard(project) === status);
         const column = document.createElement('div');
-        column.className = 'projects-board-column';
-        column.innerHTML = `<div class="projects-board-column-title">${status} <span class="grey-text">(${columnProjects.length})</span></div>`;
+        column.className = 'projects-board-cell';
         if (!columnProjects.length) {
           const empty = document.createElement('div');
           empty.className = 'projects-board-empty-cell';
@@ -3718,17 +3740,18 @@ if (!isBrowserRuntime) {
           card.dataset.id = project.id;
           card.innerHTML = `
             <strong>${project.projectName || 'Untitled Project'}</strong>
+            <span>Manager: ${project.managerName || consultantNameById(project?.managerConsultantId)}</span>
             <span>Delivery Partner: ${delivery?.companyName || '—'}</span>
             <span>Go-live: ${formatDate(projectGoLiveDate(project))}</span>
-            <span>Manager: ${project.managerName || consultantNameById(project?.managerConsultantId)}</span>
           `;
           column.appendChild(card);
         });
         grid.appendChild(column);
       });
       lane.appendChild(grid);
-      ui.projectsBoardContainer.appendChild(lane);
+      board.appendChild(lane);
     });
+    ui.projectsBoardContainer.appendChild(board);
   };
 
   const renderProjects = () => {
@@ -3769,8 +3792,10 @@ if (!isBrowserRuntime) {
     ui.projectsEmptyState.hidden = projects.length > 0;
     if (ui.projectsTableContainer) ui.projectsTableContainer.hidden = projectListViewMode !== 'list';
     if (ui.projectsBoardContainer) ui.projectsBoardContainer.hidden = projectListViewMode !== 'board';
-    ui.projectListViewBtn?.classList.toggle('blue-grey', projectListViewMode !== 'list');
-    ui.projectBoardViewBtn?.classList.toggle('blue-grey', projectListViewMode !== 'board');
+    ui.projectListViewBtn?.classList.toggle('active', projectListViewMode === 'list');
+    ui.projectBoardViewBtn?.classList.toggle('active', projectListViewMode === 'board');
+    ui.projectListViewBtn?.setAttribute('aria-pressed', projectListViewMode === 'list' ? 'true' : 'false');
+    ui.projectBoardViewBtn?.setAttribute('aria-pressed', projectListViewMode === 'board' ? 'true' : 'false');
     renderProjectsBoard();
   };
 
