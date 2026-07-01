@@ -954,7 +954,10 @@ if (!isBrowserRuntime) {
         <td>${item.originalFilename}</td>
         <td>${formatFileSize(item.fileSize)}</td>
         <td>${formatDate(item.uploadedAt)}</td>
-        <td><button class="btn-flat blue-text" type="button" data-action="download-project-file" data-id="${item.id}"><i class="material-icons tiny">download</i></button></td>
+        <td>
+          <button class="btn-flat blue-text" type="button" data-action="download-project-file" data-id="${item.id}" title="Download file"><i class="material-icons tiny">download</i></button>
+          <button class="btn-flat red-text" type="button" data-action="delete-project-file" data-id="${item.id}" title="Delete file"><i class="material-icons tiny">delete</i></button>
+        </td>
       `;
       ui.projectFilesBody.appendChild(row);
     });
@@ -5008,11 +5011,21 @@ if (!isBrowserRuntime) {
     }
   });
   ui.projectFilesBody?.addEventListener('click', (event) => {
-    const button = event.target.closest('button[data-action="download-project-file"]');
+    const button = event.target.closest('button[data-action]');
     if (!button || !fields.projectId.value) return;
     const fileId = Number(button.dataset.id);
     if (!fileId) return;
-    window.location.href = `${primaryApiBase}/api/projects/${fields.projectId.value}/files/${fileId}/download`;
+    if (button.dataset.action === 'download-project-file') {
+      window.location.href = `${primaryApiBase}/api/projects/${fields.projectId.value}/files/${fileId}/download`;
+      return;
+    }
+    if (button.dataset.action === 'delete-project-file') {
+      if (!window.confirm('Are you sure you want to delete this file? This action cannot be undone.')) return;
+      request(`/api/projects/${fields.projectId.value}/files/${fileId}`, { method: 'DELETE' })
+        .then(() => loadProjectFiles(fields.projectId.value))
+        .then(() => toast('Project file deleted', 'teal darken-1'))
+        .catch((error) => toast(error.message || 'Failed to delete project file', 'red darken-1'));
+    }
   });
   ui.projectSaveBtnHeader?.addEventListener('click', () => ui.projectForm.requestSubmit());
   ui.projectSwitchEditBtnHeader?.addEventListener('click', () => {

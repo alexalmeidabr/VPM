@@ -944,6 +944,8 @@ class VPMHandler(SimpleHTTPRequestHandler):
     parts = self._parts()
     if len(parts) == 4 and parts[0:2] == ['api', 'projects'] and parts[2].isdigit() and parts[3] == 'files':
       return int(parts[2]), None, None
+    if len(parts) == 5 and parts[0:2] == ['api', 'projects'] and parts[2].isdigit() and parts[3] == 'files' and parts[4].isdigit():
+      return int(parts[2]), int(parts[4]), 'file'
     if len(parts) == 6 and parts[0:2] == ['api', 'projects'] and parts[2].isdigit() and parts[3] == 'files' and parts[4].isdigit() and parts[5] == 'download':
       return int(parts[2]), int(parts[4]), 'download'
     return None, None, None
@@ -3451,6 +3453,25 @@ class VPMHandler(SimpleHTTPRequestHandler):
     business_partner_id = self._resource_id('business-partners')
     availability_consultant_id, availability_id = self._availability_route()
     allocation_simulation_id = self._allocation_simulation_id()
+    files_project_id, file_id, files_action = self._project_files_route()
+
+    if files_project_id is not None and files_action == 'file':
+      with get_connection() as conn:
+        row = project_files_repository.get_project_file(conn, files_project_id, file_id)
+        if not row:
+          self._send_json({'error': 'Project file not found'}, HTTPStatus.NOT_FOUND)
+          return
+        file_path = PROJECT_FILES_DIR / row['stored_filename']
+        if file_path.exists() and file_path.is_file():
+          file_path.unlink()
+        else:
+          print(f'[ProjectFiles] Stored file missing during delete; deleting database row only: {file_path}')
+        deleted_rows = project_files_repository.delete_project_file(conn, files_project_id, file_id)
+      if deleted_rows == 0:
+        self._send_json({'error': 'Project file not found'}, HTTPStatus.NOT_FOUND)
+        return
+      self._send_json({'status': 'deleted'})
+      return
 
     if path == '/api/company-logo':
       removed = False
