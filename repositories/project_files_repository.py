@@ -48,3 +48,11 @@ def create_project_file(conn, project_id, original_filename, stored_filename, fi
     ''',
     (project_id, original_filename, stored_filename, file_size)
   )
+
+
+def delete_project_file(conn, project_id, file_id):
+  cursor = conn.execute(
+    'DELETE FROM project_files WHERE id = ? AND project_id = ?',
+    (file_id, project_id)
+  )
+  return cursor.rowcount
