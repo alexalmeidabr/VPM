@@ -153,6 +153,7 @@ if (!isBrowserRuntime) {
     projectPhaseStartDate: document.getElementById('project-phase-start-date'),
     projectPhaseEndDate: document.getElementById('project-phase-end-date'),
     addProjectPhaseBtn: document.getElementById('add-project-phase-btn'),
+    deleteProjectPhaseBtn: document.getElementById('delete-project-phase-btn'),
     projectMilestonePhaseId: document.getElementById('project-milestone-phase-id'),
     projectMilestoneName: document.getElementById('project-milestone-name'),
     projectMilestoneStartDate: document.getElementById('project-milestone-start-date'),
@@ -876,6 +877,13 @@ if (!isBrowserRuntime) {
     ui.projectMilestonePhaseId.innerHTML = '<option value="" selected>Project-level</option>';
     selectedProjectPhases.forEach((phase) => ui.projectMilestonePhaseId.add(new Option(phase.name, phase.id)));
     resetSelect('projectMilestonePhase', ui.projectMilestonePhaseId);
+  };
+  const clearProjectPhaseForm = () => {
+    editingProjectPhaseId = null;
+    if (ui.projectPhaseName) ui.projectPhaseName.value = '';
+    if (ui.projectPhaseStartDate) ui.projectPhaseStartDate.value = '';
+    if (ui.projectPhaseEndDate) ui.projectPhaseEndDate.value = '';
+    if (ui.addProjectPhaseBtn) ui.addProjectPhaseBtn.textContent = 'Save Phase';
   };
 
   const buildProjectPayload = () => ({
@@ -1700,6 +1708,10 @@ if (!isBrowserRuntime) {
     if (ui.showProjectPhaseFormBtn) ui.showProjectPhaseFormBtn.hidden = !showPlanning;
     if (ui.showProjectMilestoneFormBtn) ui.showProjectMilestoneFormBtn.hidden = !showPlanning;
     if (ui.projectPhaseFormRow) ui.projectPhaseFormRow.hidden = !showPlanning || !showProjectPhaseForm;
+    if (ui.deleteProjectPhaseBtn) {
+      ui.deleteProjectPhaseBtn.hidden = !showPlanning || !showProjectPhaseForm || !editingProjectPhaseId;
+      ui.deleteProjectPhaseBtn.disabled = !showPlanning || !editingProjectPhaseId;
+    }
     if (ui.projectMilestoneFormRow) ui.projectMilestoneFormRow.hidden = !showPlanning || !showProjectMilestoneForm;
     updateProjectStatusUi();
   };
@@ -4102,6 +4114,7 @@ if (!isBrowserRuntime) {
     ui.openConsultantModalBtn.disabled = readOnly;
     ui.openConsultantModalBtn.hidden = readOnly;
     if (ui.addProjectPhaseBtn) ui.addProjectPhaseBtn.disabled = readOnly;
+    if (ui.deleteProjectPhaseBtn) ui.deleteProjectPhaseBtn.disabled = readOnly || !editingProjectPhaseId;
     if (ui.addProjectMilestoneBtn) ui.addProjectMilestoneBtn.disabled = readOnly;
     if (ui.showProjectPhaseFormBtn) ui.showProjectPhaseFormBtn.disabled = readOnly;
     if (ui.showProjectMilestoneFormBtn) ui.showProjectMilestoneFormBtn.disabled = readOnly;
@@ -5053,11 +5066,7 @@ if (!isBrowserRuntime) {
 
 
   ui.showProjectPhaseFormBtn?.addEventListener('click', () => {
-    editingProjectPhaseId = null;
-    ui.projectPhaseName.value = '';
-    ui.projectPhaseStartDate.value = '';
-    ui.projectPhaseEndDate.value = '';
-    if (ui.addProjectPhaseBtn) ui.addProjectPhaseBtn.textContent = 'Save Phase';
+    clearProjectPhaseForm();
     showProjectPhaseForm = !showProjectPhaseForm;
     updateProjectPlanningUi();
   });
@@ -5085,12 +5094,8 @@ if (!isBrowserRuntime) {
 
     try {
       await persistProjectPlanningIfEditing();
-      ui.projectPhaseName.value = '';
-      ui.projectPhaseStartDate.value = '';
-      ui.projectPhaseEndDate.value = '';
+      clearProjectPhaseForm();
       rebuildProjectPlanningSelects();
-      editingProjectPhaseId = null;
-      if (ui.addProjectPhaseBtn) ui.addProjectPhaseBtn.textContent = 'Save Phase';
       showProjectPhaseForm = false;
       updateProjectPlanningUi();
       refreshProjectTimeline();
@@ -5099,6 +5104,40 @@ if (!isBrowserRuntime) {
       selectedProjectPhases = previousPhases;
       rebuildProjectPlanningSelects();
       toast(error.message || 'Failed to save project phase', 'red darken-1');
+    }
+  });
+
+  ui.deleteProjectPhaseBtn?.addEventListener('click', async () => {
+    if (!editingProjectPhaseId) return;
+    const phase = selectedProjectPhases.find((item) => String(item.id) === String(editingProjectPhaseId));
+    if (!phase) {
+      clearProjectPhaseForm();
+      updateProjectPlanningUi();
+      return;
+    }
+    const hasLinkedMilestones = selectedProjectMilestones.some((item) => String(item.phaseId || '') === String(editingProjectPhaseId));
+    if (hasLinkedMilestones) {
+      toast('This phase has linked milestones. Delete or move the milestones before deleting the phase.', 'orange darken-2');
+      return;
+    }
+    if (!window.confirm('Are you sure you want to delete this project phase? This action cannot be undone.')) return;
+    const previousPhases = [...selectedProjectPhases];
+    const deletedPhaseId = editingProjectPhaseId;
+    selectedProjectPhases = selectedProjectPhases.filter((item) => String(item.id) !== String(deletedPhaseId));
+    try {
+      await persistProjectPlanningIfEditing();
+      clearProjectPhaseForm();
+      rebuildProjectPlanningSelects();
+      showProjectPhaseForm = false;
+      updateProjectPlanningUi();
+      refreshProjectTimeline();
+      toast('Project phase deleted', 'teal darken-1');
+    } catch (error) {
+      selectedProjectPhases = previousPhases;
+      editingProjectPhaseId = deletedPhaseId;
+      rebuildProjectPlanningSelects();
+      updateProjectPlanningUi();
+      toast(error.message || 'Failed to delete project phase', 'red darken-1');
     }
   });
 
