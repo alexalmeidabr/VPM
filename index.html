@@ -34,12 +34,20 @@
           <div class="col s12 l8" id="project-main-column">
             <div class="card" id="projects-panel-card">
               <div class="card-content">
-                <div class="section-header">
-                  <span class="card-title">Projects</span>
-                  <button class="btn waves-effect waves-light" id="show-project-form-btn" type="button">Add a New Project<i class="material-icons right">add</i></button>
+                <div class="section-header projects-header">
+                  <div class="projects-heading">
+                    <span class="card-title">Projects</span>
+                    <p class="grey-text" id="project-count"></p>
+                  </div>
+                  <div class="projects-header-actions">
+                    <div class="project-view-toggle" role="group" aria-label="Project view mode">
+                      <button class="project-view-toggle-btn" id="project-list-view-btn" type="button">List</button>
+                      <button class="project-view-toggle-btn" id="project-board-view-btn" type="button">Board</button>
+                    </div>
+                    <button class="btn waves-effect waves-light" id="show-project-form-btn" type="button">Add a New Project<i class="material-icons right">add</i></button>
+                  </div>
                 </div>
-                <p class="grey-text" id="project-count"></p>
-                <div class="table-container projects-table-container">
+                <div class="table-container projects-table-container" id="projects-table-container">
                   <table class="striped responsive-table">
                     <thead>
                       <tr><th>Project</th><th>Client</th><th>Status</th><th>Manager</th><th>Type</th><th>Delivery Partner</th><th>Dates</th><th>Actions</th></tr>
@@ -47,6 +55,7 @@
                     <tbody id="projects-body"></tbody>
                   </table>
                 </div>
+                <div id="projects-board-container" class="projects-board-container" hidden></div>
                 <p id="projects-empty-state" class="center-align grey-text text-darken-1 empty-message">No projects yet. Add your first project.</p>
               </div>
             </div>
@@ -125,6 +134,7 @@
                       <input id="project-phase-start-date" type="date" />
                       <input id="project-phase-end-date" type="date" />
                       <button class="btn" type="button" id="add-project-phase-btn">Save Phase</button>
+                      <button class="btn red darken-1" type="button" id="delete-project-phase-btn" hidden>Delete Phase</button>
                     </div>
                     <div class="planning-row planning-inputs" id="project-milestone-form-row" hidden>
                       <select id="project-milestone-phase-id"><option value="" selected>Project-level</option></select>
@@ -587,9 +597,21 @@
             <span class="card-title">Allocation Forecast</span>
             <div id="allocation-forecast-empty-actions" class="allocation-empty-actions">
               <button class="btn" id="create-allocation-simulation-btn" type="button">Create allocation simulation</button>
-              <button class="btn blue-grey" id="load-allocation-simulation-btn" type="button">Load allocation simulation</button>
+              <button class="btn blue-grey" id="load-allocation-simulation-btn" type="button">Load/manage allocation simulation</button>
             </div>
-            <div id="allocation-simulation-list" hidden></div>
+            <div id="allocation-simulation-list" class="allocation-simulation-manager" hidden>
+              <div class="allocation-simulation-manager-header">
+                <div>
+                  <h6>Saved simulations</h6>
+                  <p class="grey-text">Load, rename, duplicate, or delete allocation scenarios.</p>
+                </div>
+                <div class="input-field allocation-simulation-search">
+                  <input id="allocation-simulation-search" type="search" />
+                  <label for="allocation-simulation-search">Search simulations</label>
+                </div>
+              </div>
+              <div id="allocation-simulation-list-body"></div>
+            </div>
 
             <div id="allocation-forecast-workspace" hidden>
               <div class="allocation-toolbar">
@@ -601,7 +623,7 @@
               </div>
               <div class="allocation-layout">
                 <div id="allocation-canvas" class="allocation-canvas"></div>
-                <aside class="allocation-consultants-panel">
+                <aside id="allocation-consultants-panel" class="allocation-consultants-panel">
                   <h6>Available consultants</h6>
                   <div id="allocation-consultants-list" class="allocation-consultants-list"></div>
                 </aside>

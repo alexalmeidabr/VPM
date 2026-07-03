@@ -5,12 +5,22 @@ import json
 
 def list_allocation_simulations(conn):
   rows = conn.execute(
-    'SELECT id, name, created_at, updated_at FROM allocation_simulations ORDER BY created_at DESC, id DESC'
+    'SELECT id, name, state_json, created_at, updated_at FROM allocation_simulations ORDER BY updated_at DESC, created_at DESC, id DESC'
   ).fetchall()
-  return [
-    {'id': row['id'], 'name': row['name'], 'createdAt': row['created_at'], 'updatedAt': row['updated_at']}
-    for row in rows
-  ]
+  simulations = []
+  for row in rows:
+    try:
+      state = json.loads(row['state_json'])
+    except json.JSONDecodeError:
+      state = {}
+    simulations.append({
+      'id': row['id'],
+      'name': row['name'],
+      'createdAt': row['created_at'],
+      'updatedAt': row['updated_at'],
+      'projectCount': len(state.get('projects') or []) if isinstance(state, dict) else 0
+    })
+  return simulations
 
 
 def get_allocation_simulation(conn, simulation_id):
@@ -52,6 +62,26 @@ def update_allocation_simulation(conn, simulation_id, simulation_name, state):
     (simulation_name, json.dumps(state), simulation_id)
   )
   return cursor.rowcount
+
+
+def rename_allocation_simulation(conn, simulation_id, simulation_name):
+  cursor = conn.execute(
+    '''
+    UPDATE allocation_simulations
+    SET name = ?, updated_at = CURRENT_TIMESTAMP
+    WHERE id = ?
+    ''',
+    (simulation_name, simulation_id)
+  )
+  return cursor.rowcount
+
+
+def duplicate_allocation_simulation(conn, simulation_id, simulation_name):
+  simulation = get_allocation_simulation(conn, simulation_id)
+  if not simulation:
+    return None
+  new_id = create_allocation_simulation(conn, simulation_name, simulation.get('state') or {})
+  return {'id': new_id, 'name': simulation_name}
 
 
 def delete_allocation_simulation(conn, simulation_id):
